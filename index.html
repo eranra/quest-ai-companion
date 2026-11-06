@@ -401,7 +401,7 @@
       box-shadow: 0 0 25px rgba(139, 92, 246, 0.8);
     }
 
-    /* Settings Modal */
+    /* Modals (Settings & Avatar Selector) */
     .modal-backdrop {
       position: absolute;
       top: 0;
@@ -426,7 +426,7 @@
       border: 1px solid var(--panel-border);
       border-radius: 20px;
       width: 100%;
-      max-width: 480px;
+      max-width: 520px;
       padding: 24px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
       display: flex;
@@ -541,6 +541,64 @@
     .secondary-btn:hover {
       background: rgba(255, 255, 255, 0.15);
     }
+
+    /* Avatar Grid Gallery */
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .avatar-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .avatar-card:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .avatar-card.active {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.25);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .avatar-icon-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .avatar-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .avatar-desc {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
   </style>
 
   <!-- Import maps for Three.js -->
@@ -572,11 +630,15 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.0</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.1</div>
         <div id="engine-badge" class="engine-badge local">🏠 Local WebLLM</div>
       </div>
 
       <div class="top-controls">
+        <button id="btn-avatars" class="icon-btn" title="Change Avatar">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        </button>
+
         <button id="xr-button" style="display: none;">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
           <span id="xr-label">Enter AR</span>
@@ -626,6 +688,71 @@
 
   </div>
 
+  <!-- Avatar Selector Modal -->
+  <div id="modal-avatars" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Choose Companion Avatar</h3>
+        <button id="btn-close-avatars" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
+      </div>
+
+      <p class="help-hint">Select a 3D avatar companion to project into your space:</p>
+
+      <div class="avatar-grid">
+        <!-- Avatar 1: Nova -->
+        <div class="avatar-card active" data-avatar-id="nova">
+          <div class="avatar-icon-circle" style="color: #6366f1;">🤖</div>
+          <div class="avatar-name">Nova</div>
+          <div class="avatar-desc">Cyber Android (Cyan / Indigo LED)</div>
+        </div>
+
+        <!-- Avatar 2: Athena -->
+        <div class="avatar-card" data-avatar-id="athena">
+          <div class="avatar-icon-circle" style="color: #f59e0b;">👑</div>
+          <div class="avatar-name">Athena</div>
+          <div class="avatar-desc">Gold Vanguard (Obsidian & Gold)</div>
+        </div>
+
+        <!-- Avatar 3: Echo -->
+        <div class="avatar-card" data-avatar-id="echo">
+          <div class="avatar-icon-circle" style="color: #10b981;">🛸</div>
+          <div class="avatar-name">Echo</div>
+          <div class="avatar-desc">Floating Drone (Animated Thrusters)</div>
+        </div>
+
+        <!-- Avatar 4: Nexus -->
+        <div class="avatar-card" data-avatar-id="nexus">
+          <div class="avatar-icon-circle" style="color: #ec4899;">🔮</div>
+          <div class="avatar-name">Nexus</div>
+          <div class="avatar-desc">Holo Matrix (Glass & Wireframe)</div>
+        </div>
+
+        <!-- Avatar 5: Humanoid Alex (Ready Player Me) -->
+        <div class="avatar-card" data-avatar-id="rpm_alex">
+          <div class="avatar-icon-circle" style="color: #38bdf8;">🧑</div>
+          <div class="avatar-name">Alex</div>
+          <div class="avatar-desc">Humanoid 3D (Ready Player Me)</div>
+        </div>
+
+        <!-- Avatar 6: Custom URL -->
+        <div class="avatar-card" data-avatar-id="custom">
+          <div class="avatar-icon-circle" style="color: #a855f7;">🌐</div>
+          <div class="avatar-name">Custom URL</div>
+          <div class="avatar-desc">Custom .glb 3D Model</div>
+        </div>
+      </div>
+
+      <!-- Custom URL Input (shown when Custom is selected) -->
+      <div id="custom-avatar-box" class="form-group" style="display: none; margin-top: 8px;">
+        <label class="form-label">Custom Avatar GLB Link</label>
+        <input id="cfg-custom-avatar-url" type="text" class="form-input" placeholder="https://models.readyplayer.me/....glb">
+        <p class="help-hint">Paste any public `.glb` link from Ready Player Me or Sketchfab.</p>
+      </div>
+
+      <button id="btn-confirm-avatar" class="action-btn" style="width: 100%; justify-content: center; padding: 12px; margin-top: 6px;">Select Avatar</button>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div id="modal-settings" class="modal-backdrop">
     <div class="modal">
@@ -670,13 +797,6 @@
         <p id="model-status-text" class="help-hint">Model downloads once into browser cache, then loads instantly offline.</p>
       </div>
 
-      <!-- Avatar Settings -->
-      <div class="form-group">
-        <label class="form-label">Ready Player Me Avatar GLB URL (Optional)</label>
-        <input id="cfg-avatar-url" type="text" class="form-input" placeholder="https://models.readyplayer.me/....glb">
-        <p class="help-hint">Leave blank to use the built-in holographic android companion.</p>
-      </div>
-
       <!-- Voice Settings -->
       <div class="form-group">
         <label class="form-label">Speech Voice & Speed</label>
@@ -702,14 +822,18 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     // Application Version
-    const APP_VERSION = 'v0.1.0';
+    const APP_VERSION = 'v0.1.1';
+
+    // Ready Player Me verified public template
+    const RPM_DEFAULT_MODEL = 'https://models.readyplayer.me/6460d95f56050f461660ea76.glb';
 
     // Application State
     const AppState = {
       mode: localStorage.getItem('quest_companion_mode') || 'local', // 'local' or 'gemini'
       geminiKey: localStorage.getItem('gemini_api_key') || '',
       localModel: localStorage.getItem('quest_local_model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-      avatarUrl: localStorage.getItem('quest_avatar_url') || '',
+      avatarId: localStorage.getItem('quest_avatar_id') || 'nova', // 'nova', 'athena', 'echo', 'nexus', 'rpm_alex', 'custom'
+      customAvatarUrl: localStorage.getItem('quest_custom_avatar_url') || '',
       isListening: false,
       isThinking: false,
       isSpeaking: false,
@@ -731,6 +855,12 @@
       engineBadge: document.getElementById('engine-badge'),
       xrButton: document.getElementById('xr-button'),
       xrLabel: document.getElementById('xr-label'),
+      btnAvatars: document.getElementById('btn-avatars'),
+      modalAvatars: document.getElementById('modal-avatars'),
+      btnCloseAvatars: document.getElementById('btn-close-avatars'),
+      btnConfirmAvatar: document.getElementById('btn-confirm-avatar'),
+      customAvatarBox: document.getElementById('custom-avatar-box'),
+      cfgCustomAvatarUrl: document.getElementById('cfg-custom-avatar-url'),
       btnSettings: document.getElementById('btn-settings'),
       modalSettings: document.getElementById('modal-settings'),
       btnCloseSettings: document.getElementById('btn-close-settings'),
@@ -743,7 +873,6 @@
       cfgGeminiKey: document.getElementById('cfg-gemini-key'),
       btnTestGemini: document.getElementById('btn-test-gemini'),
       cfgLocalModel: document.getElementById('cfg-local-model'),
-      cfgAvatarUrl: document.getElementById('cfg-avatar-url'),
       cfgVoiceSelect: document.getElementById('cfg-voice-select'),
       modelProgress: document.getElementById('model-progress'),
       modelProgressFill: document.getElementById('model-progress-fill'),
@@ -791,7 +920,6 @@
       }
     }
 
-    // Check on startup and every 2 minutes
     setTimeout(() => checkForUpdates(true), 1500);
     setInterval(() => checkForUpdates(true), 120000);
 
@@ -805,6 +933,7 @@
     let mouthMesh = null;
     let eyeLeft = null, eyeRight = null;
     let avatarGroup = new THREE.Group();
+    let droneThrusters = [];
 
     // -------------------------------------------------------------
     // 1. Initialize Three.js & WebXR Engine
@@ -830,7 +959,7 @@
       controls.maxDistance = 4.0;
 
       // Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
       scene.add(ambientLight);
 
       const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -849,9 +978,8 @@
       scene.add(grid);
 
       scene.add(avatarGroup);
-      buildProceduralAvatar();
+      buildAvatar(AppState.avatarId);
 
-      // Check WebXR AR capabilities
       checkWebXR();
 
       window.addEventListener('resize', onWindowResize);
@@ -890,7 +1018,6 @@
         currentXRSession = session;
         dom.xrLabel.textContent = 'Exit XR';
 
-        // Hide desktop grid in passthrough
         const grid = scene.getObjectByName('preview-grid');
         if (grid) grid.visible = (mode !== 'immersive-ar');
 
@@ -911,46 +1038,76 @@
     }
 
     // -------------------------------------------------------------
-    // 2. Avatar Construction & Lip-Sync Morphing
+    // 2. Avatar Construction (Multiple Avatars System)
     // -------------------------------------------------------------
-    function buildProceduralAvatar() {
+    function clearAvatarGroup() {
       while(avatarGroup.children.length > 0) {
         avatarGroup.remove(avatarGroup.children[0]);
       }
+      mouthMesh = null;
+      eyeLeft = null;
+      eyeRight = null;
+      droneThrusters = [];
+      AppState.visemeMesh = null;
+      AppState.blendshapes = {};
+    }
 
-      if (AppState.avatarUrl && AppState.avatarUrl.endsWith('.glb')) {
-        loadGLBAvatar(AppState.avatarUrl);
-        return;
+    function buildAvatar(avatarId) {
+      clearAvatarGroup();
+      AppState.avatarId = avatarId;
+      localStorage.setItem('quest_avatar_id', avatarId);
+
+      switch(avatarId) {
+        case 'athena':
+          buildAthenaAvatar();
+          break;
+        case 'echo':
+          buildEchoDroneAvatar();
+          break;
+        case 'nexus':
+          buildNexusAvatar();
+          break;
+        case 'rpm_alex':
+          loadGLBAvatar(RPM_DEFAULT_MODEL);
+          break;
+        case 'custom':
+          if (AppState.customAvatarUrl) {
+            loadGLBAvatar(AppState.customAvatarUrl);
+          } else {
+            buildNovaAvatar();
+          }
+          break;
+        case 'nova':
+        default:
+          buildNovaAvatar();
+          break;
       }
+    }
 
-      // Stylized Futuristic Android Avatar (Bulletproof fallback with full facial expression)
+    // Avatar 1: Nova (Cyber Android - Cyan/Indigo)
+    function buildNovaAvatar() {
       const matBody = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
       const matHead = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2, metalness: 0.1 });
       const matGlow = new THREE.MeshBasicMaterial({ color: 0x6366f1 });
       const matMouth = new THREE.MeshBasicMaterial({ color: 0xec4899 });
 
-      // Torso
       const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.6, 16), matBody);
       torso.position.y = 0.8;
       avatarGroup.add(torso);
 
-      // Neck
       const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 16), matBody);
       neck.position.y = 1.15;
       avatarGroup.add(neck);
 
-      // Head Group (for rotation tracking)
       const headGroup = new THREE.Group();
       headGroup.name = 'avatar-head';
       headGroup.position.set(0, 1.3, 0);
 
-      // Head Mesh
       const headGeo = new THREE.SphereGeometry(0.18, 32, 32);
       headGeo.scale(0.9, 1.1, 0.95);
       const head = new THREE.Mesh(headGeo, matHead);
       headGroup.add(head);
 
-      // Eyes
       const eyeGeo = new THREE.SphereGeometry(0.03, 16, 16);
       eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
       eyeLeft.position.set(-0.065, 0.03, 0.16);
@@ -960,13 +1117,11 @@
       eyeRight.position.set(0.065, 0.03, 0.16);
       headGroup.add(eyeRight);
 
-      // Animated Mouth Viseme Bar
       const mouthGeo = new THREE.BoxGeometry(0.07, 0.015, 0.01);
       mouthMesh = new THREE.Mesh(mouthGeo, matMouth);
       mouthMesh.position.set(0, -0.07, 0.165);
       headGroup.add(mouthMesh);
 
-      // Holographic pedestal ring
       const ringGeo = new THREE.RingGeometry(0.35, 0.4, 32);
       const ringMat = new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide });
       const ring = new THREE.Mesh(ringGeo, ringMat);
@@ -977,19 +1132,185 @@
       avatarGroup.add(headGroup);
     }
 
+    // Avatar 2: Athena (Gold Vanguard - Obsidian Armor & Gold Visor)
+    function buildAthenaAvatar() {
+      const matArmor = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9 });
+      const matGold = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.95 });
+      const matVisor = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+
+      // Torso with gold chestplate
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.16, 0.65, 16), matArmor);
+      torso.position.y = 0.8;
+      avatarGroup.add(torso);
+
+      const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.1), matGold);
+      chestPlate.position.set(0, 0.88, 0.12);
+      avatarGroup.add(chestPlate);
+
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 16), matGold);
+      neck.position.y = 1.15;
+      avatarGroup.add(neck);
+
+      const headGroup = new THREE.Group();
+      headGroup.name = 'avatar-head';
+      headGroup.position.set(0, 1.3, 0);
+
+      // Helm
+      const helmGeo = new THREE.SphereGeometry(0.18, 32, 32);
+      helmGeo.scale(0.88, 1.15, 0.92);
+      const helm = new THREE.Mesh(helmGeo, matArmor);
+      headGroup.add(helm);
+
+      // Curved Visor
+      const visorGeo = new THREE.CylinderGeometry(0.165, 0.165, 0.05, 16, 1, false, 0, Math.PI);
+      const visor = new THREE.Mesh(visorGeo, matVisor);
+      visor.position.set(0, 0.03, 0.08);
+      visor.rotation.y = Math.PI / 2;
+      headGroup.add(visor);
+
+      // Glowing Gold Visor Eyes
+      const eyeGeo = new THREE.BoxGeometry(0.04, 0.015, 0.01);
+      eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      eyeLeft.position.set(-0.055, 0.03, 0.165);
+      headGroup.add(eyeLeft);
+
+      eyeRight = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      eyeRight.position.set(0.055, 0.03, 0.165);
+      headGroup.add(eyeRight);
+
+      // Gold Mouth Bar
+      const mouthGeo = new THREE.BoxGeometry(0.065, 0.015, 0.01);
+      mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+      mouthMesh.position.set(0, -0.07, 0.165);
+      headGroup.add(mouthMesh);
+
+      // Golden floating crown halo
+      const haloGeo = new THREE.TorusGeometry(0.24, 0.012, 16, 32);
+      const halo = new THREE.Mesh(haloGeo, matVisor);
+      halo.rotation.x = Math.PI / 2;
+      halo.position.set(0, 0.22, 0);
+      headGroup.add(halo);
+
+      avatarGroup.add(headGroup);
+    }
+
+    // Avatar 3: Echo (Floating Spherical Drone with Animated Thrusters)
+    function buildEchoDroneAvatar() {
+      const matChassis = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.3 });
+      const matScreen = new THREE.MeshBasicMaterial({ color: 0x090d16 });
+      const matGlow = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+
+      const headGroup = new THREE.Group();
+      headGroup.name = 'avatar-head';
+      headGroup.position.set(0, 1.25, 0);
+
+      // Sphere Body
+      const sphereGeo = new THREE.SphereGeometry(0.26, 32, 32);
+      const chassis = new THREE.Mesh(sphereGeo, matChassis);
+      headGroup.add(chassis);
+
+      // Curved Face Screen
+      const screenGeo = new THREE.SphereGeometry(0.25, 32, 16, 0, Math.PI, 0, Math.PI / 2);
+      screenGeo.scale(0.85, 0.7, 0.85);
+      const screenMesh = new THREE.Mesh(screenGeo, matScreen);
+      screenMesh.position.set(0, 0, 0.07);
+      screenMesh.rotation.x = Math.PI / 2;
+      headGroup.add(screenMesh);
+
+      // Digital Expressive Eyes
+      const eyeGeo = new THREE.RingGeometry(0.02, 0.045, 16);
+      eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
+      eyeLeft.position.set(-0.08, 0.03, 0.255);
+      headGroup.add(eyeLeft);
+
+      eyeRight = new THREE.Mesh(eyeGeo, matGlow);
+      eyeRight.position.set(0.08, 0.03, 0.255);
+      headGroup.add(eyeRight);
+
+      // Soundwave Mouth
+      const mouthGeo = new THREE.BoxGeometry(0.08, 0.018, 0.01);
+      mouthMesh = new THREE.Mesh(mouthGeo, matGlow);
+      mouthMesh.position.set(0, -0.07, 0.255);
+      headGroup.add(mouthMesh);
+
+      // Thruster pods
+      const thrusterLeft = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.02, 16, 32), matGlow);
+      thrusterLeft.position.set(-0.32, 0, 0);
+      thrusterLeft.rotation.y = Math.PI / 2;
+      headGroup.add(thrusterLeft);
+      droneThrusters.push(thrusterLeft);
+
+      const thrusterRight = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.02, 16, 32), matGlow);
+      thrusterRight.position.set(0.32, 0, 0);
+      thrusterRight.rotation.y = Math.PI / 2;
+      headGroup.add(thrusterRight);
+      droneThrusters.push(thrusterRight);
+
+      // Floating energy ring below
+      const ringGeo = new THREE.RingGeometry(0.2, 0.28, 32);
+      const ring = new THREE.Mesh(ringGeo, matGlow);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = -0.35;
+      headGroup.add(ring);
+
+      avatarGroup.add(headGroup);
+    }
+
+    // Avatar 4: Nexus (Holo Matrix - Glass & Geometric Wireframe)
+    function buildNexusAvatar() {
+      const matHolo = new THREE.MeshPhysicalMaterial({
+        color: 0xec4899,
+        transparent: true,
+        opacity: 0.65,
+        roughness: 0.1,
+        transmission: 0.8,
+        thickness: 0.5
+      });
+      const matCore = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+
+      const headGroup = new THREE.Group();
+      headGroup.name = 'avatar-head';
+      headGroup.position.set(0, 1.25, 0);
+
+      // Outer Icosahedron
+      const outerGeo = new THREE.IcosahedronGeometry(0.24, 1);
+      const outer = new THREE.Mesh(outerGeo, matHolo);
+      headGroup.add(outer);
+
+      // Glowing Inner Core
+      const coreGeo = new THREE.OctahedronGeometry(0.12);
+      const core = new THREE.Mesh(coreGeo, matCore);
+      headGroup.add(core);
+
+      // Floating Eyes
+      const eyeGeo = new THREE.SphereGeometry(0.025, 16, 16);
+      eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      eyeLeft.position.set(-0.065, 0.03, 0.18);
+      headGroup.add(eyeLeft);
+
+      eyeRight = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      eyeRight.position.set(0.065, 0.03, 0.18);
+      headGroup.add(eyeRight);
+
+      // Audio-reactive mouth bar
+      const mouthGeo = new THREE.BoxGeometry(0.07, 0.015, 0.01);
+      mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xec4899 }));
+      mouthMesh.position.set(0, -0.06, 0.18);
+      headGroup.add(mouthMesh);
+
+      avatarGroup.add(headGroup);
+    }
+
     function loadGLBAvatar(url) {
       const loader = new GLTFLoader();
       updateStatus('Loading 3D avatar...');
       loader.load(url, (gltf) => {
-        while(avatarGroup.children.length > 0) {
-          avatarGroup.remove(avatarGroup.children[0]);
-        }
+        clearAvatarGroup();
         const model = gltf.scene;
         model.position.set(0, 0, 0);
         model.scale.set(1, 1, 1);
         avatarGroup.add(model);
 
-        // Scan for morph targets (visemes)
         model.traverse((child) => {
           if (child.isMesh && child.morphTargetDictionary) {
             AppState.visemeMesh = child;
@@ -999,8 +1320,8 @@
 
         updateStatus('Ready');
       }, undefined, (err) => {
-        console.warn('Failed to load custom GLB, falling back to procedural companion:', err);
-        buildProceduralAvatar();
+        console.warn('Failed to load custom GLB, falling back to Nova:', err);
+        buildNovaAvatar();
         updateStatus('Ready');
       });
     }
@@ -1014,8 +1335,15 @@
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
-      // Subtle breathing motion
-      avatarGroup.position.y = Math.sin(elapsed * 1.5) * 0.015;
+      // Subtle breathing motion or drone hovering
+      if (AppState.avatarId === 'echo') {
+        avatarGroup.position.y = Math.sin(elapsed * 2.5) * 0.04;
+        droneThrusters.forEach((t, i) => {
+          t.rotation.z += delta * (i === 0 ? 3 : -3);
+        });
+      } else {
+        avatarGroup.position.y = Math.sin(elapsed * 1.5) * 0.015;
+      }
 
       // Head look-at user camera
       const head = avatarGroup.getObjectByName('avatar-head');
@@ -1030,7 +1358,6 @@
           mouthMesh.scale.set(1.0 + Math.sin(elapsed * 14) * 0.3, 1.0 + mouthOpenness * 120, 1.0);
         }
 
-        // Morph target blendshapes if GLB avatar loaded
         if (AppState.visemeMesh && AppState.blendshapes) {
           const jawIndex = AppState.blendshapes['jawOpen'] ?? AppState.blendshapes['mouthOpen'] ?? AppState.blendshapes['viseme_aa'];
           if (jawIndex !== undefined) {
@@ -1144,7 +1471,7 @@
       
       const payload = {
         systemInstruction: {
-          parts: [{ text: "You are Nova, an intelligent, empathetic 3D virtual companion speaking directly to the user in Mixed Reality on a Meta Quest 3 headset. Respond concisely and naturally in spoken conversational style (usually 1-3 sentences). Avoid markdown formatting, asterisks, bullet points, or unpronounceable characters because your reply will be read out loud." }]
+          parts: [{ text: "You are an intelligent, empathetic 3D virtual companion speaking directly to the user in Mixed Reality on a Meta Quest 3 headset. Respond concisely and naturally in spoken conversational style (usually 1-3 sentences). Avoid markdown formatting, asterisks, bullet points, or unpronounceable characters because your reply will be read out loud." }]
         },
         contents: [
           { role: "user", parts: [{ text: prompt }] }
@@ -1174,7 +1501,7 @@
       }
 
       const messages = [
-        { role: "system", content: "You are Nova, a friendly 3D companion avatar speaking to the user on Meta Quest 3. Keep responses natural, warm, and brief (1-3 sentences) suitable for spoken speech." },
+        { role: "system", content: "You are a friendly 3D companion avatar speaking to the user on Meta Quest 3. Keep responses natural, warm, and brief (1-3 sentences) suitable for spoken speech." },
         { role: "user", content: prompt }
       ];
 
@@ -1204,7 +1531,6 @@
       utterance.rate = 1.05;
       utterance.pitch = 1.0;
 
-      // Select voice
       const voices = window.speechSynthesis.getVoices();
       const selectedVoiceName = dom.cfgVoiceSelect.value;
       const matched = voices.find(v => v.name === selectedVoiceName);
@@ -1290,7 +1616,6 @@
       if (state === 'speaking') dom.stateDot.classList.add('speaking');
     }
 
-    // Populate voices
     function populateVoices() {
       if (!('speechSynthesis' in window)) return;
       const voices = window.speechSynthesis.getVoices();
@@ -1329,7 +1654,49 @@
       }
     }
 
-    // Event Bindings
+    // Avatar Selection UI
+    function updateAvatarUI() {
+      document.querySelectorAll('.avatar-card').forEach(card => {
+        if (card.dataset.avatarId === AppState.avatarId) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+      dom.customAvatarBox.style.display = (AppState.avatarId === 'custom') ? 'flex' : 'none';
+      dom.cfgCustomAvatarUrl.value = AppState.customAvatarUrl;
+    }
+
+    document.querySelectorAll('.avatar-card').forEach(card => {
+      card.onclick = () => {
+        const chosenId = card.dataset.avatarId;
+        document.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        dom.customAvatarBox.style.display = (chosenId === 'custom') ? 'flex' : 'none';
+      };
+    });
+
+    dom.btnAvatars.onclick = () => {
+      updateAvatarUI();
+      dom.modalAvatars.classList.add('open');
+    };
+
+    dom.btnCloseAvatars.onclick = () => dom.modalAvatars.classList.remove('open');
+
+    dom.btnConfirmAvatar.onclick = () => {
+      const activeCard = document.querySelector('.avatar-card.active');
+      const selectedId = activeCard ? activeCard.dataset.avatarId : 'nova';
+      AppState.avatarId = selectedId;
+      AppState.customAvatarUrl = dom.cfgCustomAvatarUrl.value.trim();
+
+      localStorage.setItem('quest_avatar_id', AppState.avatarId);
+      localStorage.setItem('quest_custom_avatar_url', AppState.customAvatarUrl);
+
+      buildAvatar(selectedId);
+      dom.modalAvatars.classList.remove('open');
+    };
+
+    // Main Control Bindings
     dom.btnSend.onclick = () => sendPrompt(dom.promptInput.value);
     dom.promptInput.onkeydown = (e) => {
       if (e.key === 'Enter') sendPrompt(dom.promptInput.value);
@@ -1343,7 +1710,6 @@
 
     dom.btnSettings.onclick = () => {
       dom.cfgGeminiKey.value = AppState.geminiKey;
-      dom.cfgAvatarUrl.value = AppState.avatarUrl;
       dom.cfgLocalModel.value = AppState.localModel;
       updateEngineUI();
       dom.modalSettings.classList.add('open');
@@ -1386,22 +1752,14 @@
 
     dom.btnSaveSettings.onclick = () => {
       AppState.geminiKey = dom.cfgGeminiKey.value.trim();
-      AppState.avatarUrl = dom.cfgAvatarUrl.value.trim();
       AppState.localModel = dom.cfgLocalModel.value;
 
       localStorage.setItem('quest_companion_mode', AppState.mode);
       localStorage.setItem('gemini_api_key', AppState.geminiKey);
-      localStorage.setItem('quest_avatar_url', AppState.avatarUrl);
       localStorage.setItem('quest_local_model', AppState.localModel);
 
       dom.modalSettings.classList.remove('open');
       updateEngineUI();
-
-      if (AppState.avatarUrl) {
-        loadGLBAvatar(AppState.avatarUrl);
-      } else {
-        buildProceduralAvatar();
-      }
 
       alert('Settings saved!');
     };
@@ -1410,13 +1768,13 @@
     initThree();
     initSpeechRecognition();
     updateEngineUI();
+    updateAvatarUI();
 
     if ('speechSynthesis' in window) {
       populateVoices();
       window.speechSynthesis.onvoiceschanged = populateVoices;
     }
 
-    // Auto-warmup WebLLM if local mode is selected
     if (AppState.mode === 'local') {
       setTimeout(() => initLocalWebLLM(), 1000);
     }

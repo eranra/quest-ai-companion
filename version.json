@@ -1,6 +1,6 @@
 {
-  "version": "v0.1.0",
-  "build": 1,
-  "released_at": "2026-11-06T15:35:00Z",
-  "changelog": "Initial release: Dual-engine WebXR 3D AI companion for Meta Quest 3 with Local WebLLM & Google Gemini cloud."
+  "version": "v0.1.1",
+  "build": 2,
+  "released_at": "2026-11-06T15:46:00Z",
+  "changelog": "v0.1.1: Added multi-avatar selector gallery with Nova, Athena (Gold Vanguard), Echo (Floating Drone), Nexus (Holo Matrix), and Ready Player Me humanoid support."
 }
