@@ -36,8 +36,8 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
   - **👂 Attentive Listening Mode:** When the microphone is active and you speak, the avatar's entire body transitions into an active listening posture — head tilts, attentive leaning, hand touching chin, eyes wide and focused, lips closed in anticipation, and weight-shifted stance.
   - **🗣️ Expressive Speaking Mode:** When replying, the avatar comes to life — realistic jaw and lip sync, brows raising for emphasis, animated eye tracking, rhythmic conversational arm and hand gesticulations, and natural cadence head nods.
 - **Dual AI Engine:**
-  - **Google Gemini Cloud Mode (Default):** Ultra-fast **Gemini 2.5 Flash** for rapid conversational audio responses.
-  - **Local In-Browser Mode (WebLLM via WebGPU):** Downloads an optimized lightweight model into browser cache, then runs 100% offline on device GPU.
+  - **🏠 Local In-Browser Mode (Default - Qwen 2.5 via WebGPU):** Runs 100% locally and privately on your device GPU using **Qwen 2.5 0.5B Instruct** (or 1.5B). Features a live download/compilation progress bar showing GPU memory loading and clear ready state. Zero API keys, zero cloud dependencies.
+  - **☁️ Google Gemini Cloud Mode:** Connects to ultra-fast **Gemini 2.5 Flash** with real-time responsiveness testing and online/offline status indication.
 - **3D Avatar & Reactive Lip-Sync:**
   - Animated head tracking, subtle breathing sway, natural blinking, and speech-synchronized mouth visemes.
 - **Voice & Audio Pipeline:**

@@ -1,14 +1,21 @@
 // Quest AI Companion - Global State & Storage Persistence
 export const AppState = {
-  engine: localStorage.getItem('quest_engine') || 'cloud', // 'local' or 'cloud'
+  // Default to Local Qwen Model as requested!
+  engine: localStorage.getItem('quest_engine') || 'local', // 'local' or 'cloud'
+  localModel: localStorage.getItem('quest_local_model') || 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
   geminiKey: localStorage.getItem('quest_gemini_key') || '',
   avatarId: localStorage.getItem('quest_avatar_id') || 'echo',
   isLiveMode: localStorage.getItem('quest_live_mode') === 'true',
   
   // Runtime status
+  isModelLoading: false,
+  modelLoadProgress: 0,
+  modelStatusText: '',
+  isModelReady: false,
   isListening: false,
   isSpeaking: false,
   isGenerating: false,
+  geminiStatus: 'unknown', // 'online', 'offline', 'checking', 'no-key'
   
   // Avatar Transform (Controlled by Quest 3 thumbstick / UI)
   avatarDistance: parseFloat(localStorage.getItem('quest_avatar_dist') || '0.0'),
@@ -16,6 +23,7 @@ export const AppState = {
   
   save() {
     localStorage.setItem('quest_engine', this.engine);
+    localStorage.setItem('quest_local_model', this.localModel);
     localStorage.setItem('quest_gemini_key', this.geminiKey);
     localStorage.setItem('quest_avatar_id', this.avatarId);
     localStorage.setItem('quest_live_mode', this.isLiveMode ? 'true' : 'false');

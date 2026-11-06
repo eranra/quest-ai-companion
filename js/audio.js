@@ -9,22 +9,40 @@ let currentTranscript = '';
 let onSpeechFinishedCallback = null;
 let onSpeechInterimCallback = null;
 let onStatusChangeCallback = null;
+let audioCtx = null;
 
-// Unlocks browser Web Audio / Speech Synthesis autoplay restrictions
+// Unlocks browser Web Audio & Speech Synthesis autoplay restrictions on Mobile & Quest
 export function unlockAudio() {
-  if ('speechSynthesis' in window) {
-    try {
+  try {
+    if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioCtx();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
+    if ('speechSynthesis' in window) {
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
-    } catch (e) {}
-  }
+      // Prime mobile audio pipeline with a 0-volume utterance if idle
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        const dummy = new SpeechSynthesisUtterance(' ');
+        dummy.volume = 0.01;
+        window.speechSynthesis.speak(dummy);
+      }
+    }
+  } catch (e) {}
 }
 
 export function stopSpeaking() {
   if ('speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
     } catch (e) {}
   }
   AppState.isSpeaking = false;
@@ -33,7 +51,10 @@ export function stopSpeaking() {
 
 export function speakReply(text, onComplete) {
   const cleanText = text.replace(/[*#`_~]/g, '').trim();
-  if (!cleanText) return;
+  if (!cleanText) {
+    if (onComplete) onComplete();
+    return;
+  }
 
   unlockAudio();
   stopSpeaking();
@@ -44,45 +65,57 @@ export function speakReply(text, onComplete) {
     return;
   }
 
-  const utterance = new SpeechSynthesisUtterance(cleanText);
-  utterance.rate = 1.05;
-  utterance.pitch = 1.0;
-  utterance.volume = 1.0;
+  // Small delay to ensure previous cancel completed
+  setTimeout(() => {
+    try {
+      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    } catch (e) {}
 
-  // Pick voice
-  const voices = window.speechSynthesis.getVoices();
-  const selectedVoiceName = localStorage.getItem('quest_voice_name');
-  const matched = voices.find(v => v.name === selectedVoiceName);
-  if (matched) {
-    utterance.voice = matched;
-  } else {
-    const defaultEn = voices.find(v => v.lang.startsWith('en'));
-    if (defaultEn) utterance.voice = defaultEn;
-  }
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.02;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
 
-  utterance.onstart = () => {
-    AppState.isSpeaking = true;
-    AppState.isListening = false;
-    if (onStatusChangeCallback) onStatusChangeCallback('Speaking...', 'speaking');
-  };
+    // Pick voice
+    const voices = window.speechSynthesis.getVoices();
+    const selectedVoiceName = localStorage.getItem('quest_voice_name');
+    const matched = voices.find(v => v.name === selectedVoiceName);
+    if (matched) {
+      utterance.voice = matched;
+    } else {
+      const defaultEn = voices.find(v => v.lang.startsWith('en'));
+      if (defaultEn) utterance.voice = defaultEn;
+    }
 
-  utterance.onend = () => {
-    AppState.isSpeaking = false;
-    activeUtterance = null;
-    if (onStatusChangeCallback) onStatusChangeCallback(AppState.isLiveMode ? 'Listening (Live)...' : 'Ready', AppState.isLiveMode ? 'listening' : '');
-    if (onComplete) onComplete();
-  };
+    utterance.onstart = () => {
+      AppState.isSpeaking = true;
+      AppState.isListening = false;
+      if (onStatusChangeCallback) onStatusChangeCallback('Speaking...', 'speaking');
+    };
 
-  utterance.onerror = (e) => {
-    console.warn('TTS error:', e);
-    AppState.isSpeaking = false;
-    activeUtterance = null;
-    if (onStatusChangeCallback) onStatusChangeCallback('Ready', '');
-    if (onComplete) onComplete();
-  };
+    utterance.onend = () => {
+      AppState.isSpeaking = false;
+      activeUtterance = null;
+      if (onStatusChangeCallback) {
+        onStatusChangeCallback(AppState.isLiveMode ? 'Listening (Live)...' : 'Ready', AppState.isLiveMode ? 'listening' : '');
+      }
+      if (onComplete) onComplete();
+    };
 
-  activeUtterance = utterance; // Prevent GC
-  window.speechSynthesis.speak(utterance);
+    utterance.onerror = (e) => {
+      console.warn('TTS error:', e);
+      AppState.isSpeaking = false;
+      activeUtterance = null;
+      if (onStatusChangeCallback) onStatusChangeCallback('Ready', '');
+      if (onComplete) onComplete();
+    };
+
+    activeUtterance = utterance; // Prevent GC in Chromium
+    window.speechSynthesis.speak(utterance);
+  }, 30);
 }
 
 // -------------------------------------------------------------

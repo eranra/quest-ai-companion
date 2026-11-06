@@ -93,6 +93,17 @@
           Hi Eran! I am your 3D Companion. Turn on ⚡ Live Mode to speak with me hands-free and interrupt me anytime, or tap the microphone to talk!
         </div>
       </div>
+
+      <!-- Local Model Download & Compilation Progress Bar -->
+      <div id="model-progress-bar" style="display: none; width: 100%; max-width: 440px; margin: 6px auto 0; padding: 6px 12px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 9999px; backdrop-filter: blur(8px);">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #cbd5e1; margin-bottom: 3px;">
+          <span id="model-progress-label">Downloading Qwen 2.5 Model...</span>
+          <span id="model-progress-pct" style="font-family: monospace; color: #38bdf8; font-weight: 700;">0%</span>
+        </div>
+        <div style="width: 100%; height: 5px; background: rgba(255, 255, 255, 0.1); border-radius: 9999px; overflow: hidden;">
+          <div id="model-progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1, #10b981); transition: width 0.2s;"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Bottom Deck Controls -->
@@ -213,17 +224,37 @@
       <div class="form-group">
         <label class="form-label">AI Engine</label>
         <select id="cfg-engine-select" class="form-input">
-          <option value="cloud">☁️ Google Gemini 2.5 Flash (Recommended - Ultra-fast)</option>
-          <option value="local">🏠 Local WebLLM (GPU Offline)</option>
+          <option value="local" selected>🏠 Local WebGPU (100% Offline - Default)</option>
+          <option value="cloud">☁️ Google Gemini Cloud API</option>
         </select>
+        <p id="engine-summary-hint" class="help-hint" style="margin-top: 4px;">
+          Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.
+        </p>
       </div>
 
-      <!-- Gemini API Key -->
-      <div class="form-group">
+      <!-- Local Model Selection Group -->
+      <div id="group-local-model" class="form-group">
+        <label class="form-label">Local Model</label>
+        <select id="cfg-local-model" class="form-input">
+          <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC" selected>Qwen 2.5 0.5B Instruct (Default - Fast, ~350 MB)</option>
+          <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 1.5B Instruct (Higher quality, ~900 MB)</option>
+          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B Instruct (~650 MB)</option>
+        </select>
+        <p class="help-hint">Cached automatically in browser storage after initial download.</p>
+      </div>
+
+      <!-- Gemini API Key & Responsiveness Group -->
+      <div id="group-gemini" class="form-group" style="display: none;">
         <label class="form-label">Google Gemini API Key</label>
         <input id="cfg-gemini-key" type="password" class="form-input" placeholder="Paste AI Studio Key here...">
-        <p class="help-hint">
-          Free key from <a href="https://aistudio.google.com" target="_blank" style="color: #818cf8;">aistudio.google.com</a>. Saved in browser localStorage.
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+          <button id="btn-test-gemini" type="button" class="action-btn" style="padding: 6px 14px; font-size: 11px;">
+            <span>🔍 Test Responsiveness</span>
+          </button>
+          <span id="gemini-test-status" style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Not tested</span>
+        </div>
+        <p class="help-hint" style="margin-top: 4px;">
+          Free key from <a href="https://aistudio.google.com" target="_blank" style="color: #818cf8;">aistudio.google.com</a>. Saved securely in local storage.
         </p>
       </div>
 

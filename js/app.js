@@ -2,7 +2,7 @@
 import { AppState } from './state.js';
 import { initScene, toggleWebXR, avatarGroup, applyAvatarTransform } from './scene.js';
 import { buildAvatar } from './avatars/index.js';
-import { generateAIResponse, abortActiveGeneration } from './ai.js';
+import { generateAIResponse, initLocalWebLLM, checkGeminiResponsiveness, abortActiveGeneration } from './ai.js';
 import {
   unlockAudio,
   speakReply,
@@ -22,6 +22,10 @@ const dom = {
   statusText: document.getElementById('status-text'),
   speechBubble: document.getElementById('speech-bubble'),
   speechText: document.getElementById('speech-text'),
+  modelProgressBar: document.getElementById('model-progress-bar'),
+  modelProgressFill: document.getElementById('model-progress-fill'),
+  modelProgressPct: document.getElementById('model-progress-pct'),
+  modelProgressLabel: document.getElementById('model-progress-label'),
   promptInput: document.getElementById('prompt-input'),
   btnSend: document.getElementById('btn-send'),
   btnMic: document.getElementById('btn-mic'),
@@ -39,6 +43,12 @@ const dom = {
   btnSaveSettings: document.getElementById('btn-save-settings'),
   cfgGeminiKey: document.getElementById('cfg-gemini-key'),
   cfgEngineSelect: document.getElementById('cfg-engine-select'),
+  cfgLocalModel: document.getElementById('cfg-local-model'),
+  groupLocalModel: document.getElementById('group-local-model'),
+  groupGemini: document.getElementById('group-gemini'),
+  btnTestGemini: document.getElementById('btn-test-gemini'),
+  geminiTestStatus: document.getElementById('gemini-test-status'),
+  engineSummaryHint: document.getElementById('engine-summary-hint'),
   cfgVoiceSelect: document.getElementById('cfg-voice-select'),
   btnTestVoice: document.getElementById('btn-test-voice'),
   sliderScale: document.getElementById('slider-scale'),
@@ -53,18 +63,25 @@ const dom = {
 
 function updateStatus(text, type = '') {
   dom.statusText.textContent = text;
-  dom.statusPill.className = 'status-pill' + (type ? ' ' + type : '');
+  dom.statusPill.className = 'avatar-state' + (type ? ' ' + type : '');
 }
 
 function updateEngineBadge() {
   if (AppState.engine === 'cloud') {
-    dom.engineBadge.textContent = 'Gemini 2.5 Flash';
-    dom.engineBadge.style.color = '#38bdf8';
-    dom.engineBadge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+    if (AppState.geminiStatus === 'online') {
+      dom.engineBadge.textContent = '☁️ Gemini 2.5 (Online)';
+      dom.engineBadge.style.color = '#38bdf8';
+      dom.engineBadge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+    } else {
+      dom.engineBadge.textContent = '⚠️ Gemini (Offline)';
+      dom.engineBadge.style.color = '#ef4444';
+      dom.engineBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+    }
   } else {
-    dom.engineBadge.textContent = 'Local WebLLM (GPU)';
-    dom.engineBadge.style.color = '#34d399';
-    dom.engineBadge.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+    const isReady = AppState.isModelReady;
+    dom.engineBadge.textContent = isReady ? '🏠 Qwen 2.5 (Ready)' : '🏠 Qwen 2.5 (Loading...)';
+    dom.engineBadge.style.color = isReady ? '#34d399' : '#f59e0b';
+    dom.engineBadge.style.borderColor = isReady ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.4)';
   }
 }
 
@@ -79,10 +96,64 @@ function updateLiveModeUI() {
 }
 
 // -------------------------------------------------------------
+// Local WebGPU Model Loader & Progress Tracking
+// -------------------------------------------------------------
+function startLocalModelLoading() {
+  dom.modelProgressBar.style.display = 'block';
+  dom.promptInput.disabled = true;
+  dom.btnSend.disabled = true;
+  dom.btnMic.disabled = true;
+  updateStatus('Loading Qwen 2.5...', 'thinking');
+  dom.speechText.textContent = `Loading ${AppState.localModel} into browser WebGPU memory... First time downloads weights into local cache.`;
+
+  initLocalWebLLM((report) => {
+    dom.modelProgressFill.style.width = `${report.progress}%`;
+    dom.modelProgressPct.textContent = `${report.progress}%`;
+    dom.modelProgressLabel.textContent = report.text;
+    updateStatus(`Loading: ${report.progress}%`, 'thinking');
+  }).then(() => {
+    dom.modelProgressBar.style.display = 'none';
+    dom.promptInput.disabled = false;
+    dom.btnSend.disabled = false;
+    dom.btnMic.disabled = false;
+    updateStatus('Ready (Qwen 2.5 Local)', '');
+    updateEngineBadge();
+    dom.speechText.textContent = `Hello Eran! I am running 100% locally on your device with Qwen 2.5 via WebGPU. Speak or type below to talk to me!`;
+    speakReply(`Hello Eran! I am now ready as your companion running locally on your device.`);
+  }).catch((err) => {
+    dom.modelProgressBar.style.display = 'none';
+    dom.promptInput.disabled = false;
+    dom.btnSend.disabled = false;
+    dom.btnMic.disabled = false;
+    updateStatus('Model Error', '');
+    dom.speechText.textContent = `WebGPU Error: ${err.message}. If your device doesn't support WebGPU, switch to Google Gemini mode in Settings (⚙️).`;
+  });
+}
+
+// -------------------------------------------------------------
+// Google Gemini API Responsiveness Verification
+// -------------------------------------------------------------
+async function checkCloudGemini() {
+  updateStatus('Checking Gemini...', 'thinking');
+  dom.speechText.textContent = 'Checking Google Gemini API connection...';
+  
+  const check = await checkGeminiResponsiveness();
+  if (check.responsive) {
+    updateStatus('Ready (Gemini 2.5)', '');
+    dom.speechText.textContent = `Connected to Google Gemini 2.5 Flash! Speak or type to start talking.`;
+  } else {
+    updateStatus('Gemini Offline', '');
+    dom.speechText.textContent = `⚠️ Google Gemini is not responding: ${check.reason}. You can enter your API key in Settings (⚙️) or switch to Local Qwen mode.`;
+  }
+  updateEngineBadge();
+}
+
+// -------------------------------------------------------------
 // Voice & Conversational Exchange
 // -------------------------------------------------------------
 async function handleUserSpeech(userText) {
   if (!userText || !userText.trim()) return;
+  unlockAudio();
   userText = userText.trim();
 
   dom.promptInput.value = '';
@@ -92,6 +163,7 @@ async function handleUserSpeech(userText) {
 
   try {
     const reply = await generateAIResponse(userText);
+    dom.speechText.textContent = reply;
     speakReply(reply, () => {
       // In Live Mode, return to active listening automatically
       if (AppState.isLiveMode) {
@@ -187,6 +259,13 @@ function initApp() {
     },
     onStatusChange: (text, type) => updateStatus(text, type)
   });
+
+  // 5. Start Engine according to AppState (Local Qwen default!)
+  if (AppState.engine === 'local') {
+    startLocalModelLoading();
+  } else {
+    checkCloudGemini();
+  }
 
   // If live mode was previously enabled, start listening
   if (AppState.isLiveMode) {
@@ -289,13 +368,62 @@ function initApp() {
     unlockAudio();
     dom.cfgGeminiKey.value = AppState.geminiKey;
     dom.cfgEngineSelect.value = AppState.engine;
+    dom.cfgLocalModel.value = AppState.localModel;
     dom.sliderScale.value = AppState.avatarScale;
     dom.sliderDist.value = AppState.avatarDistance;
     dom.valScale.textContent = `${AppState.avatarScale.toFixed(2)}x`;
     dom.valDist.textContent = `${(1.5 + AppState.avatarDistance).toFixed(2)}m`;
+    
+    // Toggle groups
+    if (AppState.engine === 'cloud') {
+      dom.groupGemini.style.display = 'block';
+      dom.groupLocalModel.style.display = 'none';
+      dom.engineSummaryHint.textContent = 'Connects to Google Gemini 2.5 Flash cloud API for fast answers.';
+    } else {
+      dom.groupGemini.style.display = 'none';
+      dom.groupLocalModel.style.display = 'block';
+      dom.engineSummaryHint.textContent = 'Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.';
+    }
+
     dom.modalSettings.classList.add('open');
   };
   dom.btnCloseSettings.onclick = () => dom.modalSettings.classList.remove('open');
+
+  dom.cfgEngineSelect.onchange = () => {
+    if (dom.cfgEngineSelect.value === 'cloud') {
+      dom.groupGemini.style.display = 'block';
+      dom.groupLocalModel.style.display = 'none';
+      dom.engineSummaryHint.textContent = 'Connects to Google Gemini 2.5 Flash cloud API for fast answers.';
+    } else {
+      dom.groupGemini.style.display = 'none';
+      dom.groupLocalModel.style.display = 'block';
+      dom.engineSummaryHint.textContent = 'Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.';
+    }
+  };
+
+  // Test Gemini Key in Settings
+  dom.btnTestGemini.onclick = async () => {
+    unlockAudio();
+    const testKey = dom.cfgGeminiKey.value.trim();
+    if (!testKey) {
+      dom.geminiTestStatus.textContent = '⚠️ Enter API key first';
+      dom.geminiTestStatus.style.color = '#f59e0b';
+      return;
+    }
+    
+    dom.geminiTestStatus.textContent = 'Testing connection...';
+    dom.geminiTestStatus.style.color = '#38bdf8';
+    
+    AppState.geminiKey = testKey;
+    const check = await checkGeminiResponsiveness();
+    if (check.responsive) {
+      dom.geminiTestStatus.textContent = '✅ Responsive & Ready!';
+      dom.geminiTestStatus.style.color = '#10b981';
+    } else {
+      dom.geminiTestStatus.textContent = `❌ ${check.reason}`;
+      dom.geminiTestStatus.style.color = '#ef4444';
+    }
+  };
 
   // Sliders for Scale & Distance
   dom.sliderScale.oninput = (e) => {
@@ -313,18 +441,31 @@ function initApp() {
   dom.btnTestVoice.onclick = () => {
     unlockAudio();
     localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
-    speakReply("Hello! This is a test of my speech synthesis voice.");
+    speakReply("Hello Eran! This is a test of my speech synthesis voice and speaking body language.");
   };
 
   dom.btnSaveSettings.onclick = () => {
     unlockAudio();
+    const prevEngine = AppState.engine;
+    const prevModel = AppState.localModel;
+
     AppState.geminiKey = dom.cfgGeminiKey.value.trim();
     AppState.engine = dom.cfgEngineSelect.value;
+    AppState.localModel = dom.cfgLocalModel.value;
     localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
     AppState.save();
+    
     updateEngineBadge();
     dom.modalSettings.classList.remove('open');
-    speakReply("Settings saved successfully.");
+
+    // Trigger loader or connection check if changed
+    if (AppState.engine === 'local') {
+      if (prevEngine !== 'local' || prevModel !== AppState.localModel || !AppState.isModelReady) {
+        startLocalModelLoading();
+      }
+    } else {
+      checkCloudGemini();
+    }
   };
 
   // 1-Tap Version Reload

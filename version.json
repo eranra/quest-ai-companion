@@ -1,6 +1,6 @@
 {
-  "version": "v0.1.5",
-  "build": 6,
-  "released_at": "2026-11-06T18:45:00Z",
-  "changelog": "v0.1.5: Fix Maya & Alex humanoids rendering on Android, add Gemini Live hands-free continuous voice mode with barge-in interruption, add Meta Quest 3 controller thumbstick manipulation (distance & scale), and modularize codebase into clean ES modules."
+  "version": "v0.1.6",
+  "build": 7,
+  "released_at": "2026-11-06T19:46:00Z",
+  "changelog": "v0.1.6: Restore local Qwen 2.5 WebGPU model as default, add live download/compile progress bar with ready indicator, add Google Gemini responsiveness test & status indication, and optimize mobile audio unlock for TTS voice playback."
 }
