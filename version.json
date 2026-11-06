@@ -1,6 +1,6 @@
 {
-  "version": "v0.1.8",
-  "build": 9,
-  "released_at": "2026-11-06T20:50:00Z",
-  "changelog": "v0.1.8: Smart Anti-Self-Echo cancellation in Live Mode (filters assistant loudspeaker output from mic, prevents self-talking loops while allowing real user barge-in interruptions), configurable Echo Guard (Smart AEC vs Strict Half-Duplex), and optimized mobile dock layout."
+  "version": "v0.1.9",
+  "build": 10,
+  "released_at": "2026-11-06T22:55:00Z",
+  "changelog": "v0.1.9: Fix critical Three.js r128 CapsuleGeometry crash on default avatar which froze UI event listeners on Android devices; attach all UI event listeners immediately during bootstrap to ensure buttons always respond."
 }

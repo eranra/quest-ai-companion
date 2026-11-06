@@ -13,7 +13,7 @@ import {
   setLiveMode
 } from './audio.js';
 
-const APP_VERSION = 'v0.1.8';
+const APP_VERSION = 'v0.1.9';
 let latestDetectedVersion = null;
 
 // DOM References
@@ -21,7 +21,7 @@ const dom = {
   container3d: document.getElementById('canvas-container'),
   statusPill: document.getElementById('status-pill'),
   statusText: document.getElementById('status-text'),
-  speechBubble: document.getElementById('speech-bubble'),
+  speechBubble: document.querySelector('.speech-bubble'),
   speechText: document.getElementById('speech-text'),
   modelProgressBar: document.getElementById('model-progress-bar'),
   modelProgressFill: document.getElementById('model-progress-fill'),
@@ -258,51 +258,9 @@ async function checkAppVersion(manual = false) {
 }
 
 // -------------------------------------------------------------
-// Initialize App
+// Initialize App & UI Event Binding
 // -------------------------------------------------------------
-function initApp() {
-  // 1. Initialize Scene & Renderer
-  initScene(dom.container3d, dom.xrHud);
-
-  // 2. Load Saved Avatar
-  buildAvatar(AppState.avatarId, avatarGroup);
-  applyAvatarTransform();
-
-  // 3. Sync UI Status
-  updateEngineBadge();
-  updateLiveModeUI();
-  syncAvatarCards();
-
-  // Populate Voice dropdown
-  if ('speechSynthesis' in window) {
-    populateVoiceList();
-    window.speechSynthesis.onvoiceschanged = populateVoiceList;
-  }
-
-  // 4. Initialize Speech Recognition with Gemini Live & Barge-in support
-  initSpeechRecognition({
-    onFinalSpeech: (text) => handleUserSpeech(text),
-    onInterimSpeech: (interim) => {
-      dom.speechText.textContent = `Listening: "${interim}..."`;
-    },
-    onStatusChange: (text, type) => updateStatus(text, type)
-  });
-
-  // 5. Start Engine according to AppState (Local Qwen default!)
-  if (AppState.engine === 'local') {
-    startLocalModelLoading();
-  } else {
-    checkCloudGemini();
-  }
-
-  // If live mode was previously enabled, start listening
-  if (AppState.isLiveMode) {
-    setLiveMode(true);
-  }
-
-  // -----------------------------------------------------------
-  // Event Listeners
-  // -----------------------------------------------------------
+function bindEventListeners() {
   // Live Mode Toggle (Gemini Live style hands-free chat)
   dom.btnLiveMode.onclick = () => {
     unlockAudio();
@@ -504,8 +462,66 @@ function initApp() {
   dom.btnReloadUpdate.onclick = () => forceAppRefresh(latestDetectedVersion);
   const versionBadge = document.getElementById('app-version-badge');
   if (versionBadge) versionBadge.onclick = () => checkAppVersion(true);
+}
 
-  // Periodic version checking
+function initApp() {
+  // 1. Immediately bind all DOM events FIRST so UI buttons always respond
+  bindEventListeners();
+
+  // 2. Sync UI Status
+  updateEngineBadge();
+  updateLiveModeUI();
+  syncAvatarCards();
+
+  // 3. Initialize 3D Scene & Avatar
+  try {
+    initScene(dom.container3d, dom.xrHud);
+    buildAvatar(AppState.avatarId, avatarGroup);
+    applyAvatarTransform();
+  } catch (err) {
+    console.error('Scene/Avatar init error:', err);
+  }
+
+  // 4. Populate Voice dropdown
+  if ('speechSynthesis' in window) {
+    try {
+      populateVoiceList();
+      window.speechSynthesis.onvoiceschanged = populateVoiceList;
+    } catch (err) {}
+  }
+
+  // 5. Initialize Speech Recognition with Gemini Live & Barge-in support
+  try {
+    initSpeechRecognition({
+      onFinalSpeech: (text) => handleUserSpeech(text),
+      onInterimSpeech: (interim) => {
+        dom.speechText.textContent = `Listening: "${interim}..."`;
+      },
+      onStatusChange: (text, type) => updateStatus(text, type)
+    });
+  } catch (err) {
+    console.error('Speech recognition init error:', err);
+  }
+
+  // 6. Start Engine according to AppState (Local Qwen default!)
+  try {
+    if (AppState.engine === 'local') {
+      startLocalModelLoading();
+    } else {
+      checkCloudGemini();
+    }
+  } catch (err) {
+    console.error('Engine start error:', err);
+  }
+
+  // 7. If live mode was previously enabled, start listening
+  if (AppState.isLiveMode) {
+    try {
+      setLiveMode(true);
+    } catch (err) {}
+  }
+
+  // 8. Periodic version checking
   checkAppVersion();
   setInterval(checkAppVersion, 30000);
 

@@ -12,7 +12,7 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
 
 ## ✨ Features
 
-- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (Updated in v0.1.8):**
+- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (Updated in v0.1.9):**
   - **🧠 Smart Anti-Self-Echo Cancellation (New in v0.1.8):** Solves the acoustic loopback problem where the device microphone hears the avatar's loudspeaker speech and falsely treats it as user input. Real-time lexical overlap filtering and acoustic tail dampening ensure the avatar never converses with or interrupts itself.
   - **🔇 Strict Half-Duplex Option (New in v0.1.8):** An optional 100% echo-proof mode in ⚙️ Settings that automatically mutes the microphone while the assistant speaks, and un-mutes once finished.
   - **Configurable Voice Sensitivity / Noise Filter:** Adjust mic sensitivity in ⚙️ Settings (High Noise Filter, Balanced Default, High Sensitivity) to prevent room noise, breaths, or small sounds from falsely interrupting the avatar.

@@ -23,15 +23,17 @@ export function buildEchoDrone(avatarGroup) {
   screen.position.set(0, 0.05, 0.12);
   root.add(screen);
 
-  // Digital Eyes on Screen
-  const eyeL = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.045, 8, 16), matGlow);
-  eyeL.rotation.z = Math.PI / 2;
+  // Digital Eyes on Screen (compatible with Three.js r128)
+  const eyeGeoL = new THREE.SphereGeometry(0.025, 16, 16);
+  eyeGeoL.scale(1.4, 0.8, 0.4);
+  const eyeL = new THREE.Mesh(eyeGeoL, matGlow);
   eyeL.position.set(-0.08, 0.07, 0.29);
   root.add(eyeL);
   rig.eyeLeft = eyeL;
 
-  const eyeR = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.045, 8, 16), matGlow);
-  eyeR.rotation.z = Math.PI / 2;
+  const eyeGeoR = new THREE.SphereGeometry(0.025, 16, 16);
+  eyeGeoR.scale(1.4, 0.8, 0.4);
+  const eyeR = new THREE.Mesh(eyeGeoR, matGlow);
   eyeR.position.set(0.08, 0.07, 0.29);
   root.add(eyeR);
   rig.eyeRight = eyeR;
