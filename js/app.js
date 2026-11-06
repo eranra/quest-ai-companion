@@ -13,7 +13,8 @@ import {
   setLiveMode
 } from './audio.js';
 
-const APP_VERSION = 'v0.1.5';
+const APP_VERSION = 'v0.1.6';
+let latestDetectedVersion = null;
 
 // DOM References
 const dom = {
@@ -217,14 +218,32 @@ function syncAvatarCards() {
 // -------------------------------------------------------------
 // Version Check & Live Update (ai-yard-guardian pattern)
 // -------------------------------------------------------------
-async function checkAppVersion() {
+function forceAppRefresh(targetVersion) {
+  if ('caches' in window) {
+    try {
+      caches.keys().then(names => {
+        Promise.all(names.map(name => caches.delete(name))).catch(() => {});
+      });
+    } catch (e) {}
+  }
+  const v = targetVersion || APP_VERSION;
+  window.location.href = window.location.origin + window.location.pathname + '?v=' + v + '&nocache=' + Date.now();
+}
+
+async function checkAppVersion(manual = false) {
   try {
     const res = await fetch(`version.json?_t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
     if (data.version && data.version !== APP_VERSION) {
-      dom.updateText.textContent = `New update available: ${data.version}!`;
+      latestDetectedVersion = data.version;
+      dom.updateText.textContent = `🚀 New update available (${data.version})!`;
       dom.updateBanner.style.display = 'flex';
+    } else {
+      dom.updateBanner.style.display = 'none';
+      if (manual) {
+        alert(`You are on the latest version (${APP_VERSION})!`);
+      }
     }
   } catch (e) {}
 }
@@ -468,17 +487,10 @@ function initApp() {
     }
   };
 
-  // 1-Tap Version Reload
-  dom.btnReloadUpdate.onclick = () => {
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => caches.delete(name));
-        window.location.reload(true);
-      });
-    } else {
-      window.location.reload(true);
-    }
-  };
+  // 1-Tap Version Reload (ai-yard-guardian pattern)
+  dom.btnReloadUpdate.onclick = () => forceAppRefresh(latestDetectedVersion);
+  const versionBadge = document.getElementById('app-version-badge');
+  if (versionBadge) versionBadge.onclick = () => checkAppVersion(true);
 
   // Periodic version checking
   checkAppVersion();

@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=0.1.6">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -30,7 +30,7 @@
 
   <!-- Live Update Banner (ai-yard-guardian pattern) -->
   <div id="update-banner">
-    <span id="update-text" class="update-banner-text">🚀 New update available (v0.1.5)!</span>
+    <span id="update-text" class="update-banner-text">🚀 New update available!</span>
     <button id="btn-reload-update" class="update-btn">Update & Reload</button>
   </div>
 
@@ -57,8 +57,8 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.5</div>
-        <div id="engine-badge" class="engine-badge local">Gemini 2.5 Flash</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.6</div>
+        <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
       <div class="top-controls">
@@ -290,8 +290,8 @@
     </div>
   </div>
 
-  <!-- Modular App Bootstrap -->
-  <script type="module" src="js/app.js"></script>
+  <!-- Modular App Bootstrap with Cache-Busting Version Query -->
+  <script type="module" src="js/app.js?v=0.1.6"></script>
 
 </body>
 </html>
