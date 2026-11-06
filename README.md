@@ -12,7 +12,14 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
 
 ## ✨ Features
 
-- **📱 Android Phone & Meta Quest 3 Optimized (New in v0.1.2):**
+- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (New in v0.1.5):**
+  - **Always-Listening Mode:** Speak naturally without pressing any buttons. The app automatically detects speech turns and silence pauses, sends queries to the AI, and speaks the reply back.
+  - **Barge-In Speech Interruption:** If you start speaking while the avatar is talking, the avatar immediately stops speaking mid-sentence, aborts AI generation, and shifts instantly to attentive listening mode (just like Gemini Live).
+- **🕹️ Meta Quest 3 Touch Controller Manipulation (New in v0.1.5):**
+  - **Right Controller Thumbstick:** Push forward/pull backward to move the 3D avatar closer or further away in 3D/VR space (0.6m to 4.0m distance).
+  - **Left Controller Thumbstick:** Push up/down to scale the avatar size larger or smaller (0.3x to 2.5x).
+  - Also available via mobile & desktop touch sliders inside Settings.
+- **📱 Android Phone & Meta Quest 3 Optimized:**
   - **Vertical / Portrait Mode:** Automatically zooms and frames the 3D avatar between the top bar and bottom input dock with safe-area insets.
   - **Horizontal / Landscape Mode:** Re-positions the speech bubble and compacts the UI so the avatar remains fully visible and unobstructed.
   - **Virtual Keyboard Resizing:** Connects to `visualViewport` so opening the mobile keyboard keeps the input bar cleanly docked.
@@ -29,8 +36,8 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
   - **👂 Attentive Listening Mode:** When the microphone is active and you speak, the avatar's entire body transitions into an active listening posture — head tilts, attentive leaning, hand touching chin, eyes wide and focused, lips closed in anticipation, and weight-shifted stance.
   - **🗣️ Expressive Speaking Mode:** When replying, the avatar comes to life — realistic jaw and lip sync, brows raising for emphasis, animated eye tracking, rhythmic conversational arm and hand gesticulations, and natural cadence head nods.
 - **Dual AI Engine:**
-  - **Local In-Browser Mode (WebLLM via WebGPU):** Downloads an optimized lightweight model once into browser cache, then runs offline on the device GPU.
-  - **Google Gemini Cloud Mode:** Uses Gemini 2.5 Flash via REST endpoints with prompt engineering tailored for voice conversation.
+  - **Google Gemini Cloud Mode (Default):** Ultra-fast **Gemini 2.5 Flash** for rapid conversational audio responses.
+  - **Local In-Browser Mode (WebLLM via WebGPU):** Downloads an optimized lightweight model into browser cache, then runs 100% offline on device GPU.
 - **3D Avatar & Reactive Lip-Sync:**
   - Animated head tracking, subtle breathing sway, natural blinking, and speech-synchronized mouth visemes.
 - **Voice & Audio Pipeline:**
