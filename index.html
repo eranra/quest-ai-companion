@@ -2,15 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Quest AI Companion | WebXR 3D Avatar</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Quest AI Companion | 3D Avatar (WebXR & Mobile)</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#4f46e5">
-  <meta name="description" content="Zero-install WebXR 3D AI companion for Meta Quest 3 with dual local WebLLM & Google Gemini cloud engines.">
+  <meta name="theme-color" content="#090d16">
+  <meta name="description" content="Zero-install 3D AI companion for Meta Quest 3 and Android mobile phones with dual local WebLLM & Google Gemini engines.">
   <style>
     :root {
       --bg: #090d16;
-      --panel: rgba(18, 24, 38, 0.85);
+      --panel: rgba(18, 24, 38, 0.82);
       --panel-border: rgba(99, 102, 241, 0.3);
       --accent: #6366f1;
       --accent-glow: rgba(99, 102, 241, 0.4);
@@ -19,6 +22,10 @@
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
     }
 
     * {
@@ -28,6 +35,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body, html {
@@ -36,6 +44,7 @@
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
+      position: fixed;
     }
 
     #canvas-container {
@@ -45,6 +54,7 @@
       width: 100%;
       height: 100%;
       z-index: 1;
+      touch-action: none;
     }
 
     /* 2D / HUD Overlay */
@@ -59,7 +69,8 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 16px;
+      padding: max(12px, var(--safe-top)) max(12px, var(--safe-right)) max(12px, var(--safe-bottom)) max(12px, var(--safe-left));
+      transition: height 0.15s ease-out;
     }
 
     .interactive {
@@ -69,20 +80,21 @@
     /* Update Notification Banner */
     #update-banner {
       position: absolute;
-      top: 14px;
+      top: max(12px, var(--safe-top));
       left: 50%;
       transform: translateX(-50%);
       background: linear-gradient(135deg, #1e1b4b, #312e81);
       border: 1px solid #818cf8;
-      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
       border-radius: 999px;
-      padding: 8px 18px;
+      padding: 6px 14px;
       display: none;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       z-index: 100;
       pointer-events: auto;
-      animation: slideDown 0.4s ease;
+      animation: slideDown 0.35s ease;
+      max-width: 90vw;
     }
 
     @keyframes slideDown {
@@ -91,26 +103,24 @@
     }
 
     .update-banner-text {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       color: #e0e7ff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .update-btn {
       background: #10b981;
       color: white;
       border: none;
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 999px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .update-btn:hover {
-      background: #059669;
-      transform: scale(1.05);
+      white-space: nowrap;
     }
 
     /* Header Bar */
@@ -118,32 +128,35 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      width: 100%;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       background: var(--panel);
-      padding: 8px 14px;
+      padding: 6px 12px;
       border-radius: 999px;
       border: 1px solid var(--panel-border);
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     }
 
     .brand-logo {
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: linear-gradient(135deg, #6366f1, #ec4899);
       box-shadow: 0 0 10px var(--accent-glow);
+      flex-shrink: 0;
     }
 
     .brand-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
 
     .version-pill {
@@ -151,20 +164,15 @@
       font-weight: 700;
       background: rgba(255, 255, 255, 0.1);
       color: var(--text-muted);
-      padding: 2px 7px;
+      padding: 2px 6px;
       border-radius: 8px;
       cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .version-pill:hover {
-      background: rgba(99, 102, 241, 0.4);
-      color: white;
+      flex-shrink: 0;
     }
 
     .engine-badge {
-      font-size: 11px;
-      padding: 3px 8px;
+      font-size: 10px;
+      padding: 3px 7px;
       border-radius: 12px;
       font-weight: 600;
       display: inline-flex;
@@ -173,6 +181,8 @@
       background: rgba(99, 102, 241, 0.2);
       color: #a5b4fc;
       border: 1px solid rgba(99, 102, 241, 0.4);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .engine-badge.local {
@@ -189,12 +199,14 @@
 
     .top-controls {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      align-items: center;
+      flex-shrink: 0;
     }
 
     .icon-btn {
-      width: 40px;
-      height: 40px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       background: var(--panel);
       border: 1px solid var(--panel-border);
@@ -204,10 +216,12 @@
       justify-content: center;
       cursor: pointer;
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       transition: all 0.2s ease;
+      flex-shrink: 0;
     }
 
-    .icon-btn:hover {
+    .icon-btn:hover, .icon-btn:active {
       background: rgba(99, 102, 241, 0.3);
       border-color: var(--accent);
       transform: scale(1.05);
@@ -216,37 +230,38 @@
     /* Subtitle / Speech Bubble */
     .speech-bubble-container {
       align-self: center;
-      max-width: 600px;
-      width: 90%;
+      max-width: 580px;
+      width: 92%;
+      margin-top: 14px;
       margin-bottom: auto;
-      margin-top: 24px;
-      transition: opacity 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     .speech-bubble {
       background: var(--panel);
       border: 1px solid var(--panel-border);
-      border-radius: 18px;
-      padding: 14px 18px;
+      border-radius: 16px;
+      padding: 12px 16px;
       backdrop-filter: blur(16px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
 
     .avatar-state {
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
       font-weight: 700;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
       color: #818cf8;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
     .state-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--success);
       display: inline-block;
@@ -268,11 +283,12 @@
     }
 
     .speech-text {
-      font-size: 15px;
-      line-height: 1.5;
+      font-size: 14px;
+      line-height: 1.45;
       color: var(--text);
-      max-height: 140px;
+      max-height: 100px;
       overflow-y: auto;
+      word-break: break-word;
     }
 
     /* Bottom Control Deck */
@@ -280,34 +296,41 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
-      max-width: 650px;
+      gap: 8px;
+      max-width: 620px;
       width: 100%;
       margin: 0 auto;
     }
 
     .suggestion-chips {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       overflow-x: auto;
       max-width: 100%;
-      padding-bottom: 4px;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .suggestion-chips::-webkit-scrollbar {
+      display: none;
     }
 
     .chip {
-      background: rgba(30, 41, 59, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(30, 41, 59, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 12px;
+      padding: 5px 12px;
+      font-size: 11px;
       white-space: nowrap;
       cursor: pointer;
       color: var(--text-muted);
       transition: all 0.2s ease;
+      flex-shrink: 0;
     }
 
-    .chip:hover {
-      background: rgba(99, 102, 241, 0.25);
+    .chip:hover, .chip:active {
+      background: rgba(99, 102, 241, 0.3);
       border-color: var(--accent);
       color: var(--text);
     }
@@ -315,13 +338,14 @@
     .input-bar {
       display: flex;
       width: 100%;
-      gap: 10px;
+      gap: 8px;
       background: var(--panel);
-      padding: 6px 8px;
+      padding: 5px 6px;
       border-radius: 999px;
       border: 1px solid var(--panel-border);
       backdrop-filter: blur(16px);
-      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
 
     .prompt-input {
@@ -329,13 +353,15 @@
       background: transparent;
       border: none;
       outline: none;
-      padding: 8px 14px;
+      padding: 6px 12px;
       font-size: 14px;
       color: var(--text);
+      min-width: 0;
     }
 
     .prompt-input::placeholder {
       color: var(--text-muted);
+      font-size: 13px;
     }
 
     .action-btn {
@@ -343,7 +369,7 @@
       color: white;
       border: none;
       outline: none;
-      padding: 8px 18px;
+      padding: 6px 16px;
       border-radius: 999px;
       font-weight: 600;
       font-size: 13px;
@@ -352,16 +378,18 @@
       align-items: center;
       gap: 6px;
       transition: all 0.2s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
-    .action-btn:hover {
+    .action-btn:hover, .action-btn:active {
       background: #4f46e5;
       box-shadow: 0 0 15px var(--accent-glow);
     }
 
     .mic-btn {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.15);
@@ -371,11 +399,12 @@
       justify-content: center;
       cursor: pointer;
       transition: all 0.2s ease;
+      flex-shrink: 0;
     }
 
     .mic-btn.listening {
       background: var(--danger);
-      box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
       animation: pulse 0.7s infinite alternate;
     }
 
@@ -384,21 +413,22 @@
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
       color: white;
       border: 1px solid rgba(255, 255, 255, 0.3);
-      padding: 10px 24px;
+      padding: 7px 16px;
       border-radius: 999px;
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       transition: all 0.2s ease;
+      white-space: nowrap;
     }
 
-    #xr-button:hover {
+    #xr-button:hover, #xr-button:active {
       transform: scale(1.04);
-      box-shadow: 0 0 25px rgba(139, 92, 246, 0.8);
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.7);
     }
 
     /* Modals (Settings & Avatar Selector) */
@@ -408,8 +438,9 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       z-index: 50;
       display: none;
       align-items: center;
@@ -426,14 +457,15 @@
       border: 1px solid var(--panel-border);
       border-radius: 20px;
       width: 100%;
-      max-width: 520px;
-      padding: 24px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      max-width: 480px;
+      padding: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      max-height: 90vh;
+      gap: 14px;
+      max-height: 85vh;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .modal-header {
@@ -443,7 +475,7 @@
     }
 
     .modal-title {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
     }
 
@@ -454,7 +486,7 @@
     }
 
     .form-label {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--text-muted);
     }
@@ -462,16 +494,16 @@
     .engine-switch {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 6px;
       background: rgba(255, 255, 255, 0.05);
       padding: 4px;
       border-radius: 12px;
     }
 
     .switch-opt {
-      padding: 10px;
+      padding: 9px;
       text-align: center;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       border-radius: 8px;
       cursor: pointer;
@@ -489,9 +521,9 @@
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 10px;
-      padding: 10px 14px;
+      padding: 9px 12px;
       color: var(--text);
-      font-size: 14px;
+      font-size: 13px;
       outline: none;
     }
 
@@ -507,7 +539,7 @@
 
     .progress-bar-container {
       width: 100%;
-      height: 8px;
+      height: 7px;
       background: rgba(255, 255, 255, 0.1);
       border-radius: 999px;
       overflow: hidden;
@@ -526,9 +558,9 @@
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.15);
       color: var(--text);
-      padding: 10px;
+      padding: 9px;
       border-radius: 10px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -538,58 +570,57 @@
       gap: 6px;
     }
 
-    .secondary-btn:hover {
+    .secondary-btn:hover, .secondary-btn:active {
       background: rgba(255, 255, 255, 0.15);
     }
 
     /* Avatar Grid Gallery */
     .avatar-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
-      gap: 12px;
-      margin-top: 6px;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 4px;
     }
 
     .avatar-card {
       background: rgba(255, 255, 255, 0.04);
       border: 2px solid rgba(255, 255, 255, 0.1);
-      border-radius: 14px;
-      padding: 12px 10px;
+      border-radius: 12px;
+      padding: 10px 8px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       cursor: pointer;
       transition: all 0.2s ease;
       text-align: center;
     }
 
-    .avatar-card:hover {
+    .avatar-card:hover, .avatar-card:active {
       background: rgba(99, 102, 241, 0.15);
       border-color: var(--accent);
-      transform: translateY(-2px);
     }
 
     .avatar-card.active {
       border-color: #6366f1;
       background: rgba(99, 102, 241, 0.25);
-      box-shadow: 0 0 15px var(--accent-glow);
+      box-shadow: 0 0 12px var(--accent-glow);
     }
 
     .avatar-icon-circle {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
+      font-size: 18px;
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .avatar-name {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--text);
     }
@@ -597,7 +628,107 @@
     .avatar-desc {
       font-size: 10px;
       color: var(--text-muted);
-      line-height: 1.3;
+      line-height: 1.25;
+    }
+
+    /* -------------------------------------------------------- */
+    /* RESPONSIVE DESIGN: MOBILE PHONE OPTIMIZATIONS            */
+    /* -------------------------------------------------------- */
+
+    /* Small screens / Portrait Phones */
+    @media (max-width: 480px) {
+      .brand-title {
+        display: none;
+      }
+      .brand {
+        padding: 5px 8px;
+        gap: 6px;
+      }
+      .engine-badge {
+        font-size: 9px;
+        padding: 2px 6px;
+      }
+      .speech-bubble-container {
+        width: 96%;
+        margin-top: 10px;
+      }
+      .speech-text {
+        font-size: 13px;
+        max-height: 85px;
+      }
+      .prompt-input {
+        font-size: 13px;
+        padding: 4px 8px;
+      }
+      .action-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      .action-btn span {
+        display: none;
+      }
+      .action-btn svg {
+        margin: 0;
+      }
+      #xr-label {
+        display: none;
+      }
+      #xr-button {
+        padding: 8px;
+        border-radius: 50%;
+        width: 38px;
+        height: 38px;
+        justify-content: center;
+      }
+    }
+
+    /* Horizontal / Landscape Phones */
+    @media (max-height: 520px) and (orientation: landscape) {
+      #hud-overlay {
+        padding: max(8px, var(--safe-top)) max(8px, var(--safe-right)) max(8px, var(--safe-bottom)) max(8px, var(--safe-left));
+      }
+      .top-bar {
+        gap: 6px;
+      }
+      .brand {
+        padding: 4px 8px;
+      }
+      .speech-bubble-container {
+        position: absolute;
+        top: max(48px, var(--safe-top));
+        left: max(12px, var(--safe-left));
+        max-width: 260px;
+        margin: 0;
+      }
+      .speech-bubble {
+        padding: 8px 12px;
+        border-radius: 12px;
+      }
+      .speech-text {
+        max-height: 70px;
+        font-size: 12px;
+      }
+      .bottom-deck {
+        max-width: 480px;
+        gap: 4px;
+      }
+      .suggestion-chips {
+        display: none; /* Hide suggestion chips in short landscape to keep avatar visible */
+      }
+      .input-bar {
+        padding: 4px 6px;
+      }
+      .prompt-input {
+        padding: 4px 8px;
+      }
+      .modal {
+        max-height: 94vh;
+        padding: 14px;
+        gap: 10px;
+      }
+      .avatar-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
     }
   </style>
 
@@ -615,7 +746,7 @@
 
   <!-- Live Update Banner -->
   <div id="update-banner">
-    <span class="update-banner-text">🚀 New update available (<span id="new-version-text">v0.1.1</span>)!</span>
+    <span class="update-banner-text">🚀 New update available (<span id="new-version-text">v0.1.2</span>)!</span>
     <button id="btn-apply-update" class="update-btn">Update & Reload</button>
   </div>
 
@@ -630,8 +761,8 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.1</div>
-        <div id="engine-badge" class="engine-badge local">🏠 Local WebLLM</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.2</div>
+        <div id="engine-badge" class="engine-badge local">🏠 Local</div>
       </div>
 
       <div class="top-controls">
@@ -640,8 +771,8 @@
         </button>
 
         <button id="xr-button" style="display: none;">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-          <span id="xr-label">Enter AR</span>
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span id="xr-label">AR</span>
         </button>
 
         <button id="btn-settings" class="icon-btn" title="Settings">
@@ -658,7 +789,7 @@
           <span id="state-text">Ready</span>
         </div>
         <div id="speech-text" class="speech-text">
-          Hi Eran! I'm your Quest 3 AI Companion. You can talk to me via microphone or choose a question below.
+          Hi Eran! I'm your AI Companion. You can talk to me via microphone or choose a question below.
         </div>
       </div>
     </div>
@@ -668,7 +799,7 @@
       <!-- Suggestion chips -->
       <div class="suggestion-chips">
         <button class="chip" data-query="Introduce yourself in 2 sentences.">👋 Who are you?</button>
-        <button class="chip" data-query="What can you do on Meta Quest 3?">🥽 What can you do?</button>
+        <button class="chip" data-query="What can you do on Meta Quest and Android?">📱 What can you do?</button>
         <button class="chip" data-query="Tell me an interesting science fact.">🧠 Interesting fact</button>
         <button class="chip" data-query="Give me a quick 1-minute mindfulness tip.">🧘 Mindfulness</button>
       </div>
@@ -678,7 +809,7 @@
         <button id="btn-mic" class="mic-btn" title="Speak via Microphone">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
         </button>
-        <input id="prompt-input" type="text" class="prompt-input" placeholder="Type a message or tap the mic...">
+        <input id="prompt-input" type="text" class="prompt-input" placeholder="Type a message or tap mic..." autocomplete="off">
         <button id="btn-send" class="action-btn">
           <span>Send</span>
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -703,7 +834,7 @@
         <div class="avatar-card active" data-avatar-id="nova">
           <div class="avatar-icon-circle" style="color: #6366f1;">🤖</div>
           <div class="avatar-name">Nova</div>
-          <div class="avatar-desc">Cyber Android (Cyan / Indigo LED)</div>
+          <div class="avatar-desc">Cyber Android (Cyan LED)</div>
         </div>
 
         <!-- Avatar 2: Athena -->
@@ -717,21 +848,21 @@
         <div class="avatar-card" data-avatar-id="echo">
           <div class="avatar-icon-circle" style="color: #10b981;">🛸</div>
           <div class="avatar-name">Echo</div>
-          <div class="avatar-desc">Floating Drone (Animated Thrusters)</div>
+          <div class="avatar-desc">Floating Drone (Thrusters)</div>
         </div>
 
         <!-- Avatar 4: Nexus -->
         <div class="avatar-card" data-avatar-id="nexus">
           <div class="avatar-icon-circle" style="color: #ec4899;">🔮</div>
           <div class="avatar-name">Nexus</div>
-          <div class="avatar-desc">Holo Matrix (Glass & Wireframe)</div>
+          <div class="avatar-desc">Holo Matrix (Wireframe)</div>
         </div>
 
         <!-- Avatar 5: Humanoid Alex (Ready Player Me) -->
         <div class="avatar-card" data-avatar-id="rpm_alex">
           <div class="avatar-icon-circle" style="color: #38bdf8;">🧑</div>
           <div class="avatar-name">Alex</div>
-          <div class="avatar-desc">Humanoid 3D (Ready Player Me)</div>
+          <div class="avatar-desc">Humanoid (Ready Player Me)</div>
         </div>
 
         <!-- Avatar 6: Custom URL -->
@@ -742,14 +873,14 @@
         </div>
       </div>
 
-      <!-- Custom URL Input (shown when Custom is selected) -->
-      <div id="custom-avatar-box" class="form-group" style="display: none; margin-top: 8px;">
+      <!-- Custom URL Input -->
+      <div id="custom-avatar-box" class="form-group" style="display: none; margin-top: 6px;">
         <label class="form-label">Custom Avatar GLB Link</label>
         <input id="cfg-custom-avatar-url" type="text" class="form-input" placeholder="https://models.readyplayer.me/....glb">
         <p class="help-hint">Paste any public `.glb` link from Ready Player Me or Sketchfab.</p>
       </div>
 
-      <button id="btn-confirm-avatar" class="action-btn" style="width: 100%; justify-content: center; padding: 12px; margin-top: 6px;">Select Avatar</button>
+      <button id="btn-confirm-avatar" class="action-btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 6px;">Select Avatar</button>
     </div>
   </div>
 
@@ -780,7 +911,7 @@
         <p class="help-hint">
           Get a 100% free key at <a href="https://aistudio.google.com" target="_blank" style="color: #818cf8;">aistudio.google.com</a>. Saved securely in your browser's localStorage.
         </p>
-        <button id="btn-test-gemini" class="action-btn" style="margin-top: 6px; align-self: flex-start; padding: 6px 14px; font-size: 12px;">Test API Key</button>
+        <button id="btn-test-gemini" class="action-btn" style="margin-top: 4px; align-self: flex-start; padding: 6px 14px; font-size: 11px;">Test API Key</button>
       </div>
 
       <!-- Local Model Settings -->
@@ -804,14 +935,14 @@
       </div>
 
       <!-- Cache & Update Utilities -->
-      <div class="form-group" style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+      <div class="form-group" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.08);">
         <button id="btn-force-refresh" class="secondary-btn">
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           <span>Clear Cache & Reload Latest Version</span>
         </button>
       </div>
 
-      <button id="btn-save-settings" class="action-btn" style="width: 100%; justify-content: center; padding: 12px;">Save & Apply</button>
+      <button id="btn-save-settings" class="action-btn" style="width: 100%; justify-content: center; padding: 11px;">Save & Apply</button>
     </div>
   </div>
 
@@ -822,17 +953,17 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     // Application Version
-    const APP_VERSION = 'v0.1.1';
+    const APP_VERSION = 'v0.1.2';
 
     // Ready Player Me verified public template
     const RPM_DEFAULT_MODEL = 'https://models.readyplayer.me/6460d95f56050f461660ea76.glb';
 
     // Application State
     const AppState = {
-      mode: localStorage.getItem('quest_companion_mode') || 'local', // 'local' or 'gemini'
+      mode: localStorage.getItem('quest_companion_mode') || 'local',
       geminiKey: localStorage.getItem('gemini_api_key') || '',
       localModel: localStorage.getItem('quest_local_model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-      avatarId: localStorage.getItem('quest_avatar_id') || 'nova', // 'nova', 'athena', 'echo', 'nexus', 'rpm_alex', 'custom'
+      avatarId: localStorage.getItem('quest_avatar_id') || 'nova',
       customAvatarUrl: localStorage.getItem('quest_custom_avatar_url') || '',
       isListening: false,
       isThinking: false,
@@ -847,6 +978,7 @@
     // DOM Elements
     const dom = {
       canvasContainer: document.getElementById('canvas-container'),
+      hudOverlay: document.getElementById('hud-overlay'),
       appVersionBadge: document.getElementById('app-version-badge'),
       updateBanner: document.getElementById('update-banner'),
       newVersionText: document.getElementById('new-version-text'),
@@ -885,7 +1017,6 @@
       btnMic: document.getElementById('btn-mic')
     };
 
-    // Display current version
     dom.appVersionBadge.textContent = APP_VERSION;
 
     // -------------------------------------------------------------
@@ -936,27 +1067,27 @@
     let droneThrusters = [];
 
     // -------------------------------------------------------------
-    // 1. Initialize Three.js & WebXR Engine
+    // 1. Initialize Three.js & Adaptive Mobile Framing
     // -------------------------------------------------------------
     function initThree() {
       scene = new THREE.Scene();
       
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-      camera.position.set(0, 1.4, 1.8);
+      const aspect = window.innerWidth / window.innerHeight;
+      camera = new THREE.PerspectiveCamera(58, aspect, 0.1, 100);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Save battery on high-DPI Android phones
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
       renderer.shadowMap.enabled = true;
       dom.canvasContainer.appendChild(renderer.domElement);
 
       controls = new OrbitControls(camera, renderer.domElement);
-      controls.target.set(0, 1.2, 0);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.minDistance = 0.8;
-      controls.maxDistance = 4.0;
+      controls.maxDistance = 4.5;
+      controls.enablePan = false; // Keep avatar centered on phone touch drag
 
       // Lighting
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
@@ -971,7 +1102,6 @@
       rimLight.position.set(-2, 2, -2);
       scene.add(rimLight);
 
-      // Environment grid for desktop preview
       const grid = new THREE.GridHelper(10, 20, 0x6366f1, 0x1e293b);
       grid.position.y = 0;
       grid.name = 'preview-grid';
@@ -980,10 +1110,55 @@
       scene.add(avatarGroup);
       buildAvatar(AppState.avatarId);
 
+      // Set initial responsive camera framing
+      updateCameraFraming();
+
       checkWebXR();
 
       window.addEventListener('resize', onWindowResize);
+      window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 150));
+
+      // Handle mobile keyboard resizing
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleVisualViewportResize);
+      }
+
       renderer.setAnimationLoop(renderLoop);
+    }
+
+    function updateCameraFraming() {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const aspect = width / height;
+      camera.aspect = aspect;
+
+      if (aspect < 0.85) {
+        // Vertical / Portrait Phone (e.g. Android phone held upright)
+        // Zoom back and frame avatar perfectly between top bar and bottom input deck
+        camera.position.set(0, 1.25, 2.7);
+        controls.target.set(0, 1.05, 0);
+      } else if (aspect < 1.3) {
+        // Square or Tablet
+        camera.position.set(0, 1.25, 2.2);
+        controls.target.set(0, 1.15, 0);
+      } else {
+        // Landscape Phone / Desktop / Quest 3 VR
+        camera.position.set(0, 1.3, 1.8);
+        controls.target.set(0, 1.2, 0);
+      }
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    function onWindowResize() {
+      updateCameraFraming();
+    }
+
+    function handleVisualViewportResize() {
+      if (window.visualViewport) {
+        // Keep HUD overlay docked precisely above on-screen keyboard
+        dom.hudOverlay.style.height = `${window.visualViewport.height}px`;
+      }
     }
 
     function checkWebXR() {
@@ -991,18 +1166,18 @@
         navigator.xr.isSessionSupported('immersive-ar').then(supported => {
           if (supported) {
             dom.xrButton.style.display = 'flex';
-            dom.xrLabel.textContent = 'Enter AR (Passthrough)';
+            dom.xrLabel.textContent = 'AR';
             dom.xrButton.onclick = () => toggleXRSession('immersive-ar');
           } else {
             navigator.xr.isSessionSupported('immersive-vr').then(vrSupported => {
               if (vrSupported) {
                 dom.xrButton.style.display = 'flex';
-                dom.xrLabel.textContent = 'Enter VR';
+                dom.xrLabel.textContent = 'VR';
                 dom.xrButton.onclick = () => toggleXRSession('immersive-vr');
               }
             });
           }
-        });
+        }).catch(() => {});
       }
     }
 
@@ -1016,25 +1191,19 @@
         const session = await navigator.xr.requestSession(mode, sessionInit);
         renderer.xr.setSession(session);
         currentXRSession = session;
-        dom.xrLabel.textContent = 'Exit XR';
+        dom.xrLabel.textContent = 'Exit';
 
         const grid = scene.getObjectByName('preview-grid');
         if (grid) grid.visible = (mode !== 'immersive-ar');
 
         session.addEventListener('end', () => {
           currentXRSession = null;
-          dom.xrLabel.textContent = mode === 'immersive-ar' ? 'Enter AR (Passthrough)' : 'Enter VR';
+          dom.xrLabel.textContent = 'AR';
           if (grid) grid.visible = true;
         });
       } else {
         currentXRSession.end();
       }
-    }
-
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
     // -------------------------------------------------------------
@@ -1138,7 +1307,6 @@
       const matGold = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.95 });
       const matVisor = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
 
-      // Torso with gold chestplate
       const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.16, 0.65, 16), matArmor);
       torso.position.y = 0.8;
       avatarGroup.add(torso);
@@ -1155,20 +1323,17 @@
       headGroup.name = 'avatar-head';
       headGroup.position.set(0, 1.3, 0);
 
-      // Helm
       const helmGeo = new THREE.SphereGeometry(0.18, 32, 32);
       helmGeo.scale(0.88, 1.15, 0.92);
       const helm = new THREE.Mesh(helmGeo, matArmor);
       headGroup.add(helm);
 
-      // Curved Visor
       const visorGeo = new THREE.CylinderGeometry(0.165, 0.165, 0.05, 16, 1, false, 0, Math.PI);
       const visor = new THREE.Mesh(visorGeo, matVisor);
       visor.position.set(0, 0.03, 0.08);
       visor.rotation.y = Math.PI / 2;
       headGroup.add(visor);
 
-      // Glowing Gold Visor Eyes
       const eyeGeo = new THREE.BoxGeometry(0.04, 0.015, 0.01);
       eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
       eyeLeft.position.set(-0.055, 0.03, 0.165);
@@ -1178,13 +1343,11 @@
       eyeRight.position.set(0.055, 0.03, 0.165);
       headGroup.add(eyeRight);
 
-      // Gold Mouth Bar
       const mouthGeo = new THREE.BoxGeometry(0.065, 0.015, 0.01);
       mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
       mouthMesh.position.set(0, -0.07, 0.165);
       headGroup.add(mouthMesh);
 
-      // Golden floating crown halo
       const haloGeo = new THREE.TorusGeometry(0.24, 0.012, 16, 32);
       const halo = new THREE.Mesh(haloGeo, matVisor);
       halo.rotation.x = Math.PI / 2;
@@ -1204,12 +1367,10 @@
       headGroup.name = 'avatar-head';
       headGroup.position.set(0, 1.25, 0);
 
-      // Sphere Body
       const sphereGeo = new THREE.SphereGeometry(0.26, 32, 32);
       const chassis = new THREE.Mesh(sphereGeo, matChassis);
       headGroup.add(chassis);
 
-      // Curved Face Screen
       const screenGeo = new THREE.SphereGeometry(0.25, 32, 16, 0, Math.PI, 0, Math.PI / 2);
       screenGeo.scale(0.85, 0.7, 0.85);
       const screenMesh = new THREE.Mesh(screenGeo, matScreen);
@@ -1217,7 +1378,6 @@
       screenMesh.rotation.x = Math.PI / 2;
       headGroup.add(screenMesh);
 
-      // Digital Expressive Eyes
       const eyeGeo = new THREE.RingGeometry(0.02, 0.045, 16);
       eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
       eyeLeft.position.set(-0.08, 0.03, 0.255);
@@ -1227,13 +1387,11 @@
       eyeRight.position.set(0.08, 0.03, 0.255);
       headGroup.add(eyeRight);
 
-      // Soundwave Mouth
       const mouthGeo = new THREE.BoxGeometry(0.08, 0.018, 0.01);
       mouthMesh = new THREE.Mesh(mouthGeo, matGlow);
       mouthMesh.position.set(0, -0.07, 0.255);
       headGroup.add(mouthMesh);
 
-      // Thruster pods
       const thrusterLeft = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.02, 16, 32), matGlow);
       thrusterLeft.position.set(-0.32, 0, 0);
       thrusterLeft.rotation.y = Math.PI / 2;
@@ -1246,7 +1404,6 @@
       headGroup.add(thrusterRight);
       droneThrusters.push(thrusterRight);
 
-      // Floating energy ring below
       const ringGeo = new THREE.RingGeometry(0.2, 0.28, 32);
       const ring = new THREE.Mesh(ringGeo, matGlow);
       ring.rotation.x = -Math.PI / 2;
@@ -1272,17 +1429,14 @@
       headGroup.name = 'avatar-head';
       headGroup.position.set(0, 1.25, 0);
 
-      // Outer Icosahedron
       const outerGeo = new THREE.IcosahedronGeometry(0.24, 1);
       const outer = new THREE.Mesh(outerGeo, matHolo);
       headGroup.add(outer);
 
-      // Glowing Inner Core
       const coreGeo = new THREE.OctahedronGeometry(0.12);
       const core = new THREE.Mesh(coreGeo, matCore);
       headGroup.add(core);
 
-      // Floating Eyes
       const eyeGeo = new THREE.SphereGeometry(0.025, 16, 16);
       eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
       eyeLeft.position.set(-0.065, 0.03, 0.18);
@@ -1292,7 +1446,6 @@
       eyeRight.position.set(0.065, 0.03, 0.18);
       headGroup.add(eyeRight);
 
-      // Audio-reactive mouth bar
       const mouthGeo = new THREE.BoxGeometry(0.07, 0.015, 0.01);
       mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xec4899 }));
       mouthMesh.position.set(0, -0.06, 0.18);
@@ -1335,7 +1488,6 @@
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
-      // Subtle breathing motion or drone hovering
       if (AppState.avatarId === 'echo') {
         avatarGroup.position.y = Math.sin(elapsed * 2.5) * 0.04;
         droneThrusters.forEach((t, i) => {
@@ -1345,13 +1497,11 @@
         avatarGroup.position.y = Math.sin(elapsed * 1.5) * 0.015;
       }
 
-      // Head look-at user camera
       const head = avatarGroup.getObjectByName('avatar-head');
       if (head) {
         head.lookAt(camera.position.x, camera.position.y, camera.position.z);
       }
 
-      // Procedural mouth animation while speaking
       if (AppState.isSpeaking) {
         const mouthOpenness = Math.abs(Math.sin(elapsed * 18)) * 0.04 + Math.sin(elapsed * 10) * 0.02;
         if (mouthMesh) {
@@ -1372,7 +1522,6 @@
         }
       }
 
-      // Blinking
       blinkTimer += delta;
       if (blinkTimer > 3.5) {
         if (eyeLeft && eyeRight) {
@@ -1442,6 +1591,7 @@
       if (!userText || !userText.trim()) return;
       userText = userText.trim();
       dom.promptInput.value = '';
+      dom.promptInput.blur(); // Dismiss Android virtual keyboard
 
       updateStatus('Thinking...', 'thinking');
       dom.speechText.textContent = `You: "${userText}"\n\nThinking...`;
@@ -1471,7 +1621,7 @@
       
       const payload = {
         systemInstruction: {
-          parts: [{ text: "You are an intelligent, empathetic 3D virtual companion speaking directly to the user in Mixed Reality on a Meta Quest 3 headset. Respond concisely and naturally in spoken conversational style (usually 1-3 sentences). Avoid markdown formatting, asterisks, bullet points, or unpronounceable characters because your reply will be read out loud." }]
+          parts: [{ text: "You are an intelligent, empathetic 3D virtual companion speaking directly to the user on their phone or VR headset. Respond concisely and naturally in spoken conversational style (usually 1-3 sentences). Avoid markdown formatting, asterisks, bullet points, or unpronounceable characters because your reply will be read out loud." }]
         },
         contents: [
           { role: "user", parts: [{ text: prompt }] }
@@ -1501,7 +1651,7 @@
       }
 
       const messages = [
-        { role: "system", content: "You are a friendly 3D companion avatar speaking to the user on Meta Quest 3. Keep responses natural, warm, and brief (1-3 sentences) suitable for spoken speech." },
+        { role: "system", content: "You are a friendly 3D companion avatar speaking to the user. Keep responses natural, warm, and brief (1-3 sentences) suitable for spoken speech." },
         { role: "user", content: prompt }
       ];
 
@@ -1552,7 +1702,7 @@
     }
 
     // -------------------------------------------------------------
-    // 6. Voice Input (Microphone)
+    // 6. Voice Input (Microphone on Android & Quest)
     // -------------------------------------------------------------
     let recognition = null;
     function initSpeechRecognition() {
@@ -1591,7 +1741,7 @@
 
     function toggleListening() {
       if (!recognition) {
-        alert('Voice recognition is not supported directly in this browser. Please type your message or use the Meta Quest keyboard microphone dictation key!');
+        alert('Voice recognition is not supported directly in this browser. Please type your message or use the phone keyboard microphone dictation key!');
         dom.promptInput.focus();
         return;
       }
@@ -1641,7 +1791,7 @@
         dom.geminiConfig.style.display = 'flex';
         dom.localConfig.style.display = 'none';
         dom.engineBadge.className = 'engine-badge gemini';
-        dom.engineBadge.textContent = '☁️ Google Gemini';
+        dom.engineBadge.textContent = '☁️ Gemini';
         dom.engineHint.innerHTML = '<b>Google Gemini:</b> Uses cloud AI with Gemini 2.5 Flash for rapid, intelligent answers. Requires free API key.';
       } else {
         dom.switchLocal.classList.add('active');
@@ -1649,12 +1799,11 @@
         dom.geminiConfig.style.display = 'none';
         dom.localConfig.style.display = 'flex';
         dom.engineBadge.className = 'engine-badge local';
-        dom.engineBadge.textContent = '🏠 Local WebLLM';
+        dom.engineBadge.textContent = '🏠 Local';
         dom.engineHint.innerHTML = '<b>Local WebLLM:</b> Runs directly on your device via WebGPU. 100% private, zero API keys, zero authentication required.';
       }
     }
 
-    // Avatar Selection UI
     function updateAvatarUI() {
       document.querySelectorAll('.avatar-card').forEach(card => {
         if (card.dataset.avatarId === AppState.avatarId) {
@@ -1696,7 +1845,6 @@
       dom.modalAvatars.classList.remove('open');
     };
 
-    // Main Control Bindings
     dom.btnSend.onclick = () => sendPrompt(dom.promptInput.value);
     dom.promptInput.onkeydown = (e) => {
       if (e.key === 'Enter') sendPrompt(dom.promptInput.value);
