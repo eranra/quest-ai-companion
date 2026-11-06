@@ -13,7 +13,7 @@ import {
   setLiveMode
 } from './audio.js';
 
-const APP_VERSION = 'v0.1.7';
+const APP_VERSION = 'v0.1.8';
 let latestDetectedVersion = null;
 
 // DOM References
@@ -46,6 +46,7 @@ const dom = {
   cfgEngineSelect: document.getElementById('cfg-engine-select'),
   cfgLocalModel: document.getElementById('cfg-local-model'),
   cfgLiveSensitivity: document.getElementById('cfg-live-sensitivity'),
+  cfgEchoGuard: document.getElementById('cfg-echo-guard'),
   groupLocalModel: document.getElementById('group-local-model'),
   groupGemini: document.getElementById('group-gemini'),
   btnTestGemini: document.getElementById('btn-test-gemini'),
@@ -397,6 +398,7 @@ function initApp() {
     dom.cfgEngineSelect.value = AppState.engine;
     dom.cfgLocalModel.value = AppState.localModel;
     dom.cfgLiveSensitivity.value = AppState.liveSensitivity || 'normal';
+    dom.cfgEchoGuard.value = AppState.echoGuardMode || 'smart';
     dom.sliderScale.value = AppState.avatarScale;
     dom.sliderDist.value = AppState.avatarDistance;
     dom.valScale.textContent = `${AppState.avatarScale.toFixed(2)}x`;
@@ -481,6 +483,7 @@ function initApp() {
     AppState.engine = dom.cfgEngineSelect.value;
     AppState.localModel = dom.cfgLocalModel.value;
     AppState.liveSensitivity = dom.cfgLiveSensitivity.value;
+    AppState.echoGuardMode = dom.cfgEchoGuard.value;
     localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
     AppState.save();
     

@@ -12,12 +12,14 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
 
 ## ✨ Features
 
-- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (Updated in v0.1.7):**
+- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (Updated in v0.1.8):**
+  - **🧠 Smart Anti-Self-Echo Cancellation (New in v0.1.8):** Solves the acoustic loopback problem where the device microphone hears the avatar's loudspeaker speech and falsely treats it as user input. Real-time lexical overlap filtering and acoustic tail dampening ensure the avatar never converses with or interrupts itself.
+  - **🔇 Strict Half-Duplex Option (New in v0.1.8):** An optional 100% echo-proof mode in ⚙️ Settings that automatically mutes the microphone while the assistant speaks, and un-mutes once finished.
   - **Configurable Voice Sensitivity / Noise Filter:** Adjust mic sensitivity in ⚙️ Settings (High Noise Filter, Balanced Default, High Sensitivity) to prevent room noise, breaths, or small sounds from falsely interrupting the avatar.
   - **Always-Listening Mode:** Speak naturally without pressing buttons. Detects speech pauses, sends queries, and speaks the reply back.
-  - **Barge-In Speech Interruption:** If you speak meaningful words while the avatar is talking, it immediately cuts off mid-sentence, aborts generation, and listens to you.
+  - **Barge-In Speech Interruption:** If you speak meaningful words while the avatar is talking (e.g. "stop", "wait", "hold on"), it immediately cuts off mid-sentence, aborts generation, and listens to you.
 - **📱 Android Phone & Meta Quest 3 Optimized:**
-  - **Mobile-Responsive Top Bar (New in v0.1.7):** Re-engineered top dock to fit compact mobile phone displays without buttons or the ⚙️ Settings icon overflowing off-screen.
+  - **Mobile-Responsive Top Bar:** Re-engineered top dock to fit compact mobile phone displays without buttons or the ⚙️ Settings icon overflowing off-screen.
   - **Vertical / Portrait Mode:** Automatically zooms and frames the 3D avatar between the top bar and bottom input dock with safe-area insets.
   - **Horizontal / Landscape Mode:** Re-positions the speech bubble and compacts the UI so the avatar remains fully visible and unobstructed.
   - **Virtual Keyboard Resizing:** Connects to `visualViewport` so opening the mobile keyboard keeps the input bar cleanly docked.

@@ -1,6 +1,6 @@
 {
-  "version": "v0.1.7",
-  "build": 8,
-  "released_at": "2026-11-06T20:35:00Z",
-  "changelog": "v0.1.7: Increase Live Mode noise threshold to prevent false triggers, add configurable Live Voice Sensitivity / Noise Filter in Settings, and optimize top bar layout for mobile devices so Settings button is never cut off."
+  "version": "v0.1.8",
+  "build": 9,
+  "released_at": "2026-11-06T20:50:00Z",
+  "changelog": "v0.1.8: Smart Anti-Self-Echo cancellation in Live Mode (filters assistant loudspeaker output from mic, prevents self-talking loops while allowing real user barge-in interruptions), configurable Echo Guard (Smart AEC vs Strict Half-Duplex), and optimized mobile dock layout."
 }

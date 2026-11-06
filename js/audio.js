@@ -11,6 +11,40 @@ let onSpeechInterimCallback = null;
 let onStatusChangeCallback = null;
 let audioCtx = null;
 
+// Self-Speech Echo Cancellation & Filtering
+let activeSpokenText = '';
+let activeSpokenWords = [];
+let echoCooldownUntil = 0;
+
+export function isSelfEcho(transcript) {
+  if (AppState.echoGuardMode === 'off') return false;
+  if (!activeSpokenText && activeSpokenWords.length === 0) return false;
+  if (!transcript || !transcript.trim()) return true;
+
+  const candidateNorm = transcript.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+  const candidateWords = candidateNorm.split(/\s+/).filter(w => w.length > 1);
+  if (candidateWords.length === 0) return true;
+
+  const spokenNorm = activeSpokenText.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+
+  // 1. Direct substring match (mic catches partial or full assistant phrase)
+  if (candidateNorm.length > 3 && spokenNorm.includes(candidateNorm)) {
+    return true;
+  }
+
+  // 2. Lexical word overlap check
+  let matches = 0;
+  for (const word of candidateWords) {
+    if (activeSpokenWords.includes(word)) {
+      matches++;
+    }
+  }
+
+  const overlap = matches / candidateWords.length;
+  // If 40% or more of words match what the assistant is speaking, it's speaker bleed
+  return overlap >= 0.40;
+}
+
 // Unlocks browser Web Audio & Speech Synthesis autoplay restrictions on Mobile & Quest
 export function unlockAudio() {
   try {
@@ -47,6 +81,8 @@ export function stopSpeaking() {
   }
   AppState.isSpeaking = false;
   activeUtterance = null;
+  activeSpokenText = '';
+  activeSpokenWords = [];
 }
 
 export function speakReply(text, onComplete) {
@@ -56,8 +92,24 @@ export function speakReply(text, onComplete) {
     return;
   }
 
+  // Register spoken words for Anti-Self-Echo cancellation
+  activeSpokenText = cleanText;
+  activeSpokenWords = cleanText.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+
   unlockAudio();
   stopSpeaking();
+
+  // Re-assign after stopSpeaking cleared them
+  activeSpokenText = cleanText;
+  activeSpokenWords = cleanText.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+
+  // If strict half-duplex is enabled, pause speech recognition while speaking
+  if (AppState.echoGuardMode === 'half_duplex') {
+    if (recognition) {
+      try { recognition.abort(); } catch(e) {}
+    }
+    AppState.isListening = false;
+  }
 
   if (!('speechSynthesis' in window)) {
     console.warn('SpeechSynthesis not available');
@@ -99,6 +151,16 @@ export function speakReply(text, onComplete) {
     utterance.onend = () => {
       AppState.isSpeaking = false;
       activeUtterance = null;
+      echoCooldownUntil = Date.now() + 850; // 850ms acoustic tail protection
+
+      if (AppState.echoGuardMode === 'half_duplex') {
+        setTimeout(() => {
+          if (AppState.isLiveMode && !AppState.isSpeaking) {
+            startListening();
+          }
+        }, 300);
+      }
+
       if (onStatusChangeCallback) {
         onStatusChangeCallback(AppState.isLiveMode ? 'Listening (Live)...' : 'Ready', AppState.isLiveMode ? 'listening' : '');
       }
@@ -109,6 +171,7 @@ export function speakReply(text, onComplete) {
       console.warn('TTS error:', e);
       AppState.isSpeaking = false;
       activeUtterance = null;
+      echoCooldownUntil = Date.now() + 500;
       if (onStatusChangeCallback) onStatusChangeCallback('Ready', '');
       if (onComplete) onComplete();
     };
@@ -160,6 +223,16 @@ export function initSpeechRecognition(handlers) {
     currentTranscript = (final || interim).trim();
     if (!currentTranscript) return;
 
+    // ANTI-SELF-ECHO FILTER:
+    // If assistant is speaking or recently finished, check if the mic is hearing its own voice!
+    const isAssistantTalking = AppState.isSpeaking || AppState.isGenerating || Date.now() < echoCooldownUntil;
+    if (isAssistantTalking && isSelfEcho(currentTranscript)) {
+      // Discard loopback audio from device speakers
+      currentTranscript = '';
+      if (silenceTimer) clearTimeout(silenceTimer);
+      return;
+    }
+
     // Configurable Sensitivity Threshold (filters background noise, breaths, clicks)
     const sensitivity = AppState.liveSensitivity || 'normal';
     let minBargeInChars = 5;
@@ -179,10 +252,10 @@ export function initSpeechRecognition(handlers) {
     const words = currentTranscript.split(/\s+/).filter(w => w.length > 0);
 
     // BARGE-IN INTERRUPTION (Gemini Live Behavior):
-    // Only interrupt if the user speaks clear words/sentence (not background noise, sniffle, or click)
+    // Only interrupt if the user speaks clear words that are NOT the assistant's own voice
     if (AppState.isSpeaking || AppState.isGenerating) {
-      const isRealSpeech = currentTranscript.length >= minBargeInChars || words.length >= 2;
-      if (isRealSpeech) {
+      const isRealUserSpeech = (currentTranscript.length >= minBargeInChars || words.length >= 2) && !isSelfEcho(currentTranscript);
+      if (isRealUserSpeech) {
         stopSpeaking();
         abortActiveGeneration();
         AppState.isListening = true;
@@ -190,7 +263,7 @@ export function initSpeechRecognition(handlers) {
           onStatusChangeCallback('Listening to you...', 'listening');
         }
       } else {
-        // Ignore small noise/breath while avatar is speaking
+        // Ignore loopback or tiny breath
         return;
       }
     }
@@ -199,12 +272,17 @@ export function initSpeechRecognition(handlers) {
       onSpeechInterimCallback(currentTranscript);
     }
 
-    // Silence detection: when user pauses, finalize if speech meets minimum threshold
+    // Silence detection: when user pauses, finalize if speech meets minimum threshold and is not echo
     if (silenceTimer) clearTimeout(silenceTimer);
     silenceTimer = setTimeout(() => {
       const candidate = currentTranscript.trim();
       const candidateWords = candidate.split(/\s+/).filter(w => w.length > 0);
       if (candidate.length >= minFinalChars && candidateWords.length >= 1) {
+        // Final guard against trailing echo
+        if (isSelfEcho(candidate)) {
+          currentTranscript = '';
+          return;
+        }
         currentTranscript = '';
         if (onSpeechFinishedCallback) {
           onSpeechFinishedCallback(candidate);
@@ -275,3 +353,4 @@ export function setLiveMode(enabled) {
     stopListening();
   }
 }
+

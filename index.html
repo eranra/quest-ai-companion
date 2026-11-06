@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.1.7">
+  <link rel="stylesheet" href="css/styles.css?v=0.1.8">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.7</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.8</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -291,6 +291,17 @@
         <p class="help-hint">Controls how distinct your speech must be before interrupting the avatar.</p>
       </div>
 
+      <!-- Speaker Echo Guard (Anti-Self-Hearing) -->
+      <div class="form-group">
+        <label class="form-label">Speaker Echo Guard (Anti-Self-Hearing)</label>
+        <select id="cfg-echo-guard" class="form-input">
+          <option value="smart" selected>🧠 Smart AEC (Filters out assistant's voice, allows barge-in)</option>
+          <option value="half_duplex">🔇 Strict Half-Duplex (Pauses mic while assistant speaks - 100% echo proof)</option>
+          <option value="off">Off (Raw microphone)</option>
+        </select>
+        <p class="help-hint">Prevents the phone or Quest microphone from hearing the assistant's own loudspeaker responses.</p>
+      </div>
+
       <!-- Voice Selection -->
       <div class="form-group">
         <label class="form-label">Speech Synthesis Voice</label>
@@ -302,7 +313,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.1.7"></script>
+  <script type="module" src="js/app.js?v=0.1.8"></script>
 
 </body>
 </html>
