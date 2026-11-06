@@ -6,14 +6,14 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Quest AI Companion | 3D Speaking Avatar</title>
+  <title>Quest AI Companion | Full-Body 3D Avatars</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#090d16">
-  <meta name="description" content="Interactive 3D voice AI companion with synchronized lip-sync and text-to-speech for Meta Quest 3 and Android phones.">
+  <meta name="description" content="Expressive full-body 3D AI companion with conversational body language, animated eyes, and synchronized speech.">
   <style>
     :root {
       --bg: #090d16;
-      --panel: rgba(18, 24, 38, 0.82);
+      --panel: rgba(18, 24, 38, 0.85);
       --panel-border: rgba(99, 102, 241, 0.3);
       --accent: #6366f1;
       --accent-glow: rgba(99, 102, 241, 0.4);
@@ -462,7 +462,7 @@
       border: 1px solid var(--panel-border);
       border-radius: 20px;
       width: 100%;
-      max-width: 480px;
+      max-width: 500px;
       padding: 20px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
       display: flex;
@@ -580,11 +580,20 @@
     }
 
     /* Avatar Grid Gallery */
+    .avatar-category-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #818cf8;
+      margin-top: 6px;
+      margin-bottom: 2px;
+    }
+
     .avatar-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 10px;
-      margin-top: 4px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
     }
 
     .avatar-card {
@@ -593,12 +602,11 @@
       border-radius: 12px;
       padding: 10px 8px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
       cursor: pointer;
       transition: all 0.2s ease;
-      text-align: center;
+      text-align: left;
     }
 
     .avatar-card:hover, .avatar-card:active {
@@ -613,8 +621,8 @@
     }
 
     .avatar-icon-circle {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -622,18 +630,30 @@
       font-size: 18px;
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid rgba(255, 255, 255, 0.2);
+      flex-shrink: 0;
+    }
+
+    .avatar-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
     }
 
     .avatar-name {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       color: var(--text);
+      white-space: nowrap;
     }
 
     .avatar-desc {
       font-size: 10px;
       color: var(--text-muted);
       line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /* Responsive Queries */
@@ -649,6 +669,7 @@
       .action-btn svg { margin: 0; }
       #xr-label { display: none; }
       #xr-button { padding: 8px; border-radius: 50%; width: 38px; height: 38px; justify-content: center; }
+      .avatar-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-height: 520px) and (orientation: landscape) {
@@ -671,7 +692,7 @@
       .input-bar { padding: 4px 6px; }
       .prompt-input { padding: 4px 8px; }
       .modal { max-height: 94vh; padding: 14px; gap: 10px; }
-      .avatar-grid { grid-template-columns: repeat(3, 1fr); }
+      .avatar-grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 
@@ -689,7 +710,7 @@
 
   <!-- Live Update Banner -->
   <div id="update-banner">
-    <span class="update-banner-text">🚀 New update available (<span id="new-version-text">v0.1.3</span>)!</span>
+    <span class="update-banner-text">🚀 New update available (<span id="new-version-text">v0.1.4</span>)!</span>
     <button id="btn-apply-update" class="update-btn">Update & Reload</button>
   </div>
 
@@ -704,12 +725,12 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.3</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.4</div>
         <div id="engine-badge" class="engine-badge local">🏠 Local</div>
       </div>
 
       <div class="top-controls">
-        <button id="btn-avatars" class="icon-btn" title="Change Avatar">
+        <button id="btn-avatars" class="icon-btn" title="Choose Avatar">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
         </button>
 
@@ -732,7 +753,7 @@
           <span id="state-text">Ready</span>
         </div>
         <div id="speech-text" class="speech-text">
-          Hi Eran! I'm your AI Companion. Tap the microphone below or choose a question, and I will speak back to you!
+          Hi Eran! I'm your AI Companion. Tap the microphone or choose a question below, and watch me listen and speak!
         </div>
       </div>
     </div>
@@ -742,7 +763,7 @@
       <!-- Suggestion chips -->
       <div class="suggestion-chips">
         <button class="chip" data-query="Introduce yourself out loud in 2 sentences.">👋 Who are you?</button>
-        <button class="chip" data-query="What can you do on Meta Quest and Android?">📱 What can you do?</button>
+        <button class="chip" data-query="How do you express feelings when talking?">🎭 Body language?</button>
         <button class="chip" data-query="Tell me an interesting science fact.">🧠 Interesting fact</button>
         <button class="chip" data-query="Give me a quick 1-minute mindfulness tip.">🧘 Mindfulness</button>
       </div>
@@ -762,7 +783,7 @@
 
   </div>
 
-  <!-- Avatar Selector Modal -->
+  <!-- Avatar Selector Modal (6 Curated Avatars) -->
   <div id="modal-avatars" class="modal-backdrop">
     <div class="modal">
       <div class="modal-header">
@@ -770,50 +791,64 @@
         <button id="btn-close-avatars" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
       </div>
 
-      <p class="help-hint">Select a 3D avatar companion to project into your space:</p>
-
+      <!-- Category 1: Sci-Fi Companions -->
+      <div class="avatar-category-title">🛸 Graphical Companions</div>
       <div class="avatar-grid">
-        <div class="avatar-card active" data-avatar-id="nova">
-          <div class="avatar-icon-circle" style="color: #6366f1;">🤖</div>
-          <div class="avatar-name">Nova</div>
-          <div class="avatar-desc">Cyber Android (Articulated Jaw)</div>
-        </div>
-
-        <div class="avatar-card" data-avatar-id="athena">
-          <div class="avatar-icon-circle" style="color: #f59e0b;">👑</div>
-          <div class="avatar-name">Athena</div>
-          <div class="avatar-desc">Gold Vanguard (Gold Visor)</div>
-        </div>
-
-        <div class="avatar-card" data-avatar-id="echo">
+        <div class="avatar-card active" data-avatar-id="echo">
           <div class="avatar-icon-circle" style="color: #10b981;">🛸</div>
-          <div class="avatar-name">Echo</div>
-          <div class="avatar-desc">Floating Drone (Audio Equalizer)</div>
+          <div class="avatar-info">
+            <div class="avatar-name">Echo</div>
+            <div class="avatar-desc">Hovering drone with digital equalizer</div>
+          </div>
         </div>
 
-        <div class="avatar-card" data-avatar-id="nexus">
-          <div class="avatar-icon-circle" style="color: #ec4899;">🔮</div>
-          <div class="avatar-name">Nexus</div>
-          <div class="avatar-desc">Holo Matrix (Pulsing Core)</div>
-        </div>
-
-        <div class="avatar-card" data-avatar-id="rpm_alex">
-          <div class="avatar-icon-circle" style="color: #38bdf8;">🧑</div>
-          <div class="avatar-name">Alex</div>
-          <div class="avatar-desc">Humanoid (Ready Player Me)</div>
-        </div>
-
-        <div class="avatar-card" data-avatar-id="custom">
-          <div class="avatar-icon-circle" style="color: #a855f7;">🌐</div>
-          <div class="avatar-name">Custom URL</div>
-          <div class="avatar-desc">Custom .glb 3D Model</div>
+        <div class="avatar-card" data-avatar-id="spark">
+          <div class="avatar-icon-circle" style="color: #06b6d4;">🤖</div>
+          <div class="avatar-info">
+            <div class="avatar-name">Spark</div>
+            <div class="avatar-desc">Cute bot with gesturing arms & iris lenses</div>
+          </div>
         </div>
       </div>
 
-      <div id="custom-avatar-box" class="form-group" style="display: none; margin-top: 6px;">
-        <label class="form-label">Custom Avatar GLB Link</label>
-        <input id="cfg-custom-avatar-url" type="text" class="form-input" placeholder="https://models.readyplayer.me/....glb">
-        <p class="help-hint">Paste any public `.glb` link from Ready Player Me or Sketchfab.</p>
+      <!-- Category 2: 3D Cartoons with Full Body, Arms, Legs -->
+      <div class="avatar-category-title">🎨 3D Cartoon Characters (Full Body)</div>
+      <div class="avatar-grid">
+        <div class="avatar-card" data-avatar-id="pip">
+          <div class="avatar-icon-circle" style="color: #f59e0b;">🧸</div>
+          <div class="avatar-info">
+            <div class="avatar-name">Pip</div>
+            <div class="avatar-desc">3D cartoon chibi with arms, legs & big eyes</div>
+          </div>
+        </div>
+
+        <div class="avatar-card" data-avatar-id="ollie">
+          <div class="avatar-icon-circle" style="color: #ec4899;">🚀</div>
+          <div class="avatar-info">
+            <div class="avatar-name">Ollie</div>
+            <div class="avatar-desc">Friendly retro cartoon bot with full limbs</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category 3: Humanoid Avatars with Full Body, Arms, Legs -->
+      <div class="avatar-category-title">🧑 Humanoid Avatars (Full Body)</div>
+      <div class="avatar-grid">
+        <div class="avatar-card" data-avatar-id="maya">
+          <div class="avatar-icon-circle" style="color: #a855f7;">👩</div>
+          <div class="avatar-info">
+            <div class="avatar-name">Maya (Female)</div>
+            <div class="avatar-desc">Human proportions, expressive eyes & limbs</div>
+          </div>
+        </div>
+
+        <div class="avatar-card" data-avatar-id="alex">
+          <div class="avatar-icon-circle" style="color: #3b82f6;">👨</div>
+          <div class="avatar-info">
+            <div class="avatar-name">Alex (Male)</div>
+            <div class="avatar-desc">Human proportions, conversational gestures</div>
+          </div>
+        </div>
       </div>
 
       <button id="btn-confirm-avatar" class="action-btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 6px;">Select Avatar</button>
@@ -830,10 +865,10 @@
 
       <!-- Test Voice Button -->
       <div class="form-group" style="background: rgba(99, 102, 241, 0.15); padding: 10px; border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
-        <label class="form-label" style="color: #c7d2fe;">🔊 Voice & Audio Check</label>
-        <p class="help-hint">Tap below to test hearing the avatar speak and watch its mouth move:</p>
+        <label class="form-label" style="color: #c7d2fe;">🔊 Voice & Body Language Check</label>
+        <p class="help-hint">Tap below to test hearing the avatar speak and watch its full-body gestures:</p>
         <button id="btn-test-voice" class="action-btn" style="margin-top: 6px; align-self: flex-start; padding: 7px 16px; font-size: 12px; background: #10b981;">
-          <span>▶️ Test Avatar Voice & Mouth</span>
+          <span>▶️ Test Speech & Body Motion</span>
         </button>
       </div>
 
@@ -894,31 +929,23 @@
   <!-- Main WebXR & AI Application Script -->
   <script type="module">
     import * as THREE from 'three';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     // Application Version
-    const APP_VERSION = 'v0.1.3';
-
-    // Ready Player Me verified public template
-    const RPM_DEFAULT_MODEL = 'https://models.readyplayer.me/6460d95f56050f461660ea76.glb';
+    const APP_VERSION = 'v0.1.4';
 
     // Application State
     const AppState = {
       mode: localStorage.getItem('quest_companion_mode') || 'local',
       geminiKey: localStorage.getItem('gemini_api_key') || '',
       localModel: localStorage.getItem('quest_local_model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-      avatarId: localStorage.getItem('quest_avatar_id') || 'nova',
-      customAvatarUrl: localStorage.getItem('quest_custom_avatar_url') || '',
+      avatarId: localStorage.getItem('quest_avatar_id') || 'echo', // Default to Echo as requested!
       selectedVoiceName: localStorage.getItem('quest_voice_name') || '',
       isListening: false,
       isThinking: false,
       isSpeaking: false,
       webllmEngine: null,
-      webllmLoading: false,
-      avatar: null,
-      visemeMesh: null,
-      blendshapes: {}
+      webllmLoading: false
     };
 
     // DOM Elements
@@ -938,8 +965,6 @@
       modalAvatars: document.getElementById('modal-avatars'),
       btnCloseAvatars: document.getElementById('btn-close-avatars'),
       btnConfirmAvatar: document.getElementById('btn-confirm-avatar'),
-      customAvatarBox: document.getElementById('custom-avatar-box'),
-      cfgCustomAvatarUrl: document.getElementById('cfg-custom-avatar-url'),
       btnSettings: document.getElementById('btn-settings'),
       modalSettings: document.getElementById('modal-settings'),
       btnCloseSettings: document.getElementById('btn-close-settings'),
@@ -967,14 +992,13 @@
     dom.appVersionBadge.textContent = APP_VERSION;
 
     // -------------------------------------------------------------
-    // Mobile Audio Autoplay Unlocker (Chrome / Android / Quest)
+    // Audio Autoplay Unlocker
     // -------------------------------------------------------------
     let audioUnlocked = false;
     function unlockAudio() {
       if (audioUnlocked) return;
       if ('speechSynthesis' in window) {
         window.speechSynthesis.resume();
-        // Play silent utterance to prime audio subsystem on user gesture
         try {
           const silentUtterance = new SpeechSynthesisUtterance('');
           silentUtterance.volume = 0;
@@ -988,7 +1012,7 @@
     window.addEventListener('touchstart', unlockAudio, { once: true });
 
     // -------------------------------------------------------------
-    // Auto-Update & Cache Busting Engine (Yard Guardian Pattern)
+    // Auto-Update Engine
     // -------------------------------------------------------------
     function forceAppRefresh(targetVersion = APP_VERSION) {
       if ('caches' in window) {
@@ -1007,7 +1031,7 @@
         if (!res.ok) return;
         const data = await res.json();
         if (data && data.version && data.version !== APP_VERSION) {
-          console.log(`[Update Engine] New version found: ${data.version} (current: ${APP_VERSION})`);
+          console.log(`[Update Engine] New version found: ${data.version}`);
           dom.newVersionText.textContent = data.version;
           dom.updateBanner.style.display = 'flex';
           dom.btnApplyUpdate.onclick = () => forceAppRefresh(data.version);
@@ -1029,21 +1053,59 @@
     let scene, camera, renderer, controls;
     let clock = new THREE.Clock();
     let currentXRSession = null;
-    let mouthMesh = null;
-    let jawMesh = null;
-    let eyeLeft = null, eyeRight = null;
     let avatarGroup = new THREE.Group();
-    let droneThrusters = [];
-    let equalizerBars = [];
+
+    // Standardized Avatar Rig for Full-Body Animation
+    const rig = {
+      root: null,
+      hips: null,
+      spine: null,
+      chest: null,
+      neck: null,
+      head: null,
+      jaw: null,
+      mouth: null,
+      eyeLeft: null,
+      eyeRight: null,
+      pupilLeft: null,
+      pupilRight: null,
+      browLeft: null,
+      browRight: null,
+      leftShoulder: null,
+      leftArm: null,
+      leftForearm: null,
+      leftHand: null,
+      rightShoulder: null,
+      rightArm: null,
+      rightForearm: null,
+      rightHand: null,
+      leftThigh: null,
+      leftShin: null,
+      leftFoot: null,
+      rightThigh: null,
+      rightShin: null,
+      rightFoot: null,
+      equalizerBars: [],
+      thrusters: [],
+      isFloating: false
+    };
+
+    function resetRig() {
+      for (const k in rig) {
+        if (Array.isArray(rig[k])) rig[k] = [];
+        else if (typeof rig[k] === 'boolean') rig[k] = false;
+        else rig[k] = null;
+      }
+    }
 
     // -------------------------------------------------------------
-    // 1. Initialize Three.js & Adaptive Mobile Framing
+    // 1. Initialize Three.js & Adaptive Framing
     // -------------------------------------------------------------
     function initThree() {
       scene = new THREE.Scene();
       
       const aspect = window.innerWidth / window.innerHeight;
-      camera = new THREE.PerspectiveCamera(58, aspect, 0.1, 100);
+      camera = new THREE.PerspectiveCamera(54, aspect, 0.1, 100);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -1056,22 +1118,27 @@
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.minDistance = 0.8;
-      controls.maxDistance = 4.5;
+      controls.maxDistance = 5.0;
       controls.enablePan = false;
 
-      // Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+      // Soft studio lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.1);
       scene.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-      dirLight.position.set(2, 4, 3);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+      dirLight.position.set(2.5, 4.5, 3.5);
       dirLight.castShadow = true;
       scene.add(dirLight);
 
-      const rimLight = new THREE.PointLight(0x6366f1, 2.0, 10);
-      rimLight.position.set(-2, 2, -2);
+      const rimLight = new THREE.PointLight(0x6366f1, 2.5, 12);
+      rimLight.position.set(-2, 2.5, -2);
       scene.add(rimLight);
 
+      const fillLight = new THREE.PointLight(0xec4899, 1.2, 8);
+      fillLight.position.set(2, 1, 1.5);
+      scene.add(fillLight);
+
+      // Floor grid for desktop/phone preview
       const grid = new THREE.GridHelper(10, 20, 0x6366f1, 0x1e293b);
       grid.position.y = 0;
       grid.name = 'preview-grid';
@@ -1100,17 +1167,16 @@
       camera.aspect = aspect;
 
       if (aspect < 0.85) {
-        // Vertical Portrait Phone
-        camera.position.set(0, 1.25, 2.7);
-        controls.target.set(0, 1.05, 0);
+        // Vertical Portrait Phone: Frame full body naturally
+        camera.position.set(0, 1.15, 3.1);
+        controls.target.set(0, 0.95, 0);
       } else if (aspect < 1.3) {
-        // Tablet / Square
-        camera.position.set(0, 1.25, 2.2);
-        controls.target.set(0, 1.15, 0);
+        camera.position.set(0, 1.15, 2.6);
+        controls.target.set(0, 1.0, 0);
       } else {
-        // Landscape Phone / Desktop / Quest 3 VR
-        camera.position.set(0, 1.3, 1.8);
-        controls.target.set(0, 1.2, 0);
+        // Landscape / VR
+        camera.position.set(0, 1.2, 2.2);
+        controls.target.set(0, 1.05, 0);
       }
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
@@ -1172,20 +1238,13 @@
     }
 
     // -------------------------------------------------------------
-    // 2. Avatar Construction (With Articulated Jaws & Equalizers)
+    // 2. Full-Body 3D Avatar Creation
     // -------------------------------------------------------------
     function clearAvatarGroup() {
       while(avatarGroup.children.length > 0) {
         avatarGroup.remove(avatarGroup.children[0]);
       }
-      mouthMesh = null;
-      jawMesh = null;
-      eyeLeft = null;
-      eyeRight = null;
-      droneThrusters = [];
-      equalizerBars = [];
-      AppState.visemeMesh = null;
-      AppState.blendshapes = {};
+      resetRig();
     }
 
     function buildAvatar(avatarId) {
@@ -1194,392 +1253,1102 @@
       localStorage.setItem('quest_avatar_id', avatarId);
 
       switch(avatarId) {
-        case 'athena':
-          buildAthenaAvatar();
+        case 'spark':
+          buildSparkDrone();
+          break;
+        case 'pip':
+          buildPipCartoon();
+          break;
+        case 'ollie':
+          buildOllieBot();
+          break;
+        case 'maya':
+          buildMayaHumanoid();
+          break;
+        case 'alex':
+          buildAlexHumanoid();
           break;
         case 'echo':
-          buildEchoDroneAvatar();
-          break;
-        case 'nexus':
-          buildNexusAvatar();
-          break;
-        case 'rpm_alex':
-          loadGLBAvatar(RPM_DEFAULT_MODEL);
-          break;
-        case 'custom':
-          if (AppState.customAvatarUrl) {
-            loadGLBAvatar(AppState.customAvatarUrl);
-          } else {
-            buildNovaAvatar();
-          }
-          break;
-        case 'nova':
         default:
-          buildNovaAvatar();
+          buildEchoDrone();
           break;
       }
     }
 
-    // Avatar 1: Nova (Cyber Android with Articulated Lower Jaw)
-    function buildNovaAvatar() {
-      const matBody = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
-      const matHead = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2, metalness: 0.1 });
-      const matGlow = new THREE.MeshBasicMaterial({ color: 0x6366f1 });
-      const matMouth = new THREE.MeshBasicMaterial({ color: 0xec4899 });
-      const matInnerMouth = new THREE.MeshBasicMaterial({ color: 0x0f172a });
-
-      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.6, 16), matBody);
-      torso.position.y = 0.8;
-      avatarGroup.add(torso);
-
-      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 16), matBody);
-      neck.position.y = 1.15;
-      avatarGroup.add(neck);
-
-      const headGroup = new THREE.Group();
-      headGroup.name = 'avatar-head';
-      headGroup.position.set(0, 1.3, 0);
-
-      // Upper Cranium (stationary relative to head)
-      const craniumGeo = new THREE.SphereGeometry(0.18, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.65);
-      craniumGeo.scale(0.9, 1.1, 0.95);
-      const cranium = new THREE.Mesh(craniumGeo, matHead);
-      headGroup.add(cranium);
-
-      // Inner mouth cavity
-      const mouthCavity = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.06), matInnerMouth);
-      mouthCavity.position.set(0, -0.06, 0.12);
-      headGroup.add(mouthCavity);
-
-      // Articulated Lower Jaw (Drops down when speaking!)
-      const jawGroup = new THREE.Group();
-      jawGroup.name = 'avatar-jaw';
-      jawGroup.position.set(0, -0.04, 0);
-
-      const jawGeo = new THREE.SphereGeometry(0.175, 32, 16, 0, Math.PI * 2, Math.PI * 0.65, Math.PI * 0.35);
-      jawGeo.scale(0.9, 1.1, 0.95);
-      const jaw = new THREE.Mesh(jawGeo, matHead);
-      jawGroup.add(jaw);
-
-      // Glowing speech mouth viseme (inside the jaw)
-      const mouthGeo = new THREE.BoxGeometry(0.08, 0.02, 0.02);
-      mouthMesh = new THREE.Mesh(mouthGeo, matMouth);
-      mouthMesh.position.set(0, -0.025, 0.165);
-      jawGroup.add(mouthMesh);
-      jawMesh = jawGroup;
-
-      headGroup.add(jawGroup);
-
-      // Glowing Eyes
-      const eyeGeo = new THREE.SphereGeometry(0.03, 16, 16);
-      eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
-      eyeLeft.position.set(-0.065, 0.04, 0.16);
-      headGroup.add(eyeLeft);
-
-      eyeRight = new THREE.Mesh(eyeGeo, matGlow);
-      eyeRight.position.set(0.065, 0.04, 0.16);
-      headGroup.add(eyeRight);
-
-      // Pedestal ring
-      const ringGeo = new THREE.RingGeometry(0.35, 0.4, 32);
-      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide }));
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.02;
-      avatarGroup.add(ring);
-
-      avatarGroup.add(headGroup);
-    }
-
-    // Avatar 2: Athena (Gold Vanguard with Articulated Chin)
-    function buildAthenaAvatar() {
-      const matArmor = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9 });
-      const matGold = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.95 });
-      const matVisor = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
-
-      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.16, 0.65, 16), matArmor);
-      torso.position.y = 0.8;
-      avatarGroup.add(torso);
-
-      const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.1), matGold);
-      chestPlate.position.set(0, 0.88, 0.12);
-      avatarGroup.add(chestPlate);
-
-      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 16), matGold);
-      neck.position.y = 1.15;
-      avatarGroup.add(neck);
-
-      const headGroup = new THREE.Group();
-      headGroup.name = 'avatar-head';
-      headGroup.position.set(0, 1.3, 0);
-
-      const helmGeo = new THREE.SphereGeometry(0.18, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.65);
-      helmGeo.scale(0.88, 1.15, 0.92);
-      const helm = new THREE.Mesh(helmGeo, matArmor);
-      headGroup.add(helm);
-
-      const visorGeo = new THREE.CylinderGeometry(0.165, 0.165, 0.05, 16, 1, false, 0, Math.PI);
-      const visor = new THREE.Mesh(visorGeo, matVisor);
-      visor.position.set(0, 0.03, 0.08);
-      visor.rotation.y = Math.PI / 2;
-      headGroup.add(visor);
-
-      // Gold Lower Jaw
-      const jawGroup = new THREE.Group();
-      jawGroup.name = 'avatar-jaw';
-      jawGroup.position.set(0, -0.04, 0);
-
-      const jawGeo = new THREE.SphereGeometry(0.175, 32, 16, 0, Math.PI * 2, Math.PI * 0.65, Math.PI * 0.35);
-      jawGeo.scale(0.88, 1.15, 0.92);
-      const jaw = new THREE.Mesh(jawGeo, matGold);
-      jawGroup.add(jaw);
-
-      const mouthGeo = new THREE.BoxGeometry(0.07, 0.02, 0.02);
-      mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
-      mouthMesh.position.set(0, -0.025, 0.165);
-      jawGroup.add(mouthMesh);
-      jawMesh = jawGroup;
-
-      headGroup.add(jawGroup);
-
-      // Halo
-      const haloGeo = new THREE.TorusGeometry(0.24, 0.012, 16, 32);
-      const halo = new THREE.Mesh(haloGeo, matVisor);
-      halo.rotation.x = Math.PI / 2;
-      halo.position.set(0, 0.22, 0);
-      headGroup.add(halo);
-
-      avatarGroup.add(headGroup);
-    }
-
-    // Avatar 3: Echo (Drone with Real Equalizer Speech Bars)
-    function buildEchoDroneAvatar() {
-      const matChassis = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.3 });
+    // =============================================================
+    // AVATAR 1: ECHO (Floating Aerodynamic Drone with Face Screen)
+    // =============================================================
+    function buildEchoDrone() {
+      rig.isFloating = true;
+      const matChassis = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15, metalness: 0.2 });
       const matScreen = new THREE.MeshBasicMaterial({ color: 0x090d16 });
       const matGlow = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+      const matAccent = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3 });
 
-      const headGroup = new THREE.Group();
-      headGroup.name = 'avatar-head';
-      headGroup.position.set(0, 1.25, 0);
+      const root = new THREE.Group();
+      root.position.set(0, 1.25, 0);
 
-      const sphereGeo = new THREE.SphereGeometry(0.26, 32, 32);
+      // Chassis Sphere
+      const sphereGeo = new THREE.SphereGeometry(0.28, 32, 32);
       const chassis = new THREE.Mesh(sphereGeo, matChassis);
-      headGroup.add(chassis);
+      root.add(chassis);
 
-      const screenGeo = new THREE.SphereGeometry(0.25, 32, 16, 0, Math.PI, 0, Math.PI / 2);
-      screenGeo.scale(0.85, 0.7, 0.85);
+      // Head visor group
+      const head = new THREE.Group();
+      root.add(head);
+      rig.head = head;
+
+      // Curved OLED Face Screen
+      const screenGeo = new THREE.SphereGeometry(0.27, 32, 16, 0, Math.PI, 0, Math.PI / 2);
+      screenGeo.scale(0.88, 0.72, 0.88);
       const screenMesh = new THREE.Mesh(screenGeo, matScreen);
       screenMesh.position.set(0, 0, 0.07);
       screenMesh.rotation.x = Math.PI / 2;
-      headGroup.add(screenMesh);
+      head.add(screenMesh);
 
-      // Expressive digital eyes
-      const eyeGeo = new THREE.RingGeometry(0.02, 0.045, 16);
-      eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
-      eyeLeft.position.set(-0.08, 0.03, 0.255);
-      headGroup.add(eyeLeft);
+      // Digital Expressive Eye Rings
+      const eyeGeo = new THREE.RingGeometry(0.022, 0.05, 24);
+      rig.eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
+      rig.eyeLeft.position.set(-0.085, 0.035, 0.27);
+      head.add(rig.eyeLeft);
 
-      eyeRight = new THREE.Mesh(eyeGeo, matGlow);
-      eyeRight.position.set(0.08, 0.03, 0.255);
-      headGroup.add(eyeRight);
+      rig.eyeRight = new THREE.Mesh(eyeGeo, matGlow);
+      rig.eyeRight.position.set(0.085, 0.035, 0.27);
+      head.add(rig.eyeRight);
 
-      // 5 Equalizer Bars for animated speaking waveform!
+      // Eye Pupils for Focus
+      const pupilGeo = new THREE.SphereGeometry(0.012, 16, 16);
+      rig.pupilLeft = new THREE.Mesh(pupilGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.pupilLeft.position.set(-0.085, 0.035, 0.275);
+      head.add(rig.pupilLeft);
+
+      rig.pupilRight = new THREE.Mesh(pupilGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.pupilRight.position.set(0.085, 0.035, 0.275);
+      head.add(rig.pupilRight);
+
+      // 5-Band Audio Equalizer Mouth
       const eqGroup = new THREE.Group();
-      eqGroup.position.set(0, -0.07, 0.255);
+      eqGroup.position.set(0, -0.07, 0.27);
       for (let i = 0; i < 5; i++) {
-        const barGeo = new THREE.BoxGeometry(0.015, 0.02, 0.005);
+        const barGeo = new THREE.BoxGeometry(0.016, 0.02, 0.005);
         const bar = new THREE.Mesh(barGeo, matGlow);
-        bar.position.x = (i - 2) * 0.022;
+        bar.position.x = (i - 2) * 0.024;
         eqGroup.add(bar);
-        equalizerBars.push(bar);
+        rig.equalizerBars.push(bar);
       }
-      mouthMesh = eqGroup;
-      headGroup.add(eqGroup);
+      rig.mouth = eqGroup;
+      head.add(eqGroup);
 
+      // Dual Jet Thruster Pods
       const thrusterLeft = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.02, 16, 32), matGlow);
-      thrusterLeft.position.set(-0.32, 0, 0);
+      thrusterLeft.position.set(-0.34, 0, 0);
       thrusterLeft.rotation.y = Math.PI / 2;
-      headGroup.add(thrusterLeft);
-      droneThrusters.push(thrusterLeft);
+      root.add(thrusterLeft);
+      rig.thrusters.push(thrusterLeft);
 
       const thrusterRight = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.02, 16, 32), matGlow);
-      thrusterRight.position.set(0.32, 0, 0);
+      thrusterRight.position.set(0.34, 0, 0);
       thrusterRight.rotation.y = Math.PI / 2;
-      headGroup.add(thrusterRight);
-      droneThrusters.push(thrusterRight);
+      root.add(thrusterRight);
+      rig.thrusters.push(thrusterRight);
 
-      avatarGroup.add(headGroup);
+      // Floating holographic floor ring
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.24, 0.34, 32), matGlow);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = -0.42;
+      root.add(ring);
+
+      avatarGroup.add(root);
+      rig.root = root;
     }
 
-    // Avatar 4: Nexus (Pulsing Geometric Core)
-    function buildNexusAvatar() {
-      const matHolo = new THREE.MeshPhysicalMaterial({
-        color: 0xec4899,
-        transparent: true,
-        opacity: 0.65,
-        roughness: 0.1,
-        transmission: 0.8,
-        thickness: 0.5
-      });
-      const matCore = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+    // =============================================================
+    // AVATAR 2: SPARK (Cute Sci-Fi Bot with Articulated Hands & Camera Iris)
+    // =============================================================
+    function buildSparkDrone() {
+      rig.isFloating = true;
+      const matChassis = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.2, metalness: 0.7 });
+      const matDark = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
+      const matGlow = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+      const matIris = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-      const headGroup = new THREE.Group();
-      headGroup.name = 'avatar-head';
-      headGroup.position.set(0, 1.25, 0);
+      const root = new THREE.Group();
+      root.position.set(0, 1.25, 0);
 
-      const outerGeo = new THREE.IcosahedronGeometry(0.24, 1);
-      const outer = new THREE.Mesh(outerGeo, matHolo);
-      headGroup.add(outer);
+      // Rounded Torso
+      const bodyGeo = new THREE.CylinderGeometry(0.22, 0.16, 0.45, 16);
+      const body = new THREE.Mesh(bodyGeo, matChassis);
+      root.add(body);
 
-      const coreGeo = new THREE.OctahedronGeometry(0.12);
-      const core = new THREE.Mesh(coreGeo, matCore);
-      core.name = 'nexus-core';
-      headGroup.add(core);
+      // Glass Dome Top
+      const domeGeo = new THREE.SphereGeometry(0.21, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.5);
+      const dome = new THREE.Mesh(domeGeo, new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, transmission: 0.9 }));
+      dome.position.y = 0.22;
+      root.add(dome);
 
-      const mouthGeo = new THREE.BoxGeometry(0.07, 0.02, 0.01);
-      mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xec4899 }));
-      mouthMesh.position.set(0, -0.06, 0.18);
-      headGroup.add(mouthMesh);
+      // Head Group
+      const head = new THREE.Group();
+      head.position.set(0, 0.15, 0);
+      root.add(head);
+      rig.head = head;
 
-      avatarGroup.add(headGroup);
+      // Dual Camera Lens Eyes (With Aperture Iris Rings)
+      const lensHolder = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.12, 0.12), matDark);
+      lensHolder.position.set(0, 0, 0.12);
+      head.add(lensHolder);
+
+      // Left Eye
+      const lensGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.04, 16);
+      lensGeo.rotateX(Math.PI / 2);
+      rig.eyeLeft = new THREE.Mesh(lensGeo, matGlow);
+      rig.eyeLeft.position.set(-0.065, 0, 0.18);
+      head.add(rig.eyeLeft);
+
+      rig.pupilLeft = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 16), matIris);
+      rig.pupilLeft.position.set(-0.065, 0, 0.2);
+      head.add(rig.pupilLeft);
+
+      // Right Eye
+      rig.eyeRight = new THREE.Mesh(lensGeo, matGlow);
+      rig.eyeRight.position.set(0.065, 0, 0.18);
+      head.add(rig.eyeRight);
+
+      rig.pupilRight = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 16), matIris);
+      rig.pupilRight.position.set(0.065, 0, 0.2);
+      head.add(rig.pupilRight);
+
+      // Animated Mouth Speaker Grid
+      const mouthGeo = new THREE.BoxGeometry(0.1, 0.025, 0.02);
+      rig.mouth = new THREE.Mesh(mouthGeo, matGlow);
+      rig.mouth.position.set(0, -0.1, 0.18);
+      head.add(rig.mouth);
+
+      // Articulated Left Robotic Arm
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.25, 0.05, 0);
+      const armGeo = new THREE.CylinderGeometry(0.03, 0.025, 0.2, 8);
+      const upperLeft = new THREE.Mesh(armGeo, matDark);
+      upperLeft.position.y = -0.1;
+      leftArm.add(upperLeft);
+
+      const leftFore = new THREE.Group();
+      leftFore.position.set(0, -0.2, 0);
+      const lowerLeft = new THREE.Mesh(armGeo, matChassis);
+      lowerLeft.position.y = -0.09;
+      leftFore.add(lowerLeft);
+
+      // Clamp Hand
+      const handLeft = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.01, 8, 16, Math.PI), matGlow);
+      handLeft.position.y = -0.2;
+      handLeft.rotation.z = Math.PI / 2;
+      leftFore.add(handLeft);
+      leftArm.add(leftFore);
+      root.add(leftArm);
+      rig.leftArm = leftArm;
+      rig.leftForearm = leftFore;
+
+      // Articulated Right Robotic Arm
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.25, 0.05, 0);
+      const upperRight = new THREE.Mesh(armGeo, matDark);
+      upperRight.position.y = -0.1;
+      rightArm.add(upperRight);
+
+      const rightFore = new THREE.Group();
+      rightFore.position.set(0, -0.2, 0);
+      const lowerRight = new THREE.Mesh(armGeo, matChassis);
+      lowerRight.position.y = -0.09;
+      rightFore.add(lowerRight);
+
+      const handRight = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.01, 8, 16, Math.PI), matGlow);
+      handRight.position.y = -0.2;
+      handRight.rotation.z = -Math.PI / 2;
+      rightFore.add(handRight);
+      rightArm.add(rightFore);
+      root.add(rightArm);
+      rig.rightArm = rightArm;
+      rig.rightForearm = rightFore;
+
+      // Lower Ion Thruster
+      const thruster = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.16, 16), matGlow);
+      thruster.position.y = -0.3;
+      thruster.rotation.x = Math.PI;
+      root.add(thruster);
+      rig.thrusters.push(thruster);
+
+      avatarGroup.add(root);
+      rig.root = root;
     }
 
-    function loadGLBAvatar(url) {
-      const loader = new GLTFLoader();
-      updateStatus('Loading 3D avatar...');
-      loader.load(url, (gltf) => {
-        clearAvatarGroup();
-        const model = gltf.scene;
-        model.position.set(0, 0, 0);
-        model.scale.set(1, 1, 1);
-        avatarGroup.add(model);
+    // =============================================================
+    // AVATAR 3: PIP (3D Cartoon Chibi with Full Body, Arms, and Legs)
+    // =============================================================
+    function buildPipCartoon() {
+      rig.isFloating = false;
+      const matSkin = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.5 });
+      const matHoodie = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 });
+      const matPants = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.7 });
+      const matShoes = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 });
+      const matEyes = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+      const matPupil = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const matMouth = new THREE.MeshBasicMaterial({ color: 0xd97706 });
 
-        model.traverse((child) => {
-          if (child.isMesh && child.morphTargetDictionary) {
-            AppState.visemeMesh = child;
-            AppState.blendshapes = child.morphTargetDictionary;
-          }
-        });
+      const root = new THREE.Group();
+      root.position.set(0, 0, 0);
 
-        updateStatus('Ready');
-      }, undefined, (err) => {
-        console.warn('Failed to load custom GLB, falling back to Nova:', err);
-        buildNovaAvatar();
-        updateStatus('Ready');
-      });
+      // Pelvis / Hips
+      const hips = new THREE.Group();
+      hips.position.set(0, 0.75, 0);
+      root.add(hips);
+      rig.hips = hips;
+
+      // Chest / Torso (Chibi Rounded Hoodie)
+      const chest = new THREE.Group();
+      const torsoGeo = new THREE.SphereGeometry(0.24, 24, 24);
+      torsoGeo.scale(1.0, 1.25, 0.9);
+      const torso = new THREE.Mesh(torsoGeo, matHoodie);
+      torso.position.y = 0.22;
+      chest.add(torso);
+      hips.add(chest);
+      rig.chest = chest;
+
+      // Large Cartoon Head
+      const head = new THREE.Group();
+      head.position.set(0, 0.52, 0);
+      const headGeo = new THREE.SphereGeometry(0.25, 32, 32);
+      headGeo.scale(1.08, 1.0, 1.0);
+      const headMesh = new THREE.Mesh(headGeo, matSkin);
+      head.add(headMesh);
+
+      // Cute Cartoon Cap/Hair
+      const capGeo = new THREE.SphereGeometry(0.26, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
+      const cap = new THREE.Mesh(capGeo, matHoodie);
+      cap.rotation.x = -0.15;
+      head.add(cap);
+
+      // Big Expressive Cartoon Eyes
+      const eyeGeo = new THREE.SphereGeometry(0.052, 24, 24);
+      eyeGeo.scale(0.85, 1.15, 0.35);
+
+      rig.eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.eyeLeft.position.set(-0.085, 0.03, 0.23);
+      head.add(rig.eyeLeft);
+
+      rig.pupilLeft = new THREE.Mesh(new THREE.SphereGeometry(0.026, 16, 16), matEyes);
+      rig.pupilLeft.position.set(-0.085, 0.03, 0.255);
+      head.add(rig.pupilLeft);
+
+      // Sparkle in eyes
+      const sparkle = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 8), matPupil);
+      sparkle.position.set(-0.078, 0.042, 0.275);
+      head.add(sparkle);
+
+      rig.eyeRight = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.eyeRight.position.set(0.085, 0.03, 0.23);
+      head.add(rig.eyeRight);
+
+      rig.pupilRight = new THREE.Mesh(new THREE.SphereGeometry(0.026, 16, 16), matEyes);
+      rig.pupilRight.position.set(0.085, 0.03, 0.255);
+      head.add(rig.pupilRight);
+
+      const sparkleR = sparkle.clone();
+      sparkleR.position.set(0.092, 0.042, 0.275);
+      head.add(sparkleR);
+
+      // Expressive Eyebrows
+      const browGeo = new THREE.BoxGeometry(0.065, 0.012, 0.01);
+      rig.browLeft = new THREE.Mesh(browGeo, matEyes);
+      rig.browLeft.position.set(-0.085, 0.11, 0.24);
+      head.add(rig.browLeft);
+
+      rig.browRight = new THREE.Mesh(browGeo, matEyes);
+      rig.browRight.position.set(0.085, 0.11, 0.24);
+      head.add(rig.browRight);
+
+      // Cartoon Mouth (With Articulated Opening!)
+      const mouthGroup = new THREE.Group();
+      mouthGroup.position.set(0, -0.09, 0.235);
+      const mouthMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 16, 1, false, 0, Math.PI), matMouth);
+      mouthMesh.rotation.x = Math.PI / 2;
+      mouthGroup.add(mouthMesh);
+      head.add(mouthGroup);
+      rig.mouth = mouthGroup;
+
+      chest.add(head);
+      rig.head = head;
+
+      // Articulated Left Arm (Full Cartoon Arm)
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.25, 0.28, 0);
+      const armUpperGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.22, 12);
+      const armUpL = new THREE.Mesh(armUpperGeo, matHoodie);
+      armUpL.position.y = -0.11;
+      leftArm.add(armUpL);
+
+      const leftFore = new THREE.Group();
+      leftFore.position.set(0, -0.22, 0);
+      const armLowL = new THREE.Mesh(armUpperGeo, matSkin);
+      armLowL.position.y = -0.1;
+      leftFore.add(armLowL);
+
+      const handL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), matSkin);
+      handL.position.y = -0.21;
+      leftFore.add(handL);
+      leftArm.add(leftFore);
+      chest.add(leftArm);
+      rig.leftArm = leftArm;
+      rig.leftForearm = leftFore;
+
+      // Articulated Right Arm
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.25, 0.28, 0);
+      const armUpR = new THREE.Mesh(armUpperGeo, matHoodie);
+      armUpR.position.y = -0.11;
+      rightArm.add(armUpR);
+
+      const rightFore = new THREE.Group();
+      rightFore.position.set(0, -0.22, 0);
+      const armLowR = new THREE.Mesh(armUpperGeo, matSkin);
+      armLowR.position.y = -0.1;
+      rightFore.add(armLowR);
+
+      const handR = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), matSkin);
+      handR.position.y = -0.21;
+      rightFore.add(handR);
+      rightArm.add(rightFore);
+      chest.add(rightArm);
+      rig.rightArm = rightArm;
+      rig.rightForearm = rightFore;
+
+      // Full Cartoon Legs
+      const legGeo = new THREE.CylinderGeometry(0.06, 0.05, 0.35, 12);
+      
+      const leftLeg = new THREE.Group();
+      leftLeg.position.set(-0.11, 0, 0);
+      const thighL = new THREE.Mesh(legGeo, matPants);
+      thighL.position.y = -0.18;
+      leftLeg.add(thighL);
+
+      const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 0.16), matShoes);
+      shoeL.position.set(0, -0.36, 0.04);
+      leftLeg.add(shoeL);
+      hips.add(leftLeg);
+      rig.leftThigh = leftLeg;
+
+      const rightLeg = new THREE.Group();
+      rightLeg.position.set(0.11, 0, 0);
+      const thighR = new THREE.Mesh(legGeo, matPants);
+      thighR.position.y = -0.18;
+      rightLeg.add(thighR);
+
+      const shoeR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 0.16), matShoes);
+      shoeR.position.set(0, -0.36, 0.04);
+      rightLeg.add(shoeR);
+      hips.add(rightLeg);
+      rig.rightThigh = rightLeg;
+
+      avatarGroup.add(root);
+      rig.root = root;
+    }
+
+    // =============================================================
+    // AVATAR 4: OLLIE (Friendly 3D Cartoon Retro Bot with Limbs)
+    // =============================================================
+    function buildOllieBot() {
+      rig.isFloating = false;
+      const matChassis = new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.3, metalness: 0.6 });
+      const matJoint = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.8 });
+      const matScreen = new THREE.MeshBasicMaterial({ color: 0x18181b });
+      const matGlow = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+      const matGold = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.2, metalness: 0.9 });
+
+      const root = new THREE.Group();
+      root.position.set(0, 0, 0);
+
+      const hips = new THREE.Group();
+      hips.position.set(0, 0.72, 0);
+      root.add(hips);
+      rig.hips = hips;
+
+      // Torso Box
+      const chest = new THREE.Group();
+      const torsoGeo = new THREE.BoxGeometry(0.32, 0.38, 0.22);
+      const torso = new THREE.Mesh(torsoGeo, matChassis);
+      torso.position.y = 0.24;
+      chest.add(torso);
+
+      // Gold Core Meter
+      const meter = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 16), matGold);
+      meter.rotation.x = Math.PI / 2;
+      meter.position.set(0, 0.24, 0.12);
+      chest.add(meter);
+      hips.add(chest);
+      rig.chest = chest;
+
+      // Rounded TV Head
+      const head = new THREE.Group();
+      head.position.set(0, 0.58, 0);
+      const headGeo = new THREE.BoxGeometry(0.38, 0.28, 0.24);
+      const headMesh = new THREE.Mesh(headGeo, matChassis);
+      head.add(headMesh);
+
+      // Screen Face
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.22), matScreen);
+      screen.position.set(0, 0, 0.122);
+      head.add(screen);
+
+      // Antenna
+      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.14, 8), matJoint);
+      ant.position.set(0, 0.2, 0);
+      head.add(ant);
+      const antBall = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16), matGlow);
+      antBall.position.set(0, 0.27, 0);
+      head.add(antBall);
+
+      // Circular Eyes
+      const eyeGeo = new THREE.RingGeometry(0.02, 0.045, 16);
+      rig.eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
+      rig.eyeLeft.position.set(-0.08, 0.03, 0.125);
+      head.add(rig.eyeLeft);
+
+      rig.eyeRight = new THREE.Mesh(eyeGeo, matGlow);
+      rig.eyeRight.position.set(0.08, 0.03, 0.125);
+      head.add(rig.eyeRight);
+
+      // Digital Speech Bar
+      const mouthGeo = new THREE.BoxGeometry(0.12, 0.02, 0.005);
+      rig.mouth = new THREE.Mesh(mouthGeo, matGlow);
+      rig.mouth.position.set(0, -0.05, 0.125);
+      head.add(rig.mouth);
+
+      chest.add(head);
+      rig.head = head;
+
+      // Articulated Arms
+      const armJointGeo = new THREE.SphereGeometry(0.04, 12, 12);
+      const limbGeo = new THREE.CylinderGeometry(0.035, 0.03, 0.22, 10);
+
+      // Left Arm
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.21, 0.35, 0);
+      const jointL = new THREE.Mesh(armJointGeo, matJoint);
+      leftArm.add(jointL);
+      const upperL = new THREE.Mesh(limbGeo, matChassis);
+      upperL.position.y = -0.11;
+      leftArm.add(upperL);
+
+      const leftFore = new THREE.Group();
+      leftFore.position.set(0, -0.22, 0);
+      const lowerL = new THREE.Mesh(limbGeo, matJoint);
+      lowerL.position.y = -0.1;
+      leftFore.add(lowerL);
+
+      const handL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), matGold);
+      handL.position.y = -0.2;
+      leftFore.add(handL);
+      leftArm.add(leftFore);
+      chest.add(leftArm);
+      rig.leftArm = leftArm;
+      rig.leftForearm = leftFore;
+
+      // Right Arm
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.21, 0.35, 0);
+      const jointR = new THREE.Mesh(armJointGeo, matJoint);
+      rightArm.add(jointR);
+      const upperR = new THREE.Mesh(limbGeo, matChassis);
+      upperR.position.y = -0.11;
+      rightArm.add(upperR);
+
+      const rightFore = new THREE.Group();
+      rightFore.position.set(0, -0.22, 0);
+      const lowerR = new THREE.Mesh(limbGeo, matJoint);
+      lowerR.position.y = -0.1;
+      rightFore.add(lowerR);
+
+      const handR = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), matGold);
+      handR.position.y = -0.2;
+      rightFore.add(handR);
+      rightArm.add(rightFore);
+      chest.add(rightArm);
+      rig.rightArm = rightArm;
+      rig.rightForearm = rightFore;
+
+      // Legs
+      const legGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.36, 12);
+      const leftLeg = new THREE.Group();
+      leftLeg.position.set(-0.1, 0, 0);
+      const thighL = new THREE.Mesh(legGeo, matJoint);
+      thighL.position.y = -0.18;
+      leftLeg.add(thighL);
+      const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 0.16), matChassis);
+      bootL.position.set(0, -0.36, 0.03);
+      leftLeg.add(bootL);
+      hips.add(leftLeg);
+      rig.leftThigh = leftLeg;
+
+      const rightLeg = new THREE.Group();
+      rightLeg.position.set(0.1, 0, 0);
+      const thighR = new THREE.Mesh(legGeo, matJoint);
+      thighR.position.y = -0.18;
+      rightLeg.add(thighR);
+      const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 0.16), matChassis);
+      bootR.position.set(0, -0.36, 0.03);
+      rightLeg.add(bootR);
+      hips.add(rightLeg);
+      rig.rightThigh = rightLeg;
+
+      avatarGroup.add(root);
+      rig.root = root;
+    }
+
+    // =============================================================
+    // AVATAR 5: MAYA (Humanoid Female with Full Body, Arms, and Legs)
+    // =============================================================
+    function buildMayaHumanoid() {
+      rig.isFloating = false;
+      const matSkin = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.6 });
+      const matHair = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.8 });
+      const matJacket = new THREE.MeshStandardMaterial({ color: 0x4f46e5, roughness: 0.5 });
+      const matPants = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+      const matShoes = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+      const matEyes = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+      const matLips = new THREE.MeshBasicMaterial({ color: 0xe11d48 });
+
+      const root = new THREE.Group();
+      root.position.set(0, 0, 0);
+
+      // Pelvis / Hips
+      const hips = new THREE.Group();
+      hips.position.set(0, 0.82, 0);
+      root.add(hips);
+      rig.hips = hips;
+
+      // Chest / Spine
+      const chest = new THREE.Group();
+      const torsoGeo = new THREE.CylinderGeometry(0.16, 0.13, 0.42, 16);
+      const torso = new THREE.Mesh(torsoGeo, matJacket);
+      torso.position.y = 0.22;
+      chest.add(torso);
+      hips.add(chest);
+      rig.chest = chest;
+
+      // Head & Face
+      const head = new THREE.Group();
+      head.position.set(0, 0.52, 0);
+      const headGeo = new THREE.SphereGeometry(0.15, 32, 32);
+      headGeo.scale(0.88, 1.15, 0.95);
+      const headMesh = new THREE.Mesh(headGeo, matSkin);
+      head.add(headMesh);
+
+      // Hair
+      const hairGeo = new THREE.SphereGeometry(0.165, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.6);
+      hairGeo.scale(0.92, 1.15, 0.98);
+      const hair = new THREE.Mesh(hairGeo, matHair);
+      hair.position.y = 0.02;
+      head.add(hair);
+
+      const hairBun = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), matHair);
+      hairBun.position.set(0, 0.16, -0.1);
+      head.add(hairBun);
+
+      // Expressive Human Eyes
+      const eyeGeo = new THREE.SphereGeometry(0.026, 16, 16);
+      eyeGeo.scale(1.0, 0.75, 0.5);
+
+      rig.eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.eyeLeft.position.set(-0.052, 0.02, 0.135);
+      head.add(rig.eyeLeft);
+
+      rig.pupilLeft = new THREE.Mesh(new THREE.SphereGeometry(0.012, 16, 16), matEyes);
+      rig.pupilLeft.position.set(-0.052, 0.02, 0.146);
+      head.add(rig.pupilLeft);
+
+      rig.eyeRight = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.eyeRight.position.set(0.052, 0.02, 0.135);
+      head.add(rig.eyeRight);
+
+      rig.pupilRight = new THREE.Mesh(new THREE.SphereGeometry(0.012, 16, 16), matEyes);
+      rig.pupilRight.position.set(0.052, 0.02, 0.146);
+      head.add(rig.pupilRight);
+
+      // Brows
+      const browGeo = new THREE.BoxGeometry(0.045, 0.008, 0.005);
+      rig.browLeft = new THREE.Mesh(browGeo, matHair);
+      rig.browLeft.position.set(-0.052, 0.065, 0.138);
+      head.add(rig.browLeft);
+
+      rig.browRight = new THREE.Mesh(browGeo, matHair);
+      rig.browRight.position.set(0.052, 0.065, 0.138);
+      head.add(rig.browRight);
+
+      // Articulated Lower Jaw & Lips
+      const jawGroup = new THREE.Group();
+      jawGroup.position.set(0, -0.06, 0.08);
+
+      const chin = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), matSkin);
+      chin.scale.set(0.85, 0.8, 0.9);
+      chin.position.set(0, -0.03, 0.04);
+      jawGroup.add(chin);
+
+      const lipGeo = new THREE.BoxGeometry(0.055, 0.016, 0.02);
+      rig.mouth = new THREE.Mesh(lipGeo, matLips);
+      rig.mouth.position.set(0, 0, 0.065);
+      jawGroup.add(rig.mouth);
+
+      head.add(jawGroup);
+      rig.jaw = jawGroup;
+
+      chest.add(head);
+      rig.head = head;
+
+      // Full Articulated Human Arms
+      const armGeo = new THREE.CylinderGeometry(0.038, 0.032, 0.28, 12);
+
+      // Left Arm
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.19, 0.38, 0);
+      const upperL = new THREE.Mesh(armGeo, matJacket);
+      upperL.position.y = -0.14;
+      leftArm.add(upperL);
+
+      const leftFore = new THREE.Group();
+      leftFore.position.set(0, -0.28, 0);
+      const lowerL = new THREE.Mesh(armGeo, matSkin);
+      lowerL.position.y = -0.13;
+      leftFore.add(lowerL);
+
+      const handL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.02), matSkin);
+      handL.position.y = -0.28;
+      leftFore.add(handL);
+      leftArm.add(leftFore);
+      chest.add(leftArm);
+      rig.leftArm = leftArm;
+      rig.leftForearm = leftFore;
+
+      // Right Arm
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.19, 0.38, 0);
+      const upperR = new THREE.Mesh(armGeo, matJacket);
+      upperR.position.y = -0.14;
+      rightArm.add(upperR);
+
+      const rightFore = new THREE.Group();
+      rightFore.position.set(0, -0.28, 0);
+      const lowerR = new THREE.Mesh(armGeo, matSkin);
+      lowerR.position.y = -0.13;
+      rightFore.add(lowerR);
+
+      const handR = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.02), matSkin);
+      handR.position.y = -0.28;
+      rightFore.add(handR);
+      rightArm.add(rightFore);
+      chest.add(rightArm);
+      rig.rightArm = rightArm;
+      rig.rightForearm = rightFore;
+
+      // Human Legs
+      const legGeo = new THREE.CylinderGeometry(0.052, 0.042, 0.42, 12);
+      const leftLeg = new THREE.Group();
+      leftLeg.position.set(-0.09, 0, 0);
+      const thighL = new THREE.Mesh(legGeo, matPants);
+      thighL.position.y = -0.21;
+      leftLeg.add(thighL);
+
+      const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.15), matShoes);
+      bootL.position.set(0, -0.44, 0.03);
+      leftLeg.add(bootL);
+      hips.add(leftLeg);
+      rig.leftThigh = leftLeg;
+
+      const rightLeg = new THREE.Group();
+      rightLeg.position.set(0.09, 0, 0);
+      const thighR = new THREE.Mesh(legGeo, matPants);
+      thighR.position.y = -0.21;
+      rightLeg.add(thighR);
+
+      const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.15), matShoes);
+      bootR.position.set(0, -0.44, 0.03);
+      rightLeg.add(bootR);
+      hips.add(rightLeg);
+      rig.rightThigh = rightLeg;
+
+      avatarGroup.add(root);
+      rig.root = root;
+    }
+
+    // =============================================================
+    // AVATAR 6: ALEX (Humanoid Male with Full Body, Arms, and Legs)
+    // =============================================================
+    function buildAlexHumanoid() {
+      rig.isFloating = false;
+      const matSkin = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.6 });
+      const matHair = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
+      const matShirt = new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.6 });
+      const matPants = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+      const matShoes = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.4 });
+      const matEyes = new THREE.MeshBasicMaterial({ color: 0x15803d });
+      const matLips = new THREE.MeshBasicMaterial({ color: 0xb91c1c });
+
+      const root = new THREE.Group();
+      root.position.set(0, 0, 0);
+
+      const hips = new THREE.Group();
+      hips.position.set(0, 0.85, 0);
+      root.add(hips);
+      rig.hips = hips;
+
+      // Athletic Torso
+      const chest = new THREE.Group();
+      const torsoGeo = new THREE.CylinderGeometry(0.19, 0.15, 0.46, 16);
+      const torso = new THREE.Mesh(torsoGeo, matShirt);
+      torso.position.y = 0.23;
+      chest.add(torso);
+      hips.add(chest);
+      rig.chest = chest;
+
+      // Head & Face
+      const head = new THREE.Group();
+      head.position.set(0, 0.54, 0);
+      const headGeo = new THREE.SphereGeometry(0.16, 32, 32);
+      headGeo.scale(0.9, 1.15, 0.95);
+      const headMesh = new THREE.Mesh(headGeo, matSkin);
+      head.add(headMesh);
+
+      // Short Hair
+      const hairGeo = new THREE.SphereGeometry(0.17, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.5);
+      hairGeo.scale(0.95, 1.15, 1.0);
+      const hair = new THREE.Mesh(hairGeo, matHair);
+      hair.position.y = 0.04;
+      head.add(hair);
+
+      // Eyes
+      const eyeGeo = new THREE.SphereGeometry(0.026, 16, 16);
+      eyeGeo.scale(1.0, 0.7, 0.5);
+
+      rig.eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.eyeLeft.position.set(-0.054, 0.02, 0.14);
+      head.add(rig.eyeLeft);
+
+      rig.pupilLeft = new THREE.Mesh(new THREE.SphereGeometry(0.012, 16, 16), matEyes);
+      rig.pupilLeft.position.set(-0.054, 0.02, 0.15);
+      head.add(rig.pupilLeft);
+
+      rig.eyeRight = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      rig.eyeRight.position.set(0.054, 0.02, 0.14);
+      head.add(rig.eyeRight);
+
+      rig.pupilRight = new THREE.Mesh(new THREE.SphereGeometry(0.012, 16, 16), matEyes);
+      rig.pupilRight.position.set(0.054, 0.02, 0.15);
+      head.add(rig.pupilRight);
+
+      // Strong Eyebrows
+      const browGeo = new THREE.BoxGeometry(0.05, 0.01, 0.005);
+      rig.browLeft = new THREE.Mesh(browGeo, matHair);
+      rig.browLeft.position.set(-0.054, 0.065, 0.145);
+      head.add(rig.browLeft);
+
+      rig.browRight = new THREE.Mesh(browGeo, matHair);
+      rig.browRight.position.set(0.054, 0.065, 0.145);
+      head.add(rig.browRight);
+
+      // Articulated Male Jaw
+      const jawGroup = new THREE.Group();
+      jawGroup.position.set(0, -0.06, 0.08);
+
+      const chin = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.08), matSkin);
+      chin.position.set(0, -0.03, 0.04);
+      jawGroup.add(chin);
+
+      const lipGeo = new THREE.BoxGeometry(0.06, 0.014, 0.02);
+      rig.mouth = new THREE.Mesh(lipGeo, matLips);
+      rig.mouth.position.set(0, 0, 0.07);
+      jawGroup.add(rig.mouth);
+
+      head.add(jawGroup);
+      rig.jaw = jawGroup;
+
+      chest.add(head);
+      rig.head = head;
+
+      // Full Articulated Male Arms
+      const armGeo = new THREE.CylinderGeometry(0.045, 0.038, 0.3, 12);
+
+      const leftArm = new THREE.Group();
+      leftArm.position.set(-0.23, 0.4, 0);
+      const upperL = new THREE.Mesh(armGeo, matShirt);
+      upperL.position.y = -0.15;
+      leftArm.add(upperL);
+
+      const leftFore = new THREE.Group();
+      leftFore.position.set(0, -0.3, 0);
+      const lowerL = new THREE.Mesh(armGeo, matSkin);
+      lowerL.position.y = -0.14;
+      leftFore.add(lowerL);
+
+      const handL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.025), matSkin);
+      handL.position.y = -0.3;
+      leftFore.add(handL);
+      leftArm.add(leftFore);
+      chest.add(leftArm);
+      rig.leftArm = leftArm;
+      rig.leftForearm = leftFore;
+
+      const rightArm = new THREE.Group();
+      rightArm.position.set(0.23, 0.4, 0);
+      const upperR = new THREE.Mesh(armGeo, matShirt);
+      upperR.position.y = -0.15;
+      rightArm.add(upperR);
+
+      const rightFore = new THREE.Group();
+      rightFore.position.set(0, -0.3, 0);
+      const lowerR = new THREE.Mesh(armGeo, matSkin);
+      lowerR.position.y = -0.14;
+      rightFore.add(lowerR);
+
+      const handR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.025), matSkin);
+      handR.position.y = -0.3;
+      rightFore.add(handR);
+      rightArm.add(rightFore);
+      chest.add(rightArm);
+      rig.rightArm = rightArm;
+      rig.rightForearm = rightFore;
+
+      // Legs
+      const legGeo = new THREE.CylinderGeometry(0.06, 0.05, 0.44, 12);
+      const leftLeg = new THREE.Group();
+      leftLeg.position.set(-0.1, 0, 0);
+      const thighL = new THREE.Mesh(legGeo, matPants);
+      thighL.position.y = -0.22;
+      leftLeg.add(thighL);
+
+      const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.17), matShoes);
+      bootL.position.set(0, -0.46, 0.04);
+      leftLeg.add(bootL);
+      hips.add(leftLeg);
+      rig.leftThigh = leftLeg;
+
+      const rightLeg = new THREE.Group();
+      rightLeg.position.set(0.1, 0, 0);
+      const thighR = new THREE.Mesh(legGeo, matPants);
+      thighR.position.y = -0.22;
+      rightLeg.add(thighR);
+
+      const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.17), matShoes);
+      bootR.position.set(0, -0.46, 0.04);
+      rightLeg.add(bootR);
+      hips.add(rightLeg);
+      rig.rightThigh = rightLeg;
+
+      avatarGroup.add(root);
+      rig.root = root;
     }
 
     // -------------------------------------------------------------
-    // 3. Animation & Rendering Loop (Speech-Synchronized Mouth)
+    // 3. Conversational Full-Body Animation Loop
     // -------------------------------------------------------------
     let blinkTimer = 0;
+    let gestureCycle = 0;
 
     function renderLoop(timestamp, frame) {
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
-      // Subtle breathing motion or drone hovering
-      if (AppState.avatarId === 'echo') {
-        avatarGroup.position.y = Math.sin(elapsed * 2.5) * 0.04;
-        droneThrusters.forEach((t, i) => {
+      // Look at user camera
+      if (rig.head) {
+        rig.head.lookAt(camera.position.x, camera.position.y, camera.position.z);
+      }
+
+      // ===========================================================
+      // 1. LISTENING MODE (Head, eyes, hands, body attentively listening)
+      // ===========================================================
+      if (AppState.isListening) {
+        // Subtle inquisitive head tilt & forward lean
+        if (rig.head) {
+          rig.head.rotation.z = -0.09;
+          rig.head.rotation.x = 0.08;
+        }
+
+        // Torso leans forward attentively toward user
+        if (rig.chest) {
+          rig.chest.rotation.x = 0.07;
+          rig.chest.position.z = 0.02;
+        }
+
+        // Eyes: Wide open and focused intently
+        if (rig.eyeLeft && rig.eyeRight) {
+          rig.eyeLeft.scale.set(1.15, 1.25, 1.0);
+          rig.eyeRight.scale.set(1.15, 1.25, 1.0);
+        }
+
+        // Eyebrows raised slightly with genuine curiosity
+        if (rig.browLeft && rig.browRight) {
+          rig.browLeft.position.y = 0.075;
+          rig.browRight.position.y = 0.075;
+        }
+
+        // Active Listening Hand Gestures: Right hand touches chin thoughtfully
+        if (rig.rightArm && rig.rightForearm) {
+          rig.rightArm.rotation.x = -1.1;
+          rig.rightArm.rotation.z = -0.3;
+          rig.rightForearm.rotation.x = -1.2;
+        }
+
+        // Left arm rests gently across waist
+        if (rig.leftArm && rig.leftForearm) {
+          rig.leftArm.rotation.x = -0.3;
+          rig.leftArm.rotation.z = 0.25;
+          rig.leftForearm.rotation.x = -0.7;
+        }
+
+        // Weight shift on legs
+        if (rig.leftThigh && rig.rightThigh) {
+          rig.leftThigh.rotation.z = -0.04;
+          rig.rightThigh.rotation.z = 0.08;
+        }
+
+        // Mouth closed in attentive smile
+        if (rig.jaw) rig.jaw.position.y = -0.06;
+        if (rig.mouth) rig.mouth.scale.set(1.0, 0.7, 1.0);
+
+      // ===========================================================
+      // 2. SPEAKING MODE (Eyes, mouth, arms, legs dynamically talking)
+      // ===========================================================
+      } else if (AppState.isSpeaking) {
+        gestureCycle += delta * 3.5;
+        const syllable1 = Math.sin(elapsed * 16);
+        const syllable2 = Math.cos(elapsed * 24);
+        const speechPower = Math.max(0, (syllable1 * 0.6 + syllable2 * 0.4));
+
+        // EYES: Animated expressive blinking & pupil dilation
+        if (rig.eyeLeft && rig.eyeRight) {
+          const eyeEmphasis = 1.0 + speechPower * 0.25;
+          rig.eyeLeft.scale.set(eyeEmphasis, eyeEmphasis, 1.0);
+          rig.eyeRight.scale.set(eyeEmphasis, eyeEmphasis, 1.0);
+        }
+
+        // Eyebrow conversational emphasis
+        if (rig.browLeft && rig.browRight) {
+          const browLift = Math.sin(elapsed * 6) * 0.015;
+          rig.browLeft.position.y = 0.065 + Math.max(0, browLift);
+          rig.browRight.position.y = 0.065 + Math.max(0, browLift);
+        }
+
+        // MOUTH & ARTICULATED JAW: Precise syllable lip-sync
+        if (rig.jaw) {
+          rig.jaw.position.y = -0.06 - (speechPower * 0.04);
+          rig.jaw.rotation.x = speechPower * 0.3;
+        }
+
+        if (rig.mouth && !rig.equalizerBars.length) {
+          rig.mouth.scale.set(1.0 + speechPower * 0.6, 1.0 + speechPower * 3.5, 1.0);
+        }
+
+        // Equalizer wave for Echo drone
+        if (rig.equalizerBars.length) {
+          rig.equalizerBars.forEach((bar, i) => {
+            const barEnergy = Math.abs(Math.sin(elapsed * (15 + i * 4)));
+            bar.scale.y = 1.0 + barEnergy * 4.5;
+          });
+        }
+
+        // ARMS & HANDS: Dynamic conversational gesticulation!
+        // Right hand emphasizes key words
+        if (rig.rightArm && rig.rightForearm) {
+          rig.rightArm.rotation.x = -0.6 + Math.sin(gestureCycle) * 0.3;
+          rig.rightArm.rotation.z = -0.25 + Math.cos(gestureCycle * 0.8) * 0.15;
+          rig.rightForearm.rotation.x = -0.9 + Math.sin(gestureCycle * 1.2) * 0.35;
+        }
+
+        // Left hand supports with alternating gestures
+        if (rig.leftArm && rig.leftForearm) {
+          rig.leftArm.rotation.x = -0.5 + Math.cos(gestureCycle * 0.9) * 0.25;
+          rig.leftArm.rotation.z = 0.2 + Math.sin(gestureCycle * 0.7) * 0.15;
+          rig.leftForearm.rotation.x = -0.7 + Math.cos(gestureCycle * 1.1) * 0.3;
+        }
+
+        // HEAD: Conversational nodding
+        if (rig.head) {
+          rig.head.rotation.x += Math.sin(elapsed * 7) * 0.025;
+          rig.head.rotation.y += Math.sin(elapsed * 3) * 0.03;
+        }
+
+        // TORSO: Expressive weight shifts
+        if (rig.chest) {
+          rig.chest.rotation.z = Math.sin(elapsed * 2.5) * 0.025;
+          rig.chest.rotation.x = Math.sin(elapsed * 4) * 0.02;
+        }
+
+      // ===========================================================
+      // 3. IDLE / READY MODE (Natural breathing & relaxed presence)
+      // ===========================================================
+      } else {
+        // Reset listening/speaking overrides smoothly
+        if (rig.head) {
+          rig.head.rotation.z = 0;
+        }
+
+        // Subtle breathing
+        const breath = Math.sin(elapsed * 2.0);
+        if (rig.chest) {
+          rig.chest.rotation.x = breath * 0.015;
+          rig.chest.rotation.z = 0;
+          rig.chest.position.z = 0;
+        }
+
+        // Relaxed arms at sides with gentle sway
+        if (rig.leftArm && rig.leftForearm) {
+          rig.leftArm.rotation.x = -0.05 + breath * 0.03;
+          rig.leftArm.rotation.z = 0.08;
+          rig.leftForearm.rotation.x = -0.15;
+        }
+
+        if (rig.rightArm && rig.rightForearm) {
+          rig.rightArm.rotation.x = -0.05 - breath * 0.03;
+          rig.rightArm.rotation.z = -0.08;
+          rig.rightForearm.rotation.x = -0.15;
+        }
+
+        // Natural leg stance
+        if (rig.leftThigh && rig.rightThigh) {
+          rig.leftThigh.rotation.z = 0;
+          rig.rightThigh.rotation.z = 0;
+        }
+
+        // Mouth closed
+        if (rig.jaw) {
+          rig.jaw.position.y = -0.06;
+          jawMesh = null;
+        }
+        if (rig.mouth && !rig.equalizerBars.length) {
+          rig.mouth.scale.set(1, 1, 1);
+        }
+        if (rig.equalizerBars.length) {
+          rig.equalizerBars.forEach(b => b.scale.y = 1.0);
+        }
+      }
+
+      // Floating physics for Echo & Spark drones
+      if (rig.isFloating) {
+        avatarGroup.position.y = Math.sin(elapsed * 2.5) * 0.035;
+        rig.thrusters.forEach((t, i) => {
           t.rotation.z += delta * (i === 0 ? 3 : -3);
         });
       } else {
-        avatarGroup.position.y = Math.sin(elapsed * 1.5) * 0.015;
+        avatarGroup.position.y = 0;
       }
 
-      const head = avatarGroup.getObjectByName('avatar-head');
-      if (head) {
-        head.lookAt(camera.position.x, camera.position.y, camera.position.z);
-        // Tilt head slightly when listening to user
-        if (AppState.isListening) {
-          head.rotation.z = -0.06;
-          head.rotation.x = 0.04;
-        }
-      }
-
-      // -----------------------------------------------------------
-      // REALISTIC SPEECH MOUTH & JAW ANIMATION
-      // -----------------------------------------------------------
-      if (AppState.isSpeaking) {
-        // Multi-frequency speech syllable modulation
-        const syllable1 = Math.sin(elapsed * 18);
-        const syllable2 = Math.cos(elapsed * 26);
-        const speechPower = Math.max(0, (syllable1 * 0.6 + syllable2 * 0.4));
-
-        // 1. Physically drop the lower jaw if available!
-        if (jawMesh) {
-          jawMesh.position.y = -0.04 - (speechPower * 0.035);
-          jawMesh.rotation.x = speechPower * 0.25;
-        }
-
-        // 2. Expand mouth aperture vertically and horizontally
-        if (mouthMesh && !equalizerBars.length) {
-          mouthMesh.scale.set(1.0 + speechPower * 0.4, 1.0 + speechPower * 3.5, 1.0);
-        }
-
-        // 3. Equalizer bars for Echo drone
-        if (equalizerBars.length) {
-          equalizerBars.forEach((bar, i) => {
-            const barEnergy = Math.abs(Math.sin(elapsed * (14 + i * 4)));
-            bar.scale.y = 1.0 + barEnergy * 4.0;
-          });
-        }
-
-        // 4. Pulse Nexus core
-        const core = avatarGroup.getObjectByName('nexus-core');
-        if (core) {
-          core.scale.setScalar(1.0 + speechPower * 0.5);
-        }
-
-        // 5. Ready Player Me ARKit facial blendshapes
-        if (AppState.visemeMesh && AppState.blendshapes) {
-          const jawOpenIdx = AppState.blendshapes['jawOpen'];
-          const mouthOpenIdx = AppState.blendshapes['mouthOpen'];
-          const visemeAaIdx = AppState.blendshapes['viseme_aa'];
-          const visemeOIdx = AppState.blendshapes['viseme_O'];
-
-          if (jawOpenIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[jawOpenIdx] = speechPower * 0.8;
-          if (mouthOpenIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[mouthOpenIdx] = speechPower * 0.6;
-          if (visemeAaIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[visemeAaIdx] = Math.abs(syllable1) * 0.7;
-          if (visemeOIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[visemeOIdx] = Math.abs(syllable2) * 0.5;
-        }
-
-        // Subtle head nodding while speaking
-        if (head && !AppState.isListening) {
-          head.rotation.x += Math.sin(elapsed * 8) * 0.015;
-        }
-
-      } else {
-        // Return jaw and mouth to closed rest position
-        if (jawMesh) {
-          jawMesh.position.y = -0.04;
-          jawMesh.rotation.x = 0;
-        }
-        if (mouthMesh && !equalizerBars.length) {
-          mouthMesh.scale.set(1, 1, 1);
-        }
-        if (equalizerBars.length) {
-          equalizerBars.forEach(bar => bar.scale.y = 1.0);
-        }
-        if (AppState.visemeMesh && AppState.blendshapes) {
-          ['jawOpen', 'mouthOpen', 'viseme_aa', 'viseme_O'].forEach(name => {
-            const idx = AppState.blendshapes[name];
-            if (idx !== undefined) AppState.visemeMesh.morphTargetInfluences[idx] = 0;
-          });
-        }
-      }
-
-      // Blinking
+      // Periodic Blinking
       blinkTimer += delta;
-      if (blinkTimer > 3.5) {
-        if (eyeLeft && eyeRight) {
-          eyeLeft.scale.y = 0.1;
-          eyeRight.scale.y = 0.1;
+      if (blinkTimer > 3.6) {
+        if (rig.eyeLeft && rig.eyeRight) {
+          rig.eyeLeft.scale.y = 0.1;
+          rig.eyeRight.scale.y = 0.1;
         }
-        if (blinkTimer > 3.65) {
-          if (eyeLeft && eyeRight) {
-            eyeLeft.scale.y = 1.0;
-            eyeRight.scale.y = 1.0;
+        if (blinkTimer > 3.75) {
+          if (rig.eyeLeft && rig.eyeRight) {
+            rig.eyeLeft.scale.y = 1.0;
+            rig.eyeRight.scale.y = 1.0;
           }
           blinkTimer = 0;
         }
@@ -1714,12 +2483,11 @@
     }
 
     // -------------------------------------------------------------
-    // 5. Speech Synthesis & Audio Lip-Sync (Robust Chrome Android Fix)
+    // 5. Speech Synthesis & Audio Lip-Sync
     // -------------------------------------------------------------
-    let activeUtterance = null; // Global reference prevents Chrome garbage collection bug
+    let activeUtterance = null;
 
     function speakReply(text) {
-      // Clean markdown asterisks and backticks for clean speech
       const cleanText = text.replace(/[*#`_~]/g, '').trim();
       dom.speechText.textContent = cleanText;
       updateStatus('Speaking...', 'speaking');
@@ -1742,7 +2510,6 @@
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      // Select active voice
       const voices = window.speechSynthesis.getVoices();
       const selectedVoiceName = dom.cfgVoiceSelect.value || AppState.selectedVoiceName;
       const matched = voices.find(v => v.name === selectedVoiceName);
@@ -1753,7 +2520,7 @@
         if (defaultEn) utterance.voice = defaultEn;
       }
 
-      activeUtterance = utterance; // Prevent garbage collection mid-speech
+      activeUtterance = utterance;
 
       utterance.onstart = () => {
         AppState.isSpeaking = true;
@@ -1773,7 +2540,6 @@
         updateStatus('Ready');
       };
 
-      // Safety timeout in case browser never fires onend
       const estimatedDuration = Math.max(3500, cleanText.length * 85);
       setTimeout(() => {
         if (AppState.isSpeaking) {
@@ -1787,7 +2553,7 @@
     }
 
     // -------------------------------------------------------------
-    // 6. Voice Input (Microphone on Android & Quest)
+    // 6. Voice Input (Microphone)
     // -------------------------------------------------------------
     let recognition = null;
     function initSpeechRecognition() {
@@ -1819,9 +2585,6 @@
       recognition.onerror = (e) => {
         console.warn('Speech error:', e.error);
         stopListening();
-        if (e.error === 'not-allowed') {
-          alert('Microphone permission denied. Please allow microphone access in your browser settings.');
-        }
       };
 
       recognition.onend = () => {
@@ -1912,8 +2675,6 @@
           card.classList.remove('active');
         }
       });
-      dom.customAvatarBox.style.display = (AppState.avatarId === 'custom') ? 'flex' : 'none';
-      dom.cfgCustomAvatarUrl.value = AppState.customAvatarUrl;
     }
 
     document.querySelectorAll('.avatar-card').forEach(card => {
@@ -1922,7 +2683,6 @@
         const chosenId = card.dataset.avatarId;
         document.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
-        dom.customAvatarBox.style.display = (chosenId === 'custom') ? 'flex' : 'none';
       };
     });
 
@@ -1937,12 +2697,9 @@
     dom.btnConfirmAvatar.onclick = () => {
       unlockAudio();
       const activeCard = document.querySelector('.avatar-card.active');
-      const selectedId = activeCard ? activeCard.dataset.avatarId : 'nova';
+      const selectedId = activeCard ? activeCard.dataset.avatarId : 'echo';
       AppState.avatarId = selectedId;
-      AppState.customAvatarUrl = dom.cfgCustomAvatarUrl.value.trim();
-
       localStorage.setItem('quest_avatar_id', AppState.avatarId);
-      localStorage.setItem('quest_custom_avatar_url', AppState.customAvatarUrl);
 
       buildAvatar(selectedId);
       dom.modalAvatars.classList.remove('open');
@@ -1963,7 +2720,7 @@
 
     dom.btnTestVoice.onclick = () => {
       unlockAudio();
-      speakReply("Hello Eran! My voice and lip movements are working perfectly on your device.");
+      speakReply("Hello Eran! My voice and full-body expressions are working smoothly on your screen.");
     };
 
     dom.btnSettings.onclick = () => {

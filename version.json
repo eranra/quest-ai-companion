@@ -1,6 +1,6 @@
 {
-  "version": "v0.1.3",
-  "build": 4,
-  "released_at": "2026-11-06T16:09:00Z",
-  "changelog": "v0.1.3: Real articulated lower jaw & equalizer lip-sync, Chrome mobile audio autoplay unlocking, persistent utterance protection, voice testing button, and head-nodding speech cadence."
+  "version": "v0.1.4",
+  "build": 5,
+  "released_at": "2026-11-06T18:25:00Z",
+  "changelog": "v0.1.4: 6 full-body avatars (Echo, Spark, Pip, Ollie, Maya, Alex) with full-body conversational animation rigs: attentive listening mode (chin touch, head tilt, wide eyes) and expressive speaking mode (jaw sync, brow lift, animated eye glance, natural conversational arm/hand gestures)."
 }

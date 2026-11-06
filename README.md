@@ -18,13 +18,16 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
   - **Virtual Keyboard Resizing:** Connects to `visualViewport` so opening the mobile keyboard keeps the input bar cleanly docked.
   - **Touch Orbit & Pan:** Smooth single-finger orbit rotation around the avatar with touch-action isolation.
 - **Mixed Reality Passthrough:** Supports the WebXR `immersive-ar` standard with `local-floor` and transparent clear-alpha rendering on Meta Quest 3 (and ARCore on supported Android devices).
-- **🎭 Multi-Avatar 3D Gallery:**
-  - **🤖 Nova:** Sleek cyber android with glowing cyan/indigo LED eyes, audio-reactive mouth bar, and holographic pedestal ring.
-  - **👑 Athena:** Obsidian armor vanguard with gold chestplate, gold halo crown, and glowing gold visor.
+- **🎭 Multi-Avatar 3D Gallery (Procedural Full-Body Character Rigs):**
   - **🛸 Echo:** Adorable floating spherical drone with hovering thruster pods, expressive digital face screen, and gentle floating bob physics.
-  - **🔮 Nexus:** Translucent glass holographic matrix with floating geometric core and soundwave visualizer.
-  - **🧑 Alex (Ready Player Me):** Full humanoid 3D avatar with 52 ARKit facial blendshapes (`jawOpen`, `mouthOpen`, `viseme_aa`).
-  - **🌐 Custom URL:** Load any public `.glb` 3D model from Ready Player Me or Sketchfab.
+  - **⚡ Spark:** Futuristic robotic assistant with sleek orbital antennas, dual shoulder turbine pods, digital visor face, and levitating energy core.
+  - **🧸 Pip:** Full-dimensional cartoon hero character with stylized eyes, articulated mouth/jaw, full-length body, rounded limbs, expressive hands, and sneakers.
+  - **🐸 Ollie:** Friendly full-dimensional cartoon companion with wide animated eyes, playful antennae, cozy hoodie, articulated arms and legs.
+  - **👩 Maya:** Full-body realistic female humanoid avatar with articulated head, expressive eyes, sculpted hair, fitted top, slacks, and conversational gesturing arms.
+  - **👨 Alex:** Full-body realistic male humanoid avatar with articulated jaw, styled hair, jacket, denim pants, sneakers, and lively gesturing limbs.
+- **🕺 Dynamic Full-Body Animated Body Language:**
+  - **👂 Attentive Listening Mode:** When the microphone is active and you speak, the avatar's entire body transitions into an active listening posture — head tilts, attentive leaning, hand touching chin, eyes wide and focused, lips closed in anticipation, and weight-shifted stance.
+  - **🗣️ Expressive Speaking Mode:** When replying, the avatar comes to life — realistic jaw and lip sync, brows raising for emphasis, animated eye tracking, rhythmic conversational arm and hand gesticulations, and natural cadence head nods.
 - **Dual AI Engine:**
   - **Local In-Browser Mode (WebLLM via WebGPU):** Downloads an optimized lightweight model once into browser cache, then runs offline on the device GPU.
   - **Google Gemini Cloud Mode:** Uses Gemini 2.5 Flash via REST endpoints with prompt engineering tailored for voice conversation.
