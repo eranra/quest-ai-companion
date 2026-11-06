@@ -1,0 +1,9 @@
+{
+  "name": "Quest AI Companion",
+  "short_name": "AI Companion",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#4f46e5",
+  "description": "Zero-install WebXR 3D AI companion for Meta Quest 3 with dual local WebLLM & Google Gemini engine."
+}

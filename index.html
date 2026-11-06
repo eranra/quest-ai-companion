@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Quest AI Companion | WebXR 3D Avatar</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="description" content="Zero-install WebXR 3D AI companion for Meta Quest 3 with dual local WebLLM & Google Gemini cloud engines.">
+  <style>
+    :root {
+      --bg: #090d16;
+      --panel: rgba(18, 24, 38, 0.85);
+      --panel-border: rgba(99, 102, 241, 0.3);
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.4);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* 2D / HUD Overlay */
+    #hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Update Notification Banner */
+    #update-banner {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #1e1b4b, #312e81);
+      border: 1px solid #818cf8;
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
+      border-radius: 999px;
+      padding: 8px 18px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      z-index: 100;
+      pointer-events: auto;
+      animation: slideDown 0.4s ease;
+    }
+
+    @keyframes slideDown {
+      from { transform: translate(-50%, -40px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    .update-banner-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e7ff;
+    }
+
+    .update-btn {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .update-btn:hover {
+      background: #059669;
+      transform: scale(1.05);
+    }
+
+    /* Header Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--panel);
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand-logo {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #ec4899);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .version-pill {
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .version-pill:hover {
+      background: rgba(99, 102, 241, 0.4);
+      color: white;
+    }
+
+    .engine-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(99, 102, 241, 0.2);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+    }
+
+    .engine-badge.local {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .engine-badge.gemini {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+
+    .top-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover {
+      background: rgba(99, 102, 241, 0.3);
+      border-color: var(--accent);
+      transform: scale(1.05);
+    }
+
+    /* Subtitle / Speech Bubble */
+    .speech-bubble-container {
+      align-self: center;
+      max-width: 600px;
+      width: 90%;
+      margin-bottom: auto;
+      margin-top: 24px;
+      transition: opacity 0.3s ease;
+    }
+
+    .speech-bubble {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      padding: 14px 18px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .avatar-state {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #818cf8;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+    }
+
+    .state-dot.thinking {
+      background: var(--warning);
+      animation: pulse 1s infinite alternate;
+    }
+
+    .state-dot.speaking {
+      background: #ec4899;
+      animation: pulse 0.6s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.3; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .speech-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text);
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    /* Bottom Control Deck */
+    .bottom-deck {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      max-width: 650px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .suggestion-chips {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      max-width: 100%;
+      padding-bottom: 4px;
+    }
+
+    .chip {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+
+    .chip:hover {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .input-bar {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+      background: var(--panel);
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+
+    .prompt-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 8px 14px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .prompt-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .action-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      outline: none;
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      background: #4f46e5;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .mic-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mic-btn.listening {
+      background: var(--danger);
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+      animation: pulse 0.7s infinite alternate;
+    }
+
+    /* WebXR Action Button */
+    #xr-button {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 10px 24px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    #xr-button:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 25px rgba(139, 92, 246, 0.8);
+    }
+
+    /* Settings Modal */
+    .modal-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: #111827;
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .engine-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px;
+      border-radius: 12px;
+    }
+
+    .switch-opt {
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+
+    .switch-opt.active {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    .form-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+    }
+
+    .help-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 4px;
+      display: none;
+    }
+
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #6366f1);
+      transition: width 0.2s ease;
+    }
+
+    .secondary-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .secondary-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  </style>
+
+  <!-- Import maps for Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Live Update Banner -->
+  <div id="update-banner">
+    <span class="update-banner-text">🚀 New update available (<span id="new-version-text">v0.1.1</span>)!</span>
+    <button id="btn-apply-update" class="update-btn">Update & Reload</button>
+  </div>
+
+  <!-- 3D WebGL / WebXR Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- HUD Overlay -->
+  <div id="hud-overlay">
+    
+    <!-- Top Bar -->
+    <div class="top-bar interactive">
+      <div class="brand">
+        <div class="brand-logo"></div>
+        <div class="brand-title">Quest AI Companion</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.0</div>
+        <div id="engine-badge" class="engine-badge local">🏠 Local WebLLM</div>
+      </div>
+
+      <div class="top-controls">
+        <button id="xr-button" style="display: none;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span id="xr-label">Enter AR</span>
+        </button>
+
+        <button id="btn-settings" class="icon-btn" title="Settings">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Speech Bubble / Subtitles -->
+    <div class="speech-bubble-container interactive">
+      <div class="speech-bubble">
+        <div class="avatar-state">
+          <span id="state-dot" class="state-dot"></span>
+          <span id="state-text">Ready</span>
+        </div>
+        <div id="speech-text" class="speech-text">
+          Hi Eran! I'm your Quest 3 AI Companion. You can talk to me via microphone or choose a question below.
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Deck Controls -->
+    <div class="bottom-deck interactive">
+      <!-- Suggestion chips -->
+      <div class="suggestion-chips">
+        <button class="chip" data-query="Introduce yourself in 2 sentences.">👋 Who are you?</button>
+        <button class="chip" data-query="What can you do on Meta Quest 3?">🥽 What can you do?</button>
+        <button class="chip" data-query="Tell me an interesting science fact.">🧠 Interesting fact</button>
+        <button class="chip" data-query="Give me a quick 1-minute mindfulness tip.">🧘 Mindfulness</button>
+      </div>
+
+      <!-- Input Bar -->
+      <div class="input-bar">
+        <button id="btn-mic" class="mic-btn" title="Speak via Microphone">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+        </button>
+        <input id="prompt-input" type="text" class="prompt-input" placeholder="Type a message or tap the mic...">
+        <button id="btn-send" class="action-btn">
+          <span>Send</span>
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="modal-settings" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Companion Settings</h3>
+        <button id="btn-close-settings" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
+      </div>
+
+      <!-- Engine Selector -->
+      <div class="form-group">
+        <label class="form-label">AI Engine Mode</label>
+        <div class="engine-switch">
+          <div id="switch-local" class="switch-opt active">🏠 Local WebLLM</div>
+          <div id="switch-gemini" class="switch-opt">☁️ Google Gemini</div>
+        </div>
+        <p class="help-hint" id="engine-hint">
+          <b>Local WebLLM:</b> Runs directly on your device via WebGPU. 100% private, zero API keys, zero authentication required.
+        </p>
+      </div>
+
+      <!-- Gemini API Settings -->
+      <div id="gemini-config" class="form-group" style="display: none;">
+        <label class="form-label">Google Gemini API Key</label>
+        <input id="cfg-gemini-key" type="password" class="form-input" placeholder="AIzaSy...">
+        <p class="help-hint">
+          Get a 100% free key at <a href="https://aistudio.google.com" target="_blank" style="color: #818cf8;">aistudio.google.com</a>. Saved securely in your browser's localStorage.
+        </p>
+        <button id="btn-test-gemini" class="action-btn" style="margin-top: 6px; align-self: flex-start; padding: 6px 14px; font-size: 12px;">Test API Key</button>
+      </div>
+
+      <!-- Local Model Settings -->
+      <div id="local-config" class="form-group">
+        <label class="form-label">Local WebGPU Model</label>
+        <select id="cfg-local-model" class="form-input">
+          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC" selected>Llama 3.2 1B Instruct (Fast, ~650 MB)</option>
+          <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen 2.5 0.5B Instruct (Ultra-light, ~350 MB)</option>
+          <option value="SmolLM2-1.7B-Instruct-q4f16_1-MLC">SmolLM2 1.7B Instruct (~1 GB)</option>
+        </select>
+        <div id="model-progress" class="progress-bar-container">
+          <div id="model-progress-fill" class="progress-bar-fill"></div>
+        </div>
+        <p id="model-status-text" class="help-hint">Model downloads once into browser cache, then loads instantly offline.</p>
+      </div>
+
+      <!-- Avatar Settings -->
+      <div class="form-group">
+        <label class="form-label">Ready Player Me Avatar GLB URL (Optional)</label>
+        <input id="cfg-avatar-url" type="text" class="form-input" placeholder="https://models.readyplayer.me/....glb">
+        <p class="help-hint">Leave blank to use the built-in holographic android companion.</p>
+      </div>
+
+      <!-- Voice Settings -->
+      <div class="form-group">
+        <label class="form-label">Speech Voice & Speed</label>
+        <select id="cfg-voice-select" class="form-input"></select>
+      </div>
+
+      <!-- Cache & Update Utilities -->
+      <div class="form-group" style="padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <button id="btn-force-refresh" class="secondary-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span>Clear Cache & Reload Latest Version</span>
+        </button>
+      </div>
+
+      <button id="btn-save-settings" class="action-btn" style="width: 100%; justify-content: center; padding: 12px;">Save & Apply</button>
+    </div>
+  </div>
+
+  <!-- Main WebXR & AI Application Script -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // Application Version
+    const APP_VERSION = 'v0.1.0';
+
+    // Application State
+    const AppState = {
+      mode: localStorage.getItem('quest_companion_mode') || 'local', // 'local' or 'gemini'
+      geminiKey: localStorage.getItem('gemini_api_key') || '',
+      localModel: localStorage.getItem('quest_local_model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+      avatarUrl: localStorage.getItem('quest_avatar_url') || '',
+      isListening: false,
+      isThinking: false,
+      isSpeaking: false,
+      webllmEngine: null,
+      webllmLoading: false,
+      avatar: null,
+      visemeMesh: null,
+      blendshapes: {}
+    };
+
+    // DOM Elements
+    const dom = {
+      canvasContainer: document.getElementById('canvas-container'),
+      appVersionBadge: document.getElementById('app-version-badge'),
+      updateBanner: document.getElementById('update-banner'),
+      newVersionText: document.getElementById('new-version-text'),
+      btnApplyUpdate: document.getElementById('btn-apply-update'),
+      btnForceRefresh: document.getElementById('btn-force-refresh'),
+      engineBadge: document.getElementById('engine-badge'),
+      xrButton: document.getElementById('xr-button'),
+      xrLabel: document.getElementById('xr-label'),
+      btnSettings: document.getElementById('btn-settings'),
+      modalSettings: document.getElementById('modal-settings'),
+      btnCloseSettings: document.getElementById('btn-close-settings'),
+      btnSaveSettings: document.getElementById('btn-save-settings'),
+      switchLocal: document.getElementById('switch-local'),
+      switchGemini: document.getElementById('switch-gemini'),
+      engineHint: document.getElementById('engine-hint'),
+      geminiConfig: document.getElementById('gemini-config'),
+      localConfig: document.getElementById('local-config'),
+      cfgGeminiKey: document.getElementById('cfg-gemini-key'),
+      btnTestGemini: document.getElementById('btn-test-gemini'),
+      cfgLocalModel: document.getElementById('cfg-local-model'),
+      cfgAvatarUrl: document.getElementById('cfg-avatar-url'),
+      cfgVoiceSelect: document.getElementById('cfg-voice-select'),
+      modelProgress: document.getElementById('model-progress'),
+      modelProgressFill: document.getElementById('model-progress-fill'),
+      modelStatusText: document.getElementById('model-status-text'),
+      stateDot: document.getElementById('state-dot'),
+      stateText: document.getElementById('state-text'),
+      speechText: document.getElementById('speech-text'),
+      promptInput: document.getElementById('prompt-input'),
+      btnSend: document.getElementById('btn-send'),
+      btnMic: document.getElementById('btn-mic')
+    };
+
+    // Display current version
+    dom.appVersionBadge.textContent = APP_VERSION;
+
+    // -------------------------------------------------------------
+    // Auto-Update & Cache Busting Engine (Yard Guardian Pattern)
+    // -------------------------------------------------------------
+    function forceAppRefresh(targetVersion = APP_VERSION) {
+      if ('caches' in window) {
+        try {
+          caches.keys().then(names => {
+            names.forEach(name => caches.delete(name));
+          });
+        } catch (e) {}
+      }
+      window.location.href = window.location.origin + window.location.pathname + '?v=' + targetVersion + '&nocache=' + Date.now();
+    }
+
+    async function checkForUpdates(silent = true) {
+      try {
+        const res = await fetch(`./version.json?nocache=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.version && data.version !== APP_VERSION) {
+          console.log(`[Update Engine] New version found: ${data.version} (current: ${APP_VERSION})`);
+          dom.newVersionText.textContent = data.version;
+          dom.updateBanner.style.display = 'flex';
+          dom.btnApplyUpdate.onclick = () => forceAppRefresh(data.version);
+        } else if (!silent) {
+          alert(`You are up to date! Current version: ${APP_VERSION}`);
+        }
+      } catch (err) {
+        if (!silent) console.warn('Could not check for updates:', err);
+      }
+    }
+
+    // Check on startup and every 2 minutes
+    setTimeout(() => checkForUpdates(true), 1500);
+    setInterval(() => checkForUpdates(true), 120000);
+
+    dom.appVersionBadge.onclick = () => checkForUpdates(false);
+    dom.btnForceRefresh.onclick = () => forceAppRefresh(APP_VERSION);
+
+    // Three.js Core Variables
+    let scene, camera, renderer, controls;
+    let clock = new THREE.Clock();
+    let currentXRSession = null;
+    let mouthMesh = null;
+    let eyeLeft = null, eyeRight = null;
+    let avatarGroup = new THREE.Group();
+
+    // -------------------------------------------------------------
+    // 1. Initialize Three.js & WebXR Engine
+    // -------------------------------------------------------------
+    function initThree() {
+      scene = new THREE.Scene();
+      
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 1.4, 1.8);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      renderer.shadowMap.enabled = true;
+      dom.canvasContainer.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 1.2, 0);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 0.8;
+      controls.maxDistance = 4.0;
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      dirLight.position.set(2, 4, 3);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      const rimLight = new THREE.PointLight(0x6366f1, 2.0, 10);
+      rimLight.position.set(-2, 2, -2);
+      scene.add(rimLight);
+
+      // Environment grid for desktop preview
+      const grid = new THREE.GridHelper(10, 20, 0x6366f1, 0x1e293b);
+      grid.position.y = 0;
+      grid.name = 'preview-grid';
+      scene.add(grid);
+
+      scene.add(avatarGroup);
+      buildProceduralAvatar();
+
+      // Check WebXR AR capabilities
+      checkWebXR();
+
+      window.addEventListener('resize', onWindowResize);
+      renderer.setAnimationLoop(renderLoop);
+    }
+
+    function checkWebXR() {
+      if ('xr' in navigator) {
+        navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+          if (supported) {
+            dom.xrButton.style.display = 'flex';
+            dom.xrLabel.textContent = 'Enter AR (Passthrough)';
+            dom.xrButton.onclick = () => toggleXRSession('immersive-ar');
+          } else {
+            navigator.xr.isSessionSupported('immersive-vr').then(vrSupported => {
+              if (vrSupported) {
+                dom.xrButton.style.display = 'flex';
+                dom.xrLabel.textContent = 'Enter VR';
+                dom.xrButton.onclick = () => toggleXRSession('immersive-vr');
+              }
+            });
+          }
+        });
+      }
+    }
+
+    async function toggleXRSession(mode) {
+      if (!currentXRSession) {
+        const sessionInit = {
+          requiredFeatures: ['local-floor'],
+          optionalFeatures: ['hit-test', 'hand-tracking']
+        };
+
+        const session = await navigator.xr.requestSession(mode, sessionInit);
+        renderer.xr.setSession(session);
+        currentXRSession = session;
+        dom.xrLabel.textContent = 'Exit XR';
+
+        // Hide desktop grid in passthrough
+        const grid = scene.getObjectByName('preview-grid');
+        if (grid) grid.visible = (mode !== 'immersive-ar');
+
+        session.addEventListener('end', () => {
+          currentXRSession = null;
+          dom.xrLabel.textContent = mode === 'immersive-ar' ? 'Enter AR (Passthrough)' : 'Enter VR';
+          if (grid) grid.visible = true;
+        });
+      } else {
+        currentXRSession.end();
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // -------------------------------------------------------------
+    // 2. Avatar Construction & Lip-Sync Morphing
+    // -------------------------------------------------------------
+    function buildProceduralAvatar() {
+      while(avatarGroup.children.length > 0) {
+        avatarGroup.remove(avatarGroup.children[0]);
+      }
+
+      if (AppState.avatarUrl && AppState.avatarUrl.endsWith('.glb')) {
+        loadGLBAvatar(AppState.avatarUrl);
+        return;
+      }
+
+      // Stylized Futuristic Android Avatar (Bulletproof fallback with full facial expression)
+      const matBody = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
+      const matHead = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2, metalness: 0.1 });
+      const matGlow = new THREE.MeshBasicMaterial({ color: 0x6366f1 });
+      const matMouth = new THREE.MeshBasicMaterial({ color: 0xec4899 });
+
+      // Torso
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.6, 16), matBody);
+      torso.position.y = 0.8;
+      avatarGroup.add(torso);
+
+      // Neck
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 16), matBody);
+      neck.position.y = 1.15;
+      avatarGroup.add(neck);
+
+      // Head Group (for rotation tracking)
+      const headGroup = new THREE.Group();
+      headGroup.name = 'avatar-head';
+      headGroup.position.set(0, 1.3, 0);
+
+      // Head Mesh
+      const headGeo = new THREE.SphereGeometry(0.18, 32, 32);
+      headGeo.scale(0.9, 1.1, 0.95);
+      const head = new THREE.Mesh(headGeo, matHead);
+      headGroup.add(head);
+
+      // Eyes
+      const eyeGeo = new THREE.SphereGeometry(0.03, 16, 16);
+      eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
+      eyeLeft.position.set(-0.065, 0.03, 0.16);
+      headGroup.add(eyeLeft);
+
+      eyeRight = new THREE.Mesh(eyeGeo, matGlow);
+      eyeRight.position.set(0.065, 0.03, 0.16);
+      headGroup.add(eyeRight);
+
+      // Animated Mouth Viseme Bar
+      const mouthGeo = new THREE.BoxGeometry(0.07, 0.015, 0.01);
+      mouthMesh = new THREE.Mesh(mouthGeo, matMouth);
+      mouthMesh.position.set(0, -0.07, 0.165);
+      headGroup.add(mouthMesh);
+
+      // Holographic pedestal ring
+      const ringGeo = new THREE.RingGeometry(0.35, 0.4, 32);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.02;
+      avatarGroup.add(ring);
+
+      avatarGroup.add(headGroup);
+    }
+
+    function loadGLBAvatar(url) {
+      const loader = new GLTFLoader();
+      updateStatus('Loading 3D avatar...');
+      loader.load(url, (gltf) => {
+        while(avatarGroup.children.length > 0) {
+          avatarGroup.remove(avatarGroup.children[0]);
+        }
+        const model = gltf.scene;
+        model.position.set(0, 0, 0);
+        model.scale.set(1, 1, 1);
+        avatarGroup.add(model);
+
+        // Scan for morph targets (visemes)
+        model.traverse((child) => {
+          if (child.isMesh && child.morphTargetDictionary) {
+            AppState.visemeMesh = child;
+            AppState.blendshapes = child.morphTargetDictionary;
+          }
+        });
+
+        updateStatus('Ready');
+      }, undefined, (err) => {
+        console.warn('Failed to load custom GLB, falling back to procedural companion:', err);
+        buildProceduralAvatar();
+        updateStatus('Ready');
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 3. Animation & Rendering Loop
+    // -------------------------------------------------------------
+    let blinkTimer = 0;
+
+    function renderLoop(timestamp, frame) {
+      const delta = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+
+      // Subtle breathing motion
+      avatarGroup.position.y = Math.sin(elapsed * 1.5) * 0.015;
+
+      // Head look-at user camera
+      const head = avatarGroup.getObjectByName('avatar-head');
+      if (head) {
+        head.lookAt(camera.position.x, camera.position.y, camera.position.z);
+      }
+
+      // Procedural mouth animation while speaking
+      if (AppState.isSpeaking) {
+        const mouthOpenness = Math.abs(Math.sin(elapsed * 18)) * 0.04 + Math.sin(elapsed * 10) * 0.02;
+        if (mouthMesh) {
+          mouthMesh.scale.set(1.0 + Math.sin(elapsed * 14) * 0.3, 1.0 + mouthOpenness * 120, 1.0);
+        }
+
+        // Morph target blendshapes if GLB avatar loaded
+        if (AppState.visemeMesh && AppState.blendshapes) {
+          const jawIndex = AppState.blendshapes['jawOpen'] ?? AppState.blendshapes['mouthOpen'] ?? AppState.blendshapes['viseme_aa'];
+          if (jawIndex !== undefined) {
+            AppState.visemeMesh.morphTargetInfluences[jawIndex] = (Math.sin(elapsed * 16) + 1) * 0.4;
+          }
+        }
+      } else {
+        if (mouthMesh) mouthMesh.scale.set(1, 1, 1);
+        if (AppState.visemeMesh && AppState.blendshapes) {
+          const jawIndex = AppState.blendshapes['jawOpen'] ?? AppState.blendshapes['mouthOpen'] ?? AppState.blendshapes['viseme_aa'];
+          if (jawIndex !== undefined) AppState.visemeMesh.morphTargetInfluences[jawIndex] = 0;
+        }
+      }
+
+      // Blinking
+      blinkTimer += delta;
+      if (blinkTimer > 3.5) {
+        if (eyeLeft && eyeRight) {
+          eyeLeft.scale.y = 0.1;
+          eyeRight.scale.y = 0.1;
+        }
+        if (blinkTimer > 3.65) {
+          if (eyeLeft && eyeRight) {
+            eyeLeft.scale.y = 1.0;
+            eyeRight.scale.y = 1.0;
+          }
+          blinkTimer = 0;
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // -------------------------------------------------------------
+    // 4. Dual AI Engines (Local WebLLM + Google Gemini)
+    // -------------------------------------------------------------
+    async function initLocalWebLLM() {
+      if (AppState.webllmEngine || AppState.webllmLoading) return AppState.webllmEngine;
+      
+      AppState.webllmLoading = true;
+      dom.modelProgress.style.display = 'block';
+      updateStatus('Loading local model...');
+      dom.modelStatusText.textContent = 'Initializing WebGPU engine...';
+
+      try {
+        const webllm = await import("https://esm.run/@mlc-ai/web-llm");
+        
+        if (!navigator.gpu) {
+          throw new Error('WebGPU is not supported on this browser. Try Google Gemini mode.');
+        }
+
+        const initProgressCallback = (report) => {
+          dom.modelStatusText.textContent = report.text;
+          if (report.progress !== undefined) {
+            dom.modelProgressFill.style.width = `${Math.round(report.progress * 100)}%`;
+          }
+        };
+
+        const engine = await webllm.CreateMLCEngine(
+          AppState.localModel,
+          { initProgressCallback }
+        );
+
+        AppState.webllmEngine = engine;
+        AppState.webllmLoading = false;
+        dom.modelProgress.style.display = 'none';
+        dom.modelStatusText.textContent = 'Model loaded and ready in WebGPU memory!';
+        updateStatus('Ready');
+        return engine;
+      } catch (err) {
+        console.error('WebLLM init error:', err);
+        AppState.webllmLoading = false;
+        dom.modelProgress.style.display = 'none';
+        dom.modelStatusText.innerHTML = `<span style="color: #ef4444;">Error: ${err.message}. Switch to Gemini mode.</span>`;
+        updateStatus('Ready');
+        return null;
+      }
+    }
+
+    async function sendPrompt(userText) {
+      if (!userText || !userText.trim()) return;
+      userText = userText.trim();
+      dom.promptInput.value = '';
+
+      updateStatus('Thinking...', 'thinking');
+      dom.speechText.textContent = `You: "${userText}"\n\nThinking...`;
+
+      try {
+        let reply = '';
+        if (AppState.mode === 'gemini') {
+          reply = await callGeminiAPI(userText);
+        } else {
+          reply = await callLocalWebLLM(userText);
+        }
+
+        speakReply(reply);
+      } catch (err) {
+        console.error('AI Error:', err);
+        dom.speechText.textContent = `Error: ${err.message}`;
+        updateStatus('Ready');
+      }
+    }
+
+    async function callGeminiAPI(prompt) {
+      if (!AppState.geminiKey) {
+        throw new Error('No Gemini API key set. Open settings (⚙️) to enter your free key.');
+      }
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(AppState.geminiKey)}`;
+      
+      const payload = {
+        systemInstruction: {
+          parts: [{ text: "You are Nova, an intelligent, empathetic 3D virtual companion speaking directly to the user in Mixed Reality on a Meta Quest 3 headset. Respond concisely and naturally in spoken conversational style (usually 1-3 sentences). Avoid markdown formatting, asterisks, bullet points, or unpronounceable characters because your reply will be read out loud." }]
+        },
+        contents: [
+          { role: "user", parts: [{ text: prompt }] }
+        ]
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm not sure how to answer that.";
+    }
+
+    async function callLocalWebLLM(prompt) {
+      let engine = AppState.webllmEngine;
+      if (!engine) {
+        engine = await initLocalWebLLM();
+        if (!engine) throw new Error('Could not initialize local model.');
+      }
+
+      const messages = [
+        { role: "system", content: "You are Nova, a friendly 3D companion avatar speaking to the user on Meta Quest 3. Keep responses natural, warm, and brief (1-3 sentences) suitable for spoken speech." },
+        { role: "user", content: prompt }
+      ];
+
+      const completion = await engine.chat.completions.create({
+        messages,
+        temperature: 0.7,
+        max_tokens: 150
+      });
+
+      return completion.choices[0].message.content || "Hello!";
+    }
+
+    // -------------------------------------------------------------
+    // 5. Speech Synthesis & Audio Lip-Sync
+    // -------------------------------------------------------------
+    function speakReply(text) {
+      dom.speechText.textContent = text;
+      updateStatus('Speaking...', 'speaking');
+
+      if (!('speechSynthesis' in window)) {
+        updateStatus('Ready');
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+
+      // Select voice
+      const voices = window.speechSynthesis.getVoices();
+      const selectedVoiceName = dom.cfgVoiceSelect.value;
+      const matched = voices.find(v => v.name === selectedVoiceName);
+      if (matched) utterance.voice = matched;
+
+      AppState.isSpeaking = true;
+
+      utterance.onend = () => {
+        AppState.isSpeaking = false;
+        updateStatus('Ready');
+      };
+
+      utterance.onerror = () => {
+        AppState.isSpeaking = false;
+        updateStatus('Ready');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // -------------------------------------------------------------
+    // 6. Voice Input (Microphone)
+    // -------------------------------------------------------------
+    let recognition = null;
+    function initSpeechRecognition() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        dom.btnMic.title = 'Speech recognition not supported in this browser; use text input.';
+        return;
+      }
+
+      recognition = new SpeechRec();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        AppState.isListening = true;
+        dom.btnMic.classList.add('listening');
+        updateStatus('Listening...', 'thinking');
+      };
+
+      recognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        dom.promptInput.value = transcript;
+        sendPrompt(transcript);
+      };
+
+      recognition.onerror = (e) => {
+        console.warn('Speech error:', e.error);
+        stopListening();
+      };
+
+      recognition.onend = () => {
+        stopListening();
+      };
+    }
+
+    function toggleListening() {
+      if (!recognition) {
+        alert('Voice recognition is not supported directly in this browser. Please type your message or use the Meta Quest keyboard microphone dictation key!');
+        dom.promptInput.focus();
+        return;
+      }
+
+      if (AppState.isListening) {
+        recognition.stop();
+      } else {
+        recognition.start();
+      }
+    }
+
+    function stopListening() {
+      AppState.isListening = false;
+      dom.btnMic.classList.remove('listening');
+      updateStatus('Ready');
+    }
+
+    function updateStatus(text, state = 'ready') {
+      dom.stateText.textContent = text;
+      dom.stateDot.className = 'state-dot';
+      if (state === 'thinking') dom.stateDot.classList.add('thinking');
+      if (state === 'speaking') dom.stateDot.classList.add('speaking');
+    }
+
+    // Populate voices
+    function populateVoices() {
+      if (!('speechSynthesis' in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      dom.cfgVoiceSelect.innerHTML = '';
+      voices.forEach(voice => {
+        const opt = document.createElement('option');
+        opt.value = voice.name;
+        opt.textContent = `${voice.name} (${voice.lang})`;
+        if (voice.lang.includes('en') && (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('Samantha'))) {
+          opt.selected = true;
+        }
+        dom.cfgVoiceSelect.appendChild(opt);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 7. UI Controls & Event Listeners
+    // -------------------------------------------------------------
+    function updateEngineUI() {
+      if (AppState.mode === 'gemini') {
+        dom.switchGemini.classList.add('active');
+        dom.switchLocal.classList.remove('active');
+        dom.geminiConfig.style.display = 'flex';
+        dom.localConfig.style.display = 'none';
+        dom.engineBadge.className = 'engine-badge gemini';
+        dom.engineBadge.textContent = '☁️ Google Gemini';
+        dom.engineHint.innerHTML = '<b>Google Gemini:</b> Uses cloud AI with Gemini 2.5 Flash for rapid, intelligent answers. Requires free API key.';
+      } else {
+        dom.switchLocal.classList.add('active');
+        dom.switchGemini.classList.remove('active');
+        dom.geminiConfig.style.display = 'none';
+        dom.localConfig.style.display = 'flex';
+        dom.engineBadge.className = 'engine-badge local';
+        dom.engineBadge.textContent = '🏠 Local WebLLM';
+        dom.engineHint.innerHTML = '<b>Local WebLLM:</b> Runs directly on your device via WebGPU. 100% private, zero API keys, zero authentication required.';
+      }
+    }
+
+    // Event Bindings
+    dom.btnSend.onclick = () => sendPrompt(dom.promptInput.value);
+    dom.promptInput.onkeydown = (e) => {
+      if (e.key === 'Enter') sendPrompt(dom.promptInput.value);
+    };
+
+    dom.btnMic.onclick = toggleListening;
+
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.onclick = () => sendPrompt(chip.dataset.query);
+    });
+
+    dom.btnSettings.onclick = () => {
+      dom.cfgGeminiKey.value = AppState.geminiKey;
+      dom.cfgAvatarUrl.value = AppState.avatarUrl;
+      dom.cfgLocalModel.value = AppState.localModel;
+      updateEngineUI();
+      dom.modalSettings.classList.add('open');
+    };
+
+    dom.btnCloseSettings.onclick = () => dom.modalSettings.classList.remove('open');
+
+    dom.switchLocal.onclick = () => {
+      AppState.mode = 'local';
+      updateEngineUI();
+    };
+
+    dom.switchGemini.onclick = () => {
+      AppState.mode = 'gemini';
+      updateEngineUI();
+    };
+
+    dom.btnTestGemini.onclick = async () => {
+      const key = dom.cfgGeminiKey.value.trim();
+      if (!key) return alert('Please enter an API key first.');
+      dom.btnTestGemini.textContent = 'Testing...';
+      try {
+        const testRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] })
+        });
+        if (testRes.ok) {
+          alert('✅ Gemini API Key is working perfectly!');
+        } else {
+          const errData = await testRes.json().catch(() => ({}));
+          alert(`❌ Key error: ${errData.error?.message || 'Invalid key'}`);
+        }
+      } catch (e) {
+        alert(`❌ Network error: ${e.message}`);
+      } finally {
+        dom.btnTestGemini.textContent = 'Test API Key';
+      }
+    };
+
+    dom.btnSaveSettings.onclick = () => {
+      AppState.geminiKey = dom.cfgGeminiKey.value.trim();
+      AppState.avatarUrl = dom.cfgAvatarUrl.value.trim();
+      AppState.localModel = dom.cfgLocalModel.value;
+
+      localStorage.setItem('quest_companion_mode', AppState.mode);
+      localStorage.setItem('gemini_api_key', AppState.geminiKey);
+      localStorage.setItem('quest_avatar_url', AppState.avatarUrl);
+      localStorage.setItem('quest_local_model', AppState.localModel);
+
+      dom.modalSettings.classList.remove('open');
+      updateEngineUI();
+
+      if (AppState.avatarUrl) {
+        loadGLBAvatar(AppState.avatarUrl);
+      } else {
+        buildProceduralAvatar();
+      }
+
+      alert('Settings saved!');
+    };
+
+    // Initial Startup
+    initThree();
+    initSpeechRecognition();
+    updateEngineUI();
+
+    if ('speechSynthesis' in window) {
+      populateVoices();
+      window.speechSynthesis.onvoiceschanged = populateVoices;
+    }
+
+    // Auto-warmup WebLLM if local mode is selected
+    if (AppState.mode === 'local') {
+      setTimeout(() => initLocalWebLLM(), 1000);
+    }
+  </script>
+</body>
+</html>
