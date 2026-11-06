@@ -6,10 +6,10 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Quest AI Companion | 3D Avatar (WebXR & Mobile)</title>
+  <title>Quest AI Companion | 3D Speaking Avatar</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#090d16">
-  <meta name="description" content="Zero-install 3D AI companion for Meta Quest 3 and Android mobile phones with dual local WebLLM & Google Gemini engines.">
+  <meta name="description" content="Interactive 3D voice AI companion with synchronized lip-sync and text-to-speech for Meta Quest 3 and Android phones.">
   <style>
     :root {
       --bg: #090d16;
@@ -267,6 +267,11 @@
       display: inline-block;
     }
 
+    .state-dot.listening {
+      background: var(--danger);
+      animation: pulse 0.7s infinite alternate;
+    }
+
     .state-dot.thinking {
       background: var(--warning);
       animation: pulse 1s infinite alternate;
@@ -274,7 +279,7 @@
 
     .state-dot.speaking {
       background: #ec4899;
-      animation: pulse 0.6s infinite alternate;
+      animation: pulse 0.4s infinite alternate;
     }
 
     @keyframes pulse {
@@ -404,8 +409,8 @@
 
     .mic-btn.listening {
       background: var(--danger);
-      box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
-      animation: pulse 0.7s infinite alternate;
+      box-shadow: 0 0 18px rgba(239, 68, 68, 0.8);
+      animation: pulse 0.5s infinite alternate;
     }
 
     /* WebXR Action Button */
@@ -431,7 +436,7 @@
       box-shadow: 0 0 20px rgba(139, 92, 246, 0.7);
     }
 
-    /* Modals (Settings & Avatar Selector) */
+    /* Modals */
     .modal-backdrop {
       position: absolute;
       top: 0;
@@ -631,68 +636,27 @@
       line-height: 1.25;
     }
 
-    /* -------------------------------------------------------- */
-    /* RESPONSIVE DESIGN: MOBILE PHONE OPTIMIZATIONS            */
-    /* -------------------------------------------------------- */
-
-    /* Small screens / Portrait Phones */
+    /* Responsive Queries */
     @media (max-width: 480px) {
-      .brand-title {
-        display: none;
-      }
-      .brand {
-        padding: 5px 8px;
-        gap: 6px;
-      }
-      .engine-badge {
-        font-size: 9px;
-        padding: 2px 6px;
-      }
-      .speech-bubble-container {
-        width: 96%;
-        margin-top: 10px;
-      }
-      .speech-text {
-        font-size: 13px;
-        max-height: 85px;
-      }
-      .prompt-input {
-        font-size: 13px;
-        padding: 4px 8px;
-      }
-      .action-btn {
-        padding: 6px 12px;
-        font-size: 12px;
-      }
-      .action-btn span {
-        display: none;
-      }
-      .action-btn svg {
-        margin: 0;
-      }
-      #xr-label {
-        display: none;
-      }
-      #xr-button {
-        padding: 8px;
-        border-radius: 50%;
-        width: 38px;
-        height: 38px;
-        justify-content: center;
-      }
+      .brand-title { display: none; }
+      .brand { padding: 5px 8px; gap: 6px; }
+      .engine-badge { font-size: 9px; padding: 2px 6px; }
+      .speech-bubble-container { width: 96%; margin-top: 10px; }
+      .speech-text { font-size: 13px; max-height: 85px; }
+      .prompt-input { font-size: 13px; padding: 4px 8px; }
+      .action-btn { padding: 6px 12px; font-size: 12px; }
+      .action-btn span { display: none; }
+      .action-btn svg { margin: 0; }
+      #xr-label { display: none; }
+      #xr-button { padding: 8px; border-radius: 50%; width: 38px; height: 38px; justify-content: center; }
     }
 
-    /* Horizontal / Landscape Phones */
     @media (max-height: 520px) and (orientation: landscape) {
       #hud-overlay {
         padding: max(8px, var(--safe-top)) max(8px, var(--safe-right)) max(8px, var(--safe-bottom)) max(8px, var(--safe-left));
       }
-      .top-bar {
-        gap: 6px;
-      }
-      .brand {
-        padding: 4px 8px;
-      }
+      .top-bar { gap: 6px; }
+      .brand { padding: 4px 8px; }
       .speech-bubble-container {
         position: absolute;
         top: max(48px, var(--safe-top));
@@ -700,35 +664,14 @@
         max-width: 260px;
         margin: 0;
       }
-      .speech-bubble {
-        padding: 8px 12px;
-        border-radius: 12px;
-      }
-      .speech-text {
-        max-height: 70px;
-        font-size: 12px;
-      }
-      .bottom-deck {
-        max-width: 480px;
-        gap: 4px;
-      }
-      .suggestion-chips {
-        display: none; /* Hide suggestion chips in short landscape to keep avatar visible */
-      }
-      .input-bar {
-        padding: 4px 6px;
-      }
-      .prompt-input {
-        padding: 4px 8px;
-      }
-      .modal {
-        max-height: 94vh;
-        padding: 14px;
-        gap: 10px;
-      }
-      .avatar-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
+      .speech-bubble { padding: 8px 12px; border-radius: 12px; }
+      .speech-text { max-height: 70px; font-size: 12px; }
+      .bottom-deck { max-width: 480px; gap: 4px; }
+      .suggestion-chips { display: none; }
+      .input-bar { padding: 4px 6px; }
+      .prompt-input { padding: 4px 8px; }
+      .modal { max-height: 94vh; padding: 14px; gap: 10px; }
+      .avatar-grid { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
 
@@ -746,7 +689,7 @@
 
   <!-- Live Update Banner -->
   <div id="update-banner">
-    <span class="update-banner-text">🚀 New update available (<span id="new-version-text">v0.1.2</span>)!</span>
+    <span class="update-banner-text">🚀 New update available (<span id="new-version-text">v0.1.3</span>)!</span>
     <button id="btn-apply-update" class="update-btn">Update & Reload</button>
   </div>
 
@@ -761,7 +704,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.2</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.3</div>
         <div id="engine-badge" class="engine-badge local">🏠 Local</div>
       </div>
 
@@ -789,7 +732,7 @@
           <span id="state-text">Ready</span>
         </div>
         <div id="speech-text" class="speech-text">
-          Hi Eran! I'm your AI Companion. You can talk to me via microphone or choose a question below.
+          Hi Eran! I'm your AI Companion. Tap the microphone below or choose a question, and I will speak back to you!
         </div>
       </div>
     </div>
@@ -798,7 +741,7 @@
     <div class="bottom-deck interactive">
       <!-- Suggestion chips -->
       <div class="suggestion-chips">
-        <button class="chip" data-query="Introduce yourself in 2 sentences.">👋 Who are you?</button>
+        <button class="chip" data-query="Introduce yourself out loud in 2 sentences.">👋 Who are you?</button>
         <button class="chip" data-query="What can you do on Meta Quest and Android?">📱 What can you do?</button>
         <button class="chip" data-query="Tell me an interesting science fact.">🧠 Interesting fact</button>
         <button class="chip" data-query="Give me a quick 1-minute mindfulness tip.">🧘 Mindfulness</button>
@@ -806,10 +749,10 @@
 
       <!-- Input Bar -->
       <div class="input-bar">
-        <button id="btn-mic" class="mic-btn" title="Speak via Microphone">
+        <button id="btn-mic" class="mic-btn" title="Tap to Speak via Microphone">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
         </button>
-        <input id="prompt-input" type="text" class="prompt-input" placeholder="Type a message or tap mic..." autocomplete="off">
+        <input id="prompt-input" type="text" class="prompt-input" placeholder="Type or tap mic to speak..." autocomplete="off">
         <button id="btn-send" class="action-btn">
           <span>Send</span>
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -830,42 +773,36 @@
       <p class="help-hint">Select a 3D avatar companion to project into your space:</p>
 
       <div class="avatar-grid">
-        <!-- Avatar 1: Nova -->
         <div class="avatar-card active" data-avatar-id="nova">
           <div class="avatar-icon-circle" style="color: #6366f1;">🤖</div>
           <div class="avatar-name">Nova</div>
-          <div class="avatar-desc">Cyber Android (Cyan LED)</div>
+          <div class="avatar-desc">Cyber Android (Articulated Jaw)</div>
         </div>
 
-        <!-- Avatar 2: Athena -->
         <div class="avatar-card" data-avatar-id="athena">
           <div class="avatar-icon-circle" style="color: #f59e0b;">👑</div>
           <div class="avatar-name">Athena</div>
-          <div class="avatar-desc">Gold Vanguard (Obsidian & Gold)</div>
+          <div class="avatar-desc">Gold Vanguard (Gold Visor)</div>
         </div>
 
-        <!-- Avatar 3: Echo -->
         <div class="avatar-card" data-avatar-id="echo">
           <div class="avatar-icon-circle" style="color: #10b981;">🛸</div>
           <div class="avatar-name">Echo</div>
-          <div class="avatar-desc">Floating Drone (Thrusters)</div>
+          <div class="avatar-desc">Floating Drone (Audio Equalizer)</div>
         </div>
 
-        <!-- Avatar 4: Nexus -->
         <div class="avatar-card" data-avatar-id="nexus">
           <div class="avatar-icon-circle" style="color: #ec4899;">🔮</div>
           <div class="avatar-name">Nexus</div>
-          <div class="avatar-desc">Holo Matrix (Wireframe)</div>
+          <div class="avatar-desc">Holo Matrix (Pulsing Core)</div>
         </div>
 
-        <!-- Avatar 5: Humanoid Alex (Ready Player Me) -->
         <div class="avatar-card" data-avatar-id="rpm_alex">
           <div class="avatar-icon-circle" style="color: #38bdf8;">🧑</div>
           <div class="avatar-name">Alex</div>
           <div class="avatar-desc">Humanoid (Ready Player Me)</div>
         </div>
 
-        <!-- Avatar 6: Custom URL -->
         <div class="avatar-card" data-avatar-id="custom">
           <div class="avatar-icon-circle" style="color: #a855f7;">🌐</div>
           <div class="avatar-name">Custom URL</div>
@@ -873,7 +810,6 @@
         </div>
       </div>
 
-      <!-- Custom URL Input -->
       <div id="custom-avatar-box" class="form-group" style="display: none; margin-top: 6px;">
         <label class="form-label">Custom Avatar GLB Link</label>
         <input id="cfg-custom-avatar-url" type="text" class="form-input" placeholder="https://models.readyplayer.me/....glb">
@@ -890,6 +826,15 @@
       <div class="modal-header">
         <h3 class="modal-title">Companion Settings</h3>
         <button id="btn-close-settings" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
+      </div>
+
+      <!-- Test Voice Button -->
+      <div class="form-group" style="background: rgba(99, 102, 241, 0.15); padding: 10px; border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
+        <label class="form-label" style="color: #c7d2fe;">🔊 Voice & Audio Check</label>
+        <p class="help-hint">Tap below to test hearing the avatar speak and watch its mouth move:</p>
+        <button id="btn-test-voice" class="action-btn" style="margin-top: 6px; align-self: flex-start; padding: 7px 16px; font-size: 12px; background: #10b981;">
+          <span>▶️ Test Avatar Voice & Mouth</span>
+        </button>
       </div>
 
       <!-- Engine Selector -->
@@ -930,7 +875,7 @@
 
       <!-- Voice Settings -->
       <div class="form-group">
-        <label class="form-label">Speech Voice & Speed</label>
+        <label class="form-label">Avatar Voice & Accent</label>
         <select id="cfg-voice-select" class="form-input"></select>
       </div>
 
@@ -953,7 +898,7 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     // Application Version
-    const APP_VERSION = 'v0.1.2';
+    const APP_VERSION = 'v0.1.3';
 
     // Ready Player Me verified public template
     const RPM_DEFAULT_MODEL = 'https://models.readyplayer.me/6460d95f56050f461660ea76.glb';
@@ -965,6 +910,7 @@
       localModel: localStorage.getItem('quest_local_model') || 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
       avatarId: localStorage.getItem('quest_avatar_id') || 'nova',
       customAvatarUrl: localStorage.getItem('quest_custom_avatar_url') || '',
+      selectedVoiceName: localStorage.getItem('quest_voice_name') || '',
       isListening: false,
       isThinking: false,
       isSpeaking: false,
@@ -984,6 +930,7 @@
       newVersionText: document.getElementById('new-version-text'),
       btnApplyUpdate: document.getElementById('btn-apply-update'),
       btnForceRefresh: document.getElementById('btn-force-refresh'),
+      btnTestVoice: document.getElementById('btn-test-voice'),
       engineBadge: document.getElementById('engine-badge'),
       xrButton: document.getElementById('xr-button'),
       xrLabel: document.getElementById('xr-label'),
@@ -1018,6 +965,27 @@
     };
 
     dom.appVersionBadge.textContent = APP_VERSION;
+
+    // -------------------------------------------------------------
+    // Mobile Audio Autoplay Unlocker (Chrome / Android / Quest)
+    // -------------------------------------------------------------
+    let audioUnlocked = false;
+    function unlockAudio() {
+      if (audioUnlocked) return;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+        // Play silent utterance to prime audio subsystem on user gesture
+        try {
+          const silentUtterance = new SpeechSynthesisUtterance('');
+          silentUtterance.volume = 0;
+          window.speechSynthesis.speak(silentUtterance);
+        } catch (e) {}
+      }
+      audioUnlocked = true;
+    }
+
+    window.addEventListener('click', unlockAudio, { once: true });
+    window.addEventListener('touchstart', unlockAudio, { once: true });
 
     // -------------------------------------------------------------
     // Auto-Update & Cache Busting Engine (Yard Guardian Pattern)
@@ -1062,9 +1030,11 @@
     let clock = new THREE.Clock();
     let currentXRSession = null;
     let mouthMesh = null;
+    let jawMesh = null;
     let eyeLeft = null, eyeRight = null;
     let avatarGroup = new THREE.Group();
     let droneThrusters = [];
+    let equalizerBars = [];
 
     // -------------------------------------------------------------
     // 1. Initialize Three.js & Adaptive Mobile Framing
@@ -1076,7 +1046,7 @@
       camera = new THREE.PerspectiveCamera(58, aspect, 0.1, 100);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Save battery on high-DPI Android phones
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
       renderer.shadowMap.enabled = true;
@@ -1087,7 +1057,7 @@
       controls.dampingFactor = 0.05;
       controls.minDistance = 0.8;
       controls.maxDistance = 4.5;
-      controls.enablePan = false; // Keep avatar centered on phone touch drag
+      controls.enablePan = false;
 
       // Lighting
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
@@ -1110,15 +1080,12 @@
       scene.add(avatarGroup);
       buildAvatar(AppState.avatarId);
 
-      // Set initial responsive camera framing
       updateCameraFraming();
-
       checkWebXR();
 
       window.addEventListener('resize', onWindowResize);
       window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 150));
 
-      // Handle mobile keyboard resizing
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', handleVisualViewportResize);
       }
@@ -1133,12 +1100,11 @@
       camera.aspect = aspect;
 
       if (aspect < 0.85) {
-        // Vertical / Portrait Phone (e.g. Android phone held upright)
-        // Zoom back and frame avatar perfectly between top bar and bottom input deck
+        // Vertical Portrait Phone
         camera.position.set(0, 1.25, 2.7);
         controls.target.set(0, 1.05, 0);
       } else if (aspect < 1.3) {
-        // Square or Tablet
+        // Tablet / Square
         camera.position.set(0, 1.25, 2.2);
         controls.target.set(0, 1.15, 0);
       } else {
@@ -1156,7 +1122,6 @@
 
     function handleVisualViewportResize() {
       if (window.visualViewport) {
-        // Keep HUD overlay docked precisely above on-screen keyboard
         dom.hudOverlay.style.height = `${window.visualViewport.height}px`;
       }
     }
@@ -1207,16 +1172,18 @@
     }
 
     // -------------------------------------------------------------
-    // 2. Avatar Construction (Multiple Avatars System)
+    // 2. Avatar Construction (With Articulated Jaws & Equalizers)
     // -------------------------------------------------------------
     function clearAvatarGroup() {
       while(avatarGroup.children.length > 0) {
         avatarGroup.remove(avatarGroup.children[0]);
       }
       mouthMesh = null;
+      jawMesh = null;
       eyeLeft = null;
       eyeRight = null;
       droneThrusters = [];
+      equalizerBars = [];
       AppState.visemeMesh = null;
       AppState.blendshapes = {};
     }
@@ -1253,12 +1220,13 @@
       }
     }
 
-    // Avatar 1: Nova (Cyber Android - Cyan/Indigo)
+    // Avatar 1: Nova (Cyber Android with Articulated Lower Jaw)
     function buildNovaAvatar() {
       const matBody = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
       const matHead = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2, metalness: 0.1 });
       const matGlow = new THREE.MeshBasicMaterial({ color: 0x6366f1 });
       const matMouth = new THREE.MeshBasicMaterial({ color: 0xec4899 });
+      const matInnerMouth = new THREE.MeshBasicMaterial({ color: 0x0f172a });
 
       const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.6, 16), matBody);
       torso.position.y = 0.8;
@@ -1272,28 +1240,49 @@
       headGroup.name = 'avatar-head';
       headGroup.position.set(0, 1.3, 0);
 
-      const headGeo = new THREE.SphereGeometry(0.18, 32, 32);
-      headGeo.scale(0.9, 1.1, 0.95);
-      const head = new THREE.Mesh(headGeo, matHead);
-      headGroup.add(head);
+      // Upper Cranium (stationary relative to head)
+      const craniumGeo = new THREE.SphereGeometry(0.18, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.65);
+      craniumGeo.scale(0.9, 1.1, 0.95);
+      const cranium = new THREE.Mesh(craniumGeo, matHead);
+      headGroup.add(cranium);
 
+      // Inner mouth cavity
+      const mouthCavity = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.06), matInnerMouth);
+      mouthCavity.position.set(0, -0.06, 0.12);
+      headGroup.add(mouthCavity);
+
+      // Articulated Lower Jaw (Drops down when speaking!)
+      const jawGroup = new THREE.Group();
+      jawGroup.name = 'avatar-jaw';
+      jawGroup.position.set(0, -0.04, 0);
+
+      const jawGeo = new THREE.SphereGeometry(0.175, 32, 16, 0, Math.PI * 2, Math.PI * 0.65, Math.PI * 0.35);
+      jawGeo.scale(0.9, 1.1, 0.95);
+      const jaw = new THREE.Mesh(jawGeo, matHead);
+      jawGroup.add(jaw);
+
+      // Glowing speech mouth viseme (inside the jaw)
+      const mouthGeo = new THREE.BoxGeometry(0.08, 0.02, 0.02);
+      mouthMesh = new THREE.Mesh(mouthGeo, matMouth);
+      mouthMesh.position.set(0, -0.025, 0.165);
+      jawGroup.add(mouthMesh);
+      jawMesh = jawGroup;
+
+      headGroup.add(jawGroup);
+
+      // Glowing Eyes
       const eyeGeo = new THREE.SphereGeometry(0.03, 16, 16);
       eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
-      eyeLeft.position.set(-0.065, 0.03, 0.16);
+      eyeLeft.position.set(-0.065, 0.04, 0.16);
       headGroup.add(eyeLeft);
 
       eyeRight = new THREE.Mesh(eyeGeo, matGlow);
-      eyeRight.position.set(0.065, 0.03, 0.16);
+      eyeRight.position.set(0.065, 0.04, 0.16);
       headGroup.add(eyeRight);
 
-      const mouthGeo = new THREE.BoxGeometry(0.07, 0.015, 0.01);
-      mouthMesh = new THREE.Mesh(mouthGeo, matMouth);
-      mouthMesh.position.set(0, -0.07, 0.165);
-      headGroup.add(mouthMesh);
-
+      // Pedestal ring
       const ringGeo = new THREE.RingGeometry(0.35, 0.4, 32);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
+      const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide }));
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.02;
       avatarGroup.add(ring);
@@ -1301,7 +1290,7 @@
       avatarGroup.add(headGroup);
     }
 
-    // Avatar 2: Athena (Gold Vanguard - Obsidian Armor & Gold Visor)
+    // Avatar 2: Athena (Gold Vanguard with Articulated Chin)
     function buildAthenaAvatar() {
       const matArmor = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9 });
       const matGold = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.95 });
@@ -1323,7 +1312,7 @@
       headGroup.name = 'avatar-head';
       headGroup.position.set(0, 1.3, 0);
 
-      const helmGeo = new THREE.SphereGeometry(0.18, 32, 32);
+      const helmGeo = new THREE.SphereGeometry(0.18, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.65);
       helmGeo.scale(0.88, 1.15, 0.92);
       const helm = new THREE.Mesh(helmGeo, matArmor);
       headGroup.add(helm);
@@ -1334,20 +1323,25 @@
       visor.rotation.y = Math.PI / 2;
       headGroup.add(visor);
 
-      const eyeGeo = new THREE.BoxGeometry(0.04, 0.015, 0.01);
-      eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      eyeLeft.position.set(-0.055, 0.03, 0.165);
-      headGroup.add(eyeLeft);
+      // Gold Lower Jaw
+      const jawGroup = new THREE.Group();
+      jawGroup.name = 'avatar-jaw';
+      jawGroup.position.set(0, -0.04, 0);
 
-      eyeRight = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      eyeRight.position.set(0.055, 0.03, 0.165);
-      headGroup.add(eyeRight);
+      const jawGeo = new THREE.SphereGeometry(0.175, 32, 16, 0, Math.PI * 2, Math.PI * 0.65, Math.PI * 0.35);
+      jawGeo.scale(0.88, 1.15, 0.92);
+      const jaw = new THREE.Mesh(jawGeo, matGold);
+      jawGroup.add(jaw);
 
-      const mouthGeo = new THREE.BoxGeometry(0.065, 0.015, 0.01);
+      const mouthGeo = new THREE.BoxGeometry(0.07, 0.02, 0.02);
       mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
-      mouthMesh.position.set(0, -0.07, 0.165);
-      headGroup.add(mouthMesh);
+      mouthMesh.position.set(0, -0.025, 0.165);
+      jawGroup.add(mouthMesh);
+      jawMesh = jawGroup;
 
+      headGroup.add(jawGroup);
+
+      // Halo
       const haloGeo = new THREE.TorusGeometry(0.24, 0.012, 16, 32);
       const halo = new THREE.Mesh(haloGeo, matVisor);
       halo.rotation.x = Math.PI / 2;
@@ -1357,7 +1351,7 @@
       avatarGroup.add(headGroup);
     }
 
-    // Avatar 3: Echo (Floating Spherical Drone with Animated Thrusters)
+    // Avatar 3: Echo (Drone with Real Equalizer Speech Bars)
     function buildEchoDroneAvatar() {
       const matChassis = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.3 });
       const matScreen = new THREE.MeshBasicMaterial({ color: 0x090d16 });
@@ -1378,6 +1372,7 @@
       screenMesh.rotation.x = Math.PI / 2;
       headGroup.add(screenMesh);
 
+      // Expressive digital eyes
       const eyeGeo = new THREE.RingGeometry(0.02, 0.045, 16);
       eyeLeft = new THREE.Mesh(eyeGeo, matGlow);
       eyeLeft.position.set(-0.08, 0.03, 0.255);
@@ -1387,10 +1382,18 @@
       eyeRight.position.set(0.08, 0.03, 0.255);
       headGroup.add(eyeRight);
 
-      const mouthGeo = new THREE.BoxGeometry(0.08, 0.018, 0.01);
-      mouthMesh = new THREE.Mesh(mouthGeo, matGlow);
-      mouthMesh.position.set(0, -0.07, 0.255);
-      headGroup.add(mouthMesh);
+      // 5 Equalizer Bars for animated speaking waveform!
+      const eqGroup = new THREE.Group();
+      eqGroup.position.set(0, -0.07, 0.255);
+      for (let i = 0; i < 5; i++) {
+        const barGeo = new THREE.BoxGeometry(0.015, 0.02, 0.005);
+        const bar = new THREE.Mesh(barGeo, matGlow);
+        bar.position.x = (i - 2) * 0.022;
+        eqGroup.add(bar);
+        equalizerBars.push(bar);
+      }
+      mouthMesh = eqGroup;
+      headGroup.add(eqGroup);
 
       const thrusterLeft = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.02, 16, 32), matGlow);
       thrusterLeft.position.set(-0.32, 0, 0);
@@ -1404,16 +1407,10 @@
       headGroup.add(thrusterRight);
       droneThrusters.push(thrusterRight);
 
-      const ringGeo = new THREE.RingGeometry(0.2, 0.28, 32);
-      const ring = new THREE.Mesh(ringGeo, matGlow);
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = -0.35;
-      headGroup.add(ring);
-
       avatarGroup.add(headGroup);
     }
 
-    // Avatar 4: Nexus (Holo Matrix - Glass & Geometric Wireframe)
+    // Avatar 4: Nexus (Pulsing Geometric Core)
     function buildNexusAvatar() {
       const matHolo = new THREE.MeshPhysicalMaterial({
         color: 0xec4899,
@@ -1435,18 +1432,10 @@
 
       const coreGeo = new THREE.OctahedronGeometry(0.12);
       const core = new THREE.Mesh(coreGeo, matCore);
+      core.name = 'nexus-core';
       headGroup.add(core);
 
-      const eyeGeo = new THREE.SphereGeometry(0.025, 16, 16);
-      eyeLeft = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      eyeLeft.position.set(-0.065, 0.03, 0.18);
-      headGroup.add(eyeLeft);
-
-      eyeRight = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      eyeRight.position.set(0.065, 0.03, 0.18);
-      headGroup.add(eyeRight);
-
-      const mouthGeo = new THREE.BoxGeometry(0.07, 0.015, 0.01);
+      const mouthGeo = new THREE.BoxGeometry(0.07, 0.02, 0.01);
       mouthMesh = new THREE.Mesh(mouthGeo, new THREE.MeshBasicMaterial({ color: 0xec4899 }));
       mouthMesh.position.set(0, -0.06, 0.18);
       headGroup.add(mouthMesh);
@@ -1480,7 +1469,7 @@
     }
 
     // -------------------------------------------------------------
-    // 3. Animation & Rendering Loop
+    // 3. Animation & Rendering Loop (Speech-Synchronized Mouth)
     // -------------------------------------------------------------
     let blinkTimer = 0;
 
@@ -1488,6 +1477,7 @@
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
+      // Subtle breathing motion or drone hovering
       if (AppState.avatarId === 'echo') {
         avatarGroup.position.y = Math.sin(elapsed * 2.5) * 0.04;
         droneThrusters.forEach((t, i) => {
@@ -1500,28 +1490,86 @@
       const head = avatarGroup.getObjectByName('avatar-head');
       if (head) {
         head.lookAt(camera.position.x, camera.position.y, camera.position.z);
+        // Tilt head slightly when listening to user
+        if (AppState.isListening) {
+          head.rotation.z = -0.06;
+          head.rotation.x = 0.04;
+        }
       }
 
+      // -----------------------------------------------------------
+      // REALISTIC SPEECH MOUTH & JAW ANIMATION
+      // -----------------------------------------------------------
       if (AppState.isSpeaking) {
-        const mouthOpenness = Math.abs(Math.sin(elapsed * 18)) * 0.04 + Math.sin(elapsed * 10) * 0.02;
-        if (mouthMesh) {
-          mouthMesh.scale.set(1.0 + Math.sin(elapsed * 14) * 0.3, 1.0 + mouthOpenness * 120, 1.0);
+        // Multi-frequency speech syllable modulation
+        const syllable1 = Math.sin(elapsed * 18);
+        const syllable2 = Math.cos(elapsed * 26);
+        const speechPower = Math.max(0, (syllable1 * 0.6 + syllable2 * 0.4));
+
+        // 1. Physically drop the lower jaw if available!
+        if (jawMesh) {
+          jawMesh.position.y = -0.04 - (speechPower * 0.035);
+          jawMesh.rotation.x = speechPower * 0.25;
         }
 
-        if (AppState.visemeMesh && AppState.blendshapes) {
-          const jawIndex = AppState.blendshapes['jawOpen'] ?? AppState.blendshapes['mouthOpen'] ?? AppState.blendshapes['viseme_aa'];
-          if (jawIndex !== undefined) {
-            AppState.visemeMesh.morphTargetInfluences[jawIndex] = (Math.sin(elapsed * 16) + 1) * 0.4;
-          }
+        // 2. Expand mouth aperture vertically and horizontally
+        if (mouthMesh && !equalizerBars.length) {
+          mouthMesh.scale.set(1.0 + speechPower * 0.4, 1.0 + speechPower * 3.5, 1.0);
         }
-      } else {
-        if (mouthMesh) mouthMesh.scale.set(1, 1, 1);
+
+        // 3. Equalizer bars for Echo drone
+        if (equalizerBars.length) {
+          equalizerBars.forEach((bar, i) => {
+            const barEnergy = Math.abs(Math.sin(elapsed * (14 + i * 4)));
+            bar.scale.y = 1.0 + barEnergy * 4.0;
+          });
+        }
+
+        // 4. Pulse Nexus core
+        const core = avatarGroup.getObjectByName('nexus-core');
+        if (core) {
+          core.scale.setScalar(1.0 + speechPower * 0.5);
+        }
+
+        // 5. Ready Player Me ARKit facial blendshapes
         if (AppState.visemeMesh && AppState.blendshapes) {
-          const jawIndex = AppState.blendshapes['jawOpen'] ?? AppState.blendshapes['mouthOpen'] ?? AppState.blendshapes['viseme_aa'];
-          if (jawIndex !== undefined) AppState.visemeMesh.morphTargetInfluences[jawIndex] = 0;
+          const jawOpenIdx = AppState.blendshapes['jawOpen'];
+          const mouthOpenIdx = AppState.blendshapes['mouthOpen'];
+          const visemeAaIdx = AppState.blendshapes['viseme_aa'];
+          const visemeOIdx = AppState.blendshapes['viseme_O'];
+
+          if (jawOpenIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[jawOpenIdx] = speechPower * 0.8;
+          if (mouthOpenIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[mouthOpenIdx] = speechPower * 0.6;
+          if (visemeAaIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[visemeAaIdx] = Math.abs(syllable1) * 0.7;
+          if (visemeOIdx !== undefined) AppState.visemeMesh.morphTargetInfluences[visemeOIdx] = Math.abs(syllable2) * 0.5;
+        }
+
+        // Subtle head nodding while speaking
+        if (head && !AppState.isListening) {
+          head.rotation.x += Math.sin(elapsed * 8) * 0.015;
+        }
+
+      } else {
+        // Return jaw and mouth to closed rest position
+        if (jawMesh) {
+          jawMesh.position.y = -0.04;
+          jawMesh.rotation.x = 0;
+        }
+        if (mouthMesh && !equalizerBars.length) {
+          mouthMesh.scale.set(1, 1, 1);
+        }
+        if (equalizerBars.length) {
+          equalizerBars.forEach(bar => bar.scale.y = 1.0);
+        }
+        if (AppState.visemeMesh && AppState.blendshapes) {
+          ['jawOpen', 'mouthOpen', 'viseme_aa', 'viseme_O'].forEach(name => {
+            const idx = AppState.blendshapes[name];
+            if (idx !== undefined) AppState.visemeMesh.morphTargetInfluences[idx] = 0;
+          });
         }
       }
 
+      // Blinking
       blinkTimer += delta;
       if (blinkTimer > 3.5) {
         if (eyeLeft && eyeRight) {
@@ -1589,9 +1637,10 @@
 
     async function sendPrompt(userText) {
       if (!userText || !userText.trim()) return;
+      unlockAudio();
       userText = userText.trim();
       dom.promptInput.value = '';
-      dom.promptInput.blur(); // Dismiss Android virtual keyboard
+      dom.promptInput.blur();
 
       updateStatus('Thinking...', 'thinking');
       dom.speechText.textContent = `You: "${userText}"\n\nThinking...`;
@@ -1665,38 +1714,74 @@
     }
 
     // -------------------------------------------------------------
-    // 5. Speech Synthesis & Audio Lip-Sync
+    // 5. Speech Synthesis & Audio Lip-Sync (Robust Chrome Android Fix)
     // -------------------------------------------------------------
+    let activeUtterance = null; // Global reference prevents Chrome garbage collection bug
+
     function speakReply(text) {
-      dom.speechText.textContent = text;
+      // Clean markdown asterisks and backticks for clean speech
+      const cleanText = text.replace(/[*#`_~]/g, '').trim();
+      dom.speechText.textContent = cleanText;
       updateStatus('Speaking...', 'speaking');
 
       if (!('speechSynthesis' in window)) {
+        console.warn('Speech synthesis not available');
         updateStatus('Ready');
         return;
       }
 
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+      unlockAudio();
+
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
+      } catch (e) {}
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.rate = 1.05;
       utterance.pitch = 1.0;
+      utterance.volume = 1.0;
 
+      // Select active voice
       const voices = window.speechSynthesis.getVoices();
-      const selectedVoiceName = dom.cfgVoiceSelect.value;
+      const selectedVoiceName = dom.cfgVoiceSelect.value || AppState.selectedVoiceName;
       const matched = voices.find(v => v.name === selectedVoiceName);
-      if (matched) utterance.voice = matched;
+      if (matched) {
+        utterance.voice = matched;
+      } else {
+        const defaultEn = voices.find(v => v.lang.startsWith('en'));
+        if (defaultEn) utterance.voice = defaultEn;
+      }
 
-      AppState.isSpeaking = true;
+      activeUtterance = utterance; // Prevent garbage collection mid-speech
+
+      utterance.onstart = () => {
+        AppState.isSpeaking = true;
+        updateStatus('Speaking...', 'speaking');
+      };
 
       utterance.onend = () => {
         AppState.isSpeaking = false;
+        activeUtterance = null;
         updateStatus('Ready');
       };
 
-      utterance.onerror = () => {
+      utterance.onerror = (e) => {
+        console.warn('Speech error:', e);
         AppState.isSpeaking = false;
+        activeUtterance = null;
         updateStatus('Ready');
       };
+
+      // Safety timeout in case browser never fires onend
+      const estimatedDuration = Math.max(3500, cleanText.length * 85);
+      setTimeout(() => {
+        if (AppState.isSpeaking) {
+          AppState.isSpeaking = false;
+          activeUtterance = null;
+          updateStatus('Ready');
+        }
+      }, estimatedDuration);
 
       window.speechSynthesis.speak(utterance);
     }
@@ -1718,20 +1803,25 @@
       recognition.lang = 'en-US';
 
       recognition.onstart = () => {
+        unlockAudio();
         AppState.isListening = true;
         dom.btnMic.classList.add('listening');
-        updateStatus('Listening...', 'thinking');
+        updateStatus('Listening...', 'listening');
       };
 
       recognition.onresult = (e) => {
         const transcript = e.results[0][0].transcript;
         dom.promptInput.value = transcript;
+        stopListening();
         sendPrompt(transcript);
       };
 
       recognition.onerror = (e) => {
         console.warn('Speech error:', e.error);
         stopListening();
+        if (e.error === 'not-allowed') {
+          alert('Microphone permission denied. Please allow microphone access in your browser settings.');
+        }
       };
 
       recognition.onend = () => {
@@ -1740,6 +1830,7 @@
     }
 
     function toggleListening() {
+      unlockAudio();
       if (!recognition) {
         alert('Voice recognition is not supported directly in this browser. Please type your message or use the phone keyboard microphone dictation key!');
         dom.promptInput.focus();
@@ -1749,19 +1840,26 @@
       if (AppState.isListening) {
         recognition.stop();
       } else {
-        recognition.start();
+        try {
+          recognition.start();
+        } catch (e) {
+          recognition.stop();
+        }
       }
     }
 
     function stopListening() {
       AppState.isListening = false;
       dom.btnMic.classList.remove('listening');
-      updateStatus('Ready');
+      if (!AppState.isThinking && !AppState.isSpeaking) {
+        updateStatus('Ready');
+      }
     }
 
     function updateStatus(text, state = 'ready') {
       dom.stateText.textContent = text;
       dom.stateDot.className = 'state-dot';
+      if (state === 'listening') dom.stateDot.classList.add('listening');
       if (state === 'thinking') dom.stateDot.classList.add('thinking');
       if (state === 'speaking') dom.stateDot.classList.add('speaking');
     }
@@ -1774,7 +1872,9 @@
         const opt = document.createElement('option');
         opt.value = voice.name;
         opt.textContent = `${voice.name} (${voice.lang})`;
-        if (voice.lang.includes('en') && (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('Samantha'))) {
+        if (AppState.selectedVoiceName && voice.name === AppState.selectedVoiceName) {
+          opt.selected = true;
+        } else if (!AppState.selectedVoiceName && voice.lang.includes('en') && (voice.name.includes('Google') || voice.name.includes('Natural') || voice.name.includes('Samantha'))) {
           opt.selected = true;
         }
         dom.cfgVoiceSelect.appendChild(opt);
@@ -1818,6 +1918,7 @@
 
     document.querySelectorAll('.avatar-card').forEach(card => {
       card.onclick = () => {
+        unlockAudio();
         const chosenId = card.dataset.avatarId;
         document.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
@@ -1826,6 +1927,7 @@
     });
 
     dom.btnAvatars.onclick = () => {
+      unlockAudio();
       updateAvatarUI();
       dom.modalAvatars.classList.add('open');
     };
@@ -1833,6 +1935,7 @@
     dom.btnCloseAvatars.onclick = () => dom.modalAvatars.classList.remove('open');
 
     dom.btnConfirmAvatar.onclick = () => {
+      unlockAudio();
       const activeCard = document.querySelector('.avatar-card.active');
       const selectedId = activeCard ? activeCard.dataset.avatarId : 'nova';
       AppState.avatarId = selectedId;
@@ -1843,6 +1946,8 @@
 
       buildAvatar(selectedId);
       dom.modalAvatars.classList.remove('open');
+
+      speakReply(`Hello Eran! I am now ready as your companion.`);
     };
 
     dom.btnSend.onclick = () => sendPrompt(dom.promptInput.value);
@@ -1856,7 +1961,13 @@
       chip.onclick = () => sendPrompt(chip.dataset.query);
     });
 
+    dom.btnTestVoice.onclick = () => {
+      unlockAudio();
+      speakReply("Hello Eran! My voice and lip movements are working perfectly on your device.");
+    };
+
     dom.btnSettings.onclick = () => {
+      unlockAudio();
       dom.cfgGeminiKey.value = AppState.geminiKey;
       dom.cfgLocalModel.value = AppState.localModel;
       updateEngineUI();
@@ -1901,10 +2012,12 @@
     dom.btnSaveSettings.onclick = () => {
       AppState.geminiKey = dom.cfgGeminiKey.value.trim();
       AppState.localModel = dom.cfgLocalModel.value;
+      AppState.selectedVoiceName = dom.cfgVoiceSelect.value;
 
       localStorage.setItem('quest_companion_mode', AppState.mode);
       localStorage.setItem('gemini_api_key', AppState.geminiKey);
       localStorage.setItem('quest_local_model', AppState.localModel);
+      localStorage.setItem('quest_voice_name', AppState.selectedVoiceName);
 
       dom.modalSettings.classList.remove('open');
       updateEngineUI();

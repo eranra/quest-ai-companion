@@ -1,6 +1,6 @@
 {
-  "version": "v0.1.2",
-  "build": 3,
-  "released_at": "2026-11-06T16:03:00Z",
-  "changelog": "v0.1.2: Added comprehensive Android phone mobile responsiveness (adaptive vertical/portrait and horizontal/landscape 3D camera framing, safe area insets, touch gestures, and virtual keyboard handling)."
+  "version": "v0.1.3",
+  "build": 4,
+  "released_at": "2026-11-06T16:09:00Z",
+  "changelog": "v0.1.3: Real articulated lower jaw & equalizer lip-sync, Chrome mobile audio autoplay unlocking, persistent utterance protection, voice testing button, and head-nodding speech cadence."
 }
