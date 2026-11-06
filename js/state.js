@@ -21,6 +21,9 @@ export const AppState = {
   avatarDistance: parseFloat(localStorage.getItem('quest_avatar_dist') || '0.0'),
   avatarScale: parseFloat(localStorage.getItem('quest_avatar_scale') || '1.0'),
   
+  // Live Mode Sensitivity / Noise Threshold ('high_filter', 'normal', 'sensitive')
+  liveSensitivity: localStorage.getItem('quest_live_sensitivity') || 'normal',
+
   save() {
     localStorage.setItem('quest_engine', this.engine);
     localStorage.setItem('quest_local_model', this.localModel);
@@ -29,5 +32,6 @@ export const AppState = {
     localStorage.setItem('quest_live_mode', this.isLiveMode ? 'true' : 'false');
     localStorage.setItem('quest_avatar_dist', this.avatarDistance.toFixed(2));
     localStorage.setItem('quest_avatar_scale', this.avatarScale.toFixed(2));
+    localStorage.setItem('quest_live_sensitivity', this.liveSensitivity);
   }
 };

@@ -12,14 +12,12 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
 
 ## ✨ Features
 
-- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (New in v0.1.5):**
-  - **Always-Listening Mode:** Speak naturally without pressing any buttons. The app automatically detects speech turns and silence pauses, sends queries to the AI, and speaks the reply back.
-  - **Barge-In Speech Interruption:** If you start speaking while the avatar is talking, the avatar immediately stops speaking mid-sentence, aborts AI generation, and shifts instantly to attentive listening mode (just like Gemini Live).
-- **🕹️ Meta Quest 3 Touch Controller Manipulation (New in v0.1.5):**
-  - **Right Controller Thumbstick:** Push forward/pull backward to move the 3D avatar closer or further away in 3D/VR space (0.6m to 4.0m distance).
-  - **Left Controller Thumbstick:** Push up/down to scale the avatar size larger or smaller (0.3x to 2.5x).
-  - Also available via mobile & desktop touch sliders inside Settings.
+- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (Updated in v0.1.7):**
+  - **Configurable Voice Sensitivity / Noise Filter:** Adjust mic sensitivity in ⚙️ Settings (High Noise Filter, Balanced Default, High Sensitivity) to prevent room noise, breaths, or small sounds from falsely interrupting the avatar.
+  - **Always-Listening Mode:** Speak naturally without pressing buttons. Detects speech pauses, sends queries, and speaks the reply back.
+  - **Barge-In Speech Interruption:** If you speak meaningful words while the avatar is talking, it immediately cuts off mid-sentence, aborts generation, and listens to you.
 - **📱 Android Phone & Meta Quest 3 Optimized:**
+  - **Mobile-Responsive Top Bar (New in v0.1.7):** Re-engineered top dock to fit compact mobile phone displays without buttons or the ⚙️ Settings icon overflowing off-screen.
   - **Vertical / Portrait Mode:** Automatically zooms and frames the 3D avatar between the top bar and bottom input dock with safe-area insets.
   - **Horizontal / Landscape Mode:** Re-positions the speech bubble and compacts the UI so the avatar remains fully visible and unobstructed.
   - **Virtual Keyboard Resizing:** Connects to `visualViewport` so opening the mobile keyboard keeps the input bar cleanly docked.

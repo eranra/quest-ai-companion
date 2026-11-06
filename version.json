@@ -1,6 +1,6 @@
 {
-  "version": "v0.1.6",
-  "build": 7,
-  "released_at": "2026-11-06T19:46:00Z",
-  "changelog": "v0.1.6: Restore local Qwen 2.5 WebGPU model as default, add live download/compile progress bar with ready indicator, add Google Gemini responsiveness test & status indication, and optimize mobile audio unlock for TTS voice playback."
+  "version": "v0.1.7",
+  "build": 8,
+  "released_at": "2026-11-06T20:35:00Z",
+  "changelog": "v0.1.7: Increase Live Mode noise threshold to prevent false triggers, add configurable Live Voice Sensitivity / Noise Filter in Settings, and optimize top bar layout for mobile devices so Settings button is never cut off."
 }

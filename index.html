@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.1.6">
+  <link rel="stylesheet" href="css/styles.css?v=0.1.7">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.6</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.7</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -280,6 +280,17 @@
         <p class="help-hint">On Meta Quest 3, you can also use your Left Thumbstick (scale) and Right Thumbstick (distance) directly!</p>
       </div>
 
+      <!-- Live Mode Sensitivity / Noise Filter Threshold -->
+      <div class="form-group">
+        <label class="form-label">Live Mode Voice Sensitivity (Noise Filter)</label>
+        <select id="cfg-live-sensitivity" class="form-input">
+          <option value="high_filter">🛡️ High Noise Filter (Recommended - ignores breaths & clicks)</option>
+          <option value="normal" selected>⚖️ Balanced (Default - Ignores small noise, responds to speech)</option>
+          <option value="sensitive">⚡ High Sensitivity (Reacts to single short words)</option>
+        </select>
+        <p class="help-hint">Controls how distinct your speech must be before interrupting the avatar.</p>
+      </div>
+
       <!-- Voice Selection -->
       <div class="form-group">
         <label class="form-label">Speech Synthesis Voice</label>
@@ -291,7 +302,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.1.6"></script>
+  <script type="module" src="js/app.js?v=0.1.7"></script>
 
 </body>
 </html>

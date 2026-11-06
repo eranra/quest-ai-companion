@@ -13,7 +13,7 @@ import {
   setLiveMode
 } from './audio.js';
 
-const APP_VERSION = 'v0.1.6';
+const APP_VERSION = 'v0.1.7';
 let latestDetectedVersion = null;
 
 // DOM References
@@ -45,6 +45,7 @@ const dom = {
   cfgGeminiKey: document.getElementById('cfg-gemini-key'),
   cfgEngineSelect: document.getElementById('cfg-engine-select'),
   cfgLocalModel: document.getElementById('cfg-local-model'),
+  cfgLiveSensitivity: document.getElementById('cfg-live-sensitivity'),
   groupLocalModel: document.getElementById('group-local-model'),
   groupGemini: document.getElementById('group-gemini'),
   btnTestGemini: document.getElementById('btn-test-gemini'),
@@ -68,31 +69,38 @@ function updateStatus(text, type = '') {
 }
 
 function updateEngineBadge() {
+  const isSmallScreen = window.innerWidth <= 540;
   if (AppState.engine === 'cloud') {
     if (AppState.geminiStatus === 'online') {
-      dom.engineBadge.textContent = '☁️ Gemini 2.5 (Online)';
+      dom.engineBadge.textContent = isSmallScreen ? '☁️ Gemini' : '☁️ Gemini 2.5 (Online)';
       dom.engineBadge.style.color = '#38bdf8';
       dom.engineBadge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
     } else {
-      dom.engineBadge.textContent = '⚠️ Gemini (Offline)';
+      dom.engineBadge.textContent = isSmallScreen ? '⚠️ Offline' : '⚠️ Gemini (Offline)';
       dom.engineBadge.style.color = '#ef4444';
       dom.engineBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
     }
   } else {
     const isReady = AppState.isModelReady;
-    dom.engineBadge.textContent = isReady ? '🏠 Qwen 2.5 (Ready)' : '🏠 Qwen 2.5 (Loading...)';
+    if (isSmallScreen) {
+      dom.engineBadge.textContent = isReady ? '🏠 Qwen' : '🏠 Loading...';
+    } else {
+      dom.engineBadge.textContent = isReady ? '🏠 Qwen 2.5 (Ready)' : '🏠 Qwen 2.5 (Loading...)';
+    }
     dom.engineBadge.style.color = isReady ? '#34d399' : '#f59e0b';
     dom.engineBadge.style.borderColor = isReady ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.4)';
   }
 }
 
 function updateLiveModeUI() {
+  const isSmallScreen = window.innerWidth <= 540;
+  const label = isSmallScreen ? '⚡ Live' : '⚡ Live Mode';
   if (AppState.isLiveMode) {
     dom.btnLiveMode.classList.add('active');
-    dom.btnLiveMode.innerHTML = `<span class="live-pulse-dot"></span> ⚡ Live Mode: ON`;
+    dom.btnLiveMode.innerHTML = `<span class="live-pulse-dot"></span> <span>${label}: ON</span>`;
   } else {
     dom.btnLiveMode.classList.remove('active');
-    dom.btnLiveMode.innerHTML = `<span class="live-pulse-dot"></span> ⚡ Live Mode: OFF`;
+    dom.btnLiveMode.innerHTML = `<span class="live-pulse-dot"></span> <span>${label}: OFF</span>`;
   }
 }
 
@@ -388,6 +396,7 @@ function initApp() {
     dom.cfgGeminiKey.value = AppState.geminiKey;
     dom.cfgEngineSelect.value = AppState.engine;
     dom.cfgLocalModel.value = AppState.localModel;
+    dom.cfgLiveSensitivity.value = AppState.liveSensitivity || 'normal';
     dom.sliderScale.value = AppState.avatarScale;
     dom.sliderDist.value = AppState.avatarDistance;
     dom.valScale.textContent = `${AppState.avatarScale.toFixed(2)}x`;
@@ -471,6 +480,7 @@ function initApp() {
     AppState.geminiKey = dom.cfgGeminiKey.value.trim();
     AppState.engine = dom.cfgEngineSelect.value;
     AppState.localModel = dom.cfgLocalModel.value;
+    AppState.liveSensitivity = dom.cfgLiveSensitivity.value;
     localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
     AppState.save();
     

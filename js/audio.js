@@ -145,17 +145,6 @@ export function initSpeechRecognition(handlers) {
   };
 
   recognition.onresult = (event) => {
-    // BARGE-IN INTERRUPTION (Gemini Live Behavior):
-    // If the user starts speaking while the avatar is speaking or generating, immediately cut in!
-    if (AppState.isSpeaking || AppState.isGenerating) {
-      stopSpeaking();
-      abortActiveGeneration();
-      AppState.isListening = true;
-      if (onStatusChangeCallback) {
-        onStatusChangeCallback('Listening to you...', 'listening');
-      }
-    }
-
     let interim = '';
     let final = '';
 
@@ -169,24 +158,59 @@ export function initSpeechRecognition(handlers) {
     }
 
     currentTranscript = (final || interim).trim();
+    if (!currentTranscript) return;
 
-    if (onSpeechInterimCallback && currentTranscript) {
+    // Configurable Sensitivity Threshold (filters background noise, breaths, clicks)
+    const sensitivity = AppState.liveSensitivity || 'normal';
+    let minBargeInChars = 5;
+    let minFinalChars = 4;
+    let silenceDelay = 1300;
+
+    if (sensitivity === 'high_filter') {
+      minBargeInChars = 8;
+      minFinalChars = 6;
+      silenceDelay = 1500;
+    } else if (sensitivity === 'sensitive') {
+      minBargeInChars = 3;
+      minFinalChars = 2;
+      silenceDelay = 1000;
+    }
+
+    const words = currentTranscript.split(/\s+/).filter(w => w.length > 0);
+
+    // BARGE-IN INTERRUPTION (Gemini Live Behavior):
+    // Only interrupt if the user speaks clear words/sentence (not background noise, sniffle, or click)
+    if (AppState.isSpeaking || AppState.isGenerating) {
+      const isRealSpeech = currentTranscript.length >= minBargeInChars || words.length >= 2;
+      if (isRealSpeech) {
+        stopSpeaking();
+        abortActiveGeneration();
+        AppState.isListening = true;
+        if (onStatusChangeCallback) {
+          onStatusChangeCallback('Listening to you...', 'listening');
+        }
+      } else {
+        // Ignore small noise/breath while avatar is speaking
+        return;
+      }
+    }
+
+    if (onSpeechInterimCallback) {
       onSpeechInterimCallback(currentTranscript);
     }
 
-    // Silence detection: when user pauses for 1.3 seconds, finalize sentence
-    if (currentTranscript) {
-      if (silenceTimer) clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(() => {
-        if (currentTranscript && currentTranscript.trim().length > 1) {
-          const finishedSpeech = currentTranscript.trim();
-          currentTranscript = '';
-          if (onSpeechFinishedCallback) {
-            onSpeechFinishedCallback(finishedSpeech);
-          }
+    // Silence detection: when user pauses, finalize if speech meets minimum threshold
+    if (silenceTimer) clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => {
+      const candidate = currentTranscript.trim();
+      const candidateWords = candidate.split(/\s+/).filter(w => w.length > 0);
+      if (candidate.length >= minFinalChars && candidateWords.length >= 1) {
+        currentTranscript = '';
+        if (onSpeechFinishedCallback) {
+          onSpeechFinishedCallback(candidate);
         }
-      }, 1300);
-    }
+      }
+    }, silenceDelay);
   };
 
   recognition.onerror = (event) => {
