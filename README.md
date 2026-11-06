@@ -12,9 +12,12 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
 
 ## ✨ Features
 
-- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (Updated in v0.1.9):**
-  - **🧠 Smart Anti-Self-Echo Cancellation (New in v0.1.8):** Solves the acoustic loopback problem where the device microphone hears the avatar's loudspeaker speech and falsely treats it as user input. Real-time lexical overlap filtering and acoustic tail dampening ensure the avatar never converses with or interrupts itself.
-  - **🔇 Strict Half-Duplex Option (New in v0.1.8):** An optional 100% echo-proof mode in ⚙️ Settings that automatically mutes the microphone while the assistant speaks, and un-mutes once finished.
+- **⚡ Gemini Live Hands-Free Continuous Mode with Barge-In (Updated in v0.2.0):**
+  - **🔇 Silent Continuous Listening (No Android Beeps):** Maintains a continuous recognition stream without abort/restart cycles, completely eliminating the repetitive Android OS Google Speech start/stop chime.
+  - **📊 Visual Conversational Pipeline Stepper:** 4 unmistakable live states displayed in the HUD: `[ 🎙️ Listening ] -> [ ⚡ Analyzing ] -> [ 💬 Ready ] -> [ 🗣️ Speaking ]`.
+  - **🌊 Real-Time Voice Activity Level Meter:** Integrated dynamic audio wave bars that pulse in real-time with the user's voice, providing immediate proof that the mic is active and receiving sound.
+  - **🧠 Smart Anti-Self-Echo Cancellation:** Solves the acoustic loopback problem where the device microphone hears the avatar's loudspeaker speech and falsely treats it as user input. Real-time lexical overlap filtering and acoustic tail dampening ensure the avatar never converses with or interrupts itself.
+  - **🔇 Strict Half-Duplex Option:** An optional 100% echo-proof mode in ⚙️ Settings that mutes mic processing while the assistant speaks, and un-mutes once finished.
   - **Configurable Voice Sensitivity / Noise Filter:** Adjust mic sensitivity in ⚙️ Settings (High Noise Filter, Balanced Default, High Sensitivity) to prevent room noise, breaths, or small sounds from falsely interrupting the avatar.
   - **Always-Listening Mode:** Speak naturally without pressing buttons. Detects speech pauses, sends queries, and speaks the reply back.
   - **Barge-In Speech Interruption:** If you speak meaningful words while the avatar is talking (e.g. "stop", "wait", "hold on"), it immediately cuts off mid-sentence, aborts generation, and listens to you.
@@ -25,13 +28,15 @@ Featuring a **dual-engine AI architecture** and a **multi-avatar 3D gallery**:
   - **Virtual Keyboard Resizing:** Connects to `visualViewport` so opening the mobile keyboard keeps the input bar cleanly docked.
   - **Touch Orbit & Pan:** Smooth single-finger orbit rotation around the avatar with touch-action isolation.
 - **Mixed Reality Passthrough:** Supports the WebXR `immersive-ar` standard with `local-floor` and transparent clear-alpha rendering on Meta Quest 3 (and ARCore on supported Android devices).
-- **🎭 Multi-Avatar 3D Gallery (Procedural Full-Body Character Rigs):**
+- **🎭 Multi-Avatar 3D Gallery (Realistic Humanoids & Stylized Characters):**
+  - **👩 Maya (Realistic Female Humanoid - New in v0.2.0):** Photorealistic 3D female avatar with textured skin, stylized hair, tailored apparel, and articulated skeletal rig for natural full-body conversational gesturing.
+  - **👨 Alex (Realistic Male Humanoid - Ready Player Me - New in v0.2.0):** Photorealistic 3D male avatar with facial morph targets, denim jacket, jeans, sneakers, and articulated gesturing limbs.
   - **🛸 Echo:** Adorable floating spherical drone with hovering thruster pods, expressive digital face screen, and gentle floating bob physics.
   - **⚡ Spark:** Futuristic robotic assistant with sleek orbital antennas, dual shoulder turbine pods, digital visor face, and levitating energy core.
   - **🧸 Pip:** Full-dimensional cartoon hero character with stylized eyes, articulated mouth/jaw, full-length body, rounded limbs, expressive hands, and sneakers.
   - **🐸 Ollie:** Friendly full-dimensional cartoon companion with wide animated eyes, playful antennae, cozy hoodie, articulated arms and legs.
-  - **👩 Maya:** Full-body realistic female humanoid avatar with articulated head, expressive eyes, sculpted hair, fitted top, slacks, and conversational gesturing arms.
-  - **👨 Alex:** Full-body realistic male humanoid avatar with articulated jaw, styled hair, jacket, denim pants, sneakers, and lively gesturing limbs.
+- **🧪 Automated Regression Test Suite (`tests/run_tests.js`):**
+  - Headless Chrome E2E test runner validating Three.js compatibility, 6-avatar gallery builds, modal interactions, pipeline state transitions, and 0 uncaught exceptions.
 - **🕺 Dynamic Full-Body Animated Body Language:**
   - **👂 Attentive Listening Mode:** When the microphone is active and you speak, the avatar's entire body transitions into an active listening posture — head tilts, attentive leaning, hand touching chin, eyes wide and focused, lips closed in anticipation, and weight-shifted stance.
   - **🗣️ Expressive Speaking Mode:** When replying, the avatar comes to life — realistic jaw and lip sync, brows raising for emphasis, animated eye tracking, rhythmic conversational arm and hand gesticulations, and natural cadence head nods.

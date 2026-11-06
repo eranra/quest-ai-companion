@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.1.9">
+  <link rel="stylesheet" href="css/styles.css?v=0.2.0">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.1.9</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.0</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -82,12 +82,43 @@
       </div>
     </div>
 
-    <!-- Speech Bubble / Subtitles -->
+    <!-- Speech Bubble / Subtitles & Conversational Pipeline Stepper -->
     <div class="speech-bubble-container interactive">
+      <!-- 4-Phase Conversational Pipeline Stepper -->
+      <div id="pipeline-stepper" class="pipeline-stepper">
+        <div id="step-listening" class="pipeline-step">
+          <span class="step-icon">🎙️</span>
+          <span class="step-label">Listening</span>
+        </div>
+        <div class="pipeline-arrow">›</div>
+        <div id="step-analyzing" class="pipeline-step">
+          <span class="step-icon">⚡</span>
+          <span class="step-label">Analyzing</span>
+        </div>
+        <div class="pipeline-arrow">›</div>
+        <div id="step-ready" class="pipeline-step">
+          <span class="step-icon">💬</span>
+          <span class="step-label">Ready</span>
+        </div>
+        <div class="pipeline-arrow">›</div>
+        <div id="step-speaking" class="pipeline-step">
+          <span class="step-icon">🗣️</span>
+          <span class="step-label">Speaking</span>
+        </div>
+      </div>
+
       <div class="speech-bubble">
         <div id="status-pill" class="avatar-state">
           <span class="state-dot"></span>
           <span id="status-text">Ready</span>
+          <!-- Dynamic Voice Activity Level Meter -->
+          <div id="mic-level-meter" class="mic-level-meter" style="display: none;">
+            <span class="meter-bar"></span>
+            <span class="meter-bar"></span>
+            <span class="meter-bar"></span>
+            <span class="meter-bar"></span>
+            <span class="meter-bar"></span>
+          </div>
         </div>
         <div id="speech-text" class="speech-text">
           Hi Eran! I am your 3D Companion. Turn on ⚡ Live Mode to speak with me hands-free and interrupt me anytime, or tap the microphone to talk!
@@ -313,7 +344,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.1.9"></script>
+  <script type="module" src="js/app.js?v=0.2.0"></script>
 
 </body>
 </html>
