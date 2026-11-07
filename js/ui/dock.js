@@ -1,6 +1,6 @@
 // UI Dock, Header Bar, Engine Badges, and Version Update Manager
 import { AppState } from '../state.js';
-import { toggleWebXR } from '../scene.js';
+import { toggleWebXR, enterVR, enterAR, toggleFullscreen } from '../scene.js';
 import { unlockAudio } from '../audio/index.js';
 
 let latestDetectedVersion = null;
@@ -12,6 +12,10 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     btnMic: document.getElementById('btn-mic'),
     btnLiveMode: document.getElementById('btn-live-mode'),
     btnTurnAvatar: document.getElementById('btn-turn-avatar'),
+    btnVr: document.getElementById('btn-vr'),
+    vrLabel: document.getElementById('vr-label'),
+    btnAr: document.getElementById('btn-ar'),
+    btnFullscreen: document.getElementById('btn-fullscreen'),
     btnXr: document.getElementById('btn-xr'),
     xrLabel: document.getElementById('xr-label'),
     engineBadge: document.getElementById('engine-badge'),
@@ -70,13 +74,48 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     };
   }
 
-  // WebXR Toggle
+  // Meta Quest 3 Full 360° VR Immersion
+  if (dom.btnVr) {
+    dom.btnVr.onclick = async () => {
+      unlockAudio();
+      try {
+        await enterVR((isVR) => {
+          if (dom.vrLabel) dom.vrLabel.textContent = isVR ? 'Exit VR' : '360° VR';
+        });
+      } catch (err) {
+        alert(err.message || 'WebXR VR error');
+      }
+    };
+  }
+
+  // Meta Quest 3 Mixed Reality Passthrough
+  if (dom.btnAr) {
+    dom.btnAr.onclick = async () => {
+      unlockAudio();
+      try {
+        await enterAR((isAR) => {
+          if (dom.xrLabel) dom.xrLabel.textContent = isAR ? 'Exit AR' : 'AR';
+        });
+      } catch (err) {
+        alert(err.message || 'WebXR AR error');
+      }
+    };
+  }
+
+  // Fullscreen 2D Window Expansion
+  if (dom.btnFullscreen) {
+    dom.btnFullscreen.onclick = () => {
+      toggleFullscreen();
+    };
+  }
+
+  // WebXR Toggle (Legacy fallback)
   if (dom.btnXr) {
     dom.btnXr.onclick = async () => {
       unlockAudio();
       try {
         await toggleWebXR((isXR) => {
-          if (dom.xrLabel) dom.xrLabel.textContent = isXR ? 'Exit XR' : 'AR';
+          if (dom.xrLabel) dom.xrLabel.textContent = isXR ? 'Exit XR' : 'VR';
         });
       } catch (err) {
         alert(err.message || 'WebXR error');

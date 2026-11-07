@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.3.0">
+  <link rel="stylesheet" href="css/styles.css?v=0.3.1">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.3.0</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.3.1</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -80,9 +80,23 @@
           <span style="font-size: 15px;">🔄</span>
         </button>
 
-        <button id="btn-xr" class="icon-btn" title="Enter WebXR / AR Passthrough">
-          <span id="xr-label" style="font-weight: 700; font-size: 11px;">AR</span>
+        <!-- Meta Quest 3 Full 360° VR Immersion Button -->
+        <button id="btn-vr" class="btn-live" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); border-color: rgba(139, 92, 246, 0.6); padding: 5px 12px;" title="Enter Full 360° VR Immersion (Meta Quest 3)">
+          <span style="font-size: 15px;">🥽</span>
+          <span id="vr-label" style="font-weight: 700; font-size: 11px; margin-left: 4px;">360° VR</span>
         </button>
+
+        <!-- Meta Quest 3 Mixed Reality Passthrough Button -->
+        <button id="btn-ar" class="icon-btn" title="Enter Mixed Reality Passthrough (See your real room)">
+          <span style="font-size: 14px;">🪟</span>
+        </button>
+
+        <!-- Fullscreen Window Button -->
+        <button id="btn-fullscreen" class="icon-btn" title="Expand Fullscreen Window">
+          <span style="font-size: 14px;">⛶</span>
+        </button>
+
+        <button id="btn-xr" style="display: none;"><span id="xr-label">VR</span></button>
 
         <button id="btn-settings" class="icon-btn" title="Settings">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -458,7 +472,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.3.0"></script>
+  <script type="module" src="js/app.js?v=0.3.1"></script>
 
 </body>
 </html>

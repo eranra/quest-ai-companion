@@ -13,7 +13,9 @@ import {
   stopListening,
   setLiveMode,
   initMicAnalyser,
-  stopMicAnalyser
+  stopMicAnalyser,
+  initWhisper,
+  isWhisperReady
 } from './audio/index.js';
 import {
   initPipelineUI,
@@ -23,7 +25,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.0';
+export const APP_VERSION = 'v0.3.1';
 
 // DOM References
 const dom = {
@@ -183,18 +185,51 @@ function initApp() {
     }
   });
 
+  // Auto-detect Meta Quest Browser or browsers without native SpeechRecognition:
+  // Quest Browser omits native webkitSpeechRecognition, so auto-route to on-device Whisper STT!
+  const hasNativeSTT = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!hasNativeSTT && AppState.sttEngine === 'native') {
+    console.log('Quest/Browser has no native speech recognition. Auto-enabling on-device Whisper STT.');
+    AppState.sttEngine = 'whisper';
+    AppState.save();
+  }
+
+  // Helper to ensure STT engine is loaded before listening
+  async function ensureSTTReady() {
+    if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
+      setPipelineState('analyzing', 'Loading Whisper STT...');
+      dom.speechText.textContent = 'Meta Quest / WebGPU: Downloading on-device Whisper STT (~39 MB)... First time caches model in browser.';
+      if (dom.modelProgressBar) dom.modelProgressBar.style.display = 'block';
+
+      await initWhisper((report) => {
+        if (dom.modelProgressFill) dom.modelProgressFill.style.width = `${report.progress}%`;
+        if (dom.modelProgressPct) dom.modelProgressPct.textContent = `${report.progress}%`;
+        if (dom.modelProgressLabel) dom.modelProgressLabel.textContent = report.text || 'Loading Whisper...';
+        setPipelineState('analyzing', `Whisper: ${report.progress}%`);
+      });
+
+      if (dom.modelProgressBar) dom.modelProgressBar.style.display = 'none';
+      dom.speechText.textContent = 'Whisper STT Ready! Listening to you...';
+    }
+  }
+
   // 3. Initialize Top Dock & Bottom Controls
   dockController = initDock({
     appVersion: APP_VERSION,
     onSendPrompt: (prompt) => handleUserSpeech(prompt),
     onTurnAvatar: () => flipAvatarOrientation(),
-    onToggleLiveMode: () => {
+    onToggleLiveMode: async () => {
       const nextMode = !AppState.isLiveMode;
       setLiveMode(nextMode);
       if (dockController) dockController.updateLiveModeUI();
 
       if (nextMode) {
         setPipelineState('listening', 'Live Mode: Listening...');
+        try {
+          await ensureSTTReady();
+        } catch (err) {
+          dom.speechText.textContent = `Whisper load error: ${err.message}`;
+        }
         initMicAnalyser((level) => updateMicLevel(level));
         startListening();
         dom.speechText.textContent = '⚡ Live Mode active: Listening hands-free. Speak anytime, or tap to stop me while speaking.';
@@ -204,7 +239,7 @@ function initApp() {
         setPipelineState('idle');
       }
     },
-    onToggleMic: () => {
+    onToggleMic: async () => {
       if (AppState.isSpeaking) {
         stopSpeaking();
         if (AppState.isLiveMode) {
@@ -221,6 +256,13 @@ function initApp() {
         setPipelineState('idle');
       } else {
         setPipelineState('listening', 'Listening to you...');
+        try {
+          await ensureSTTReady();
+        } catch (err) {
+          dom.speechText.textContent = `Whisper load error: ${err.message}`;
+          setPipelineState('idle');
+          return;
+        }
         startListening();
       }
     }
@@ -304,6 +346,19 @@ function initApp() {
         }
       }
     });
+  }
+
+  // 8. Meta Quest 3 / WebXR Immersive 360 VR Support Detection
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+      if (supported) {
+        console.log('🥽 Meta Quest 3 WebXR Immersive 360° VR Supported!');
+        const btnVr = document.getElementById('btn-vr');
+        if (btnVr) {
+          btnVr.title = "Step inside your 360° Space with Meta Quest 3!";
+        }
+      }
+    }).catch(() => {});
   }
 
   // Global touch / click unblock for audio

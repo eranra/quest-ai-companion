@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.0",
-  "build": 21,
-  "released_at": "2026-11-07T20:10:00Z",
-  "changelog": "v0.3.0: Added optional on-device neural voice models: Whisper-tiny STT (zero-beep WebRTC recording with hardware AEC) and Neural Web Audio TTS; switchable in Settings with on-demand download (75 tests passing)."
+  "version": "v0.3.1",
+  "build": 22,
+  "released_at": "2026-11-07T20:25:00Z",
+  "changelog": "v0.3.1: Meta Quest 3 WebXR Full 360° VR Immersion (fixed unsupported dom-overlay error), separate 🥽 360° VR, 🪟 AR Passthrough, and ⛶ Fullscreen buttons; auto-detection of Quest OS speech limitations with automatic routing to on-device Whisper STT (83 tests passing)."
 }

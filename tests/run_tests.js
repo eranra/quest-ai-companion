@@ -292,8 +292,20 @@ async function runTestSuite() {
                     assert('scene/camera.js exports applyResponsiveFraming', typeof sceneCamera.applyResponsiveFraming === 'function');
                     assert('scene/xr.js exports setupXRControllers', typeof sceneXR.setupXRControllers === 'function');
                     assert('scene/xr.js exports toggleWebXR', typeof sceneXR.toggleWebXR === 'function');
+                    assert('scene/xr.js exports enterVR', typeof sceneXR.enterVR === 'function');
+                    assert('scene/xr.js exports enterAR', typeof sceneXR.enterAR === 'function');
+                    assert('scene/xr.js exports toggleFullscreen', typeof sceneXR.toggleFullscreen === 'function');
                     assert('scene/index.js exports initScene', typeof sceneSubsystem.initScene === 'function');
+                    assert('scene/index.js exports enterVR', typeof sceneSubsystem.enterVR === 'function');
                     assert('scene.js forwarder exports initScene', typeof sceneForwarder.initScene === 'function');
+                    assert('scene.js forwarder exports enterVR', typeof sceneForwarder.enterVR === 'function');
+
+                    const btnVrEl = document.getElementById('btn-vr');
+                    const btnArEl = document.getElementById('btn-ar');
+                    const btnFullscreenEl = document.getElementById('btn-fullscreen');
+                    assert('360 VR button exists in top bar', !!btnVrEl);
+                    assert('AR Passthrough button exists in top bar', !!btnArEl);
+                    assert('Fullscreen button exists in top bar', !!btnFullscreenEl);
 
                     // Test Camera Responsive Framing calculations
                     const dummyCam = sceneCamera.createCamera();

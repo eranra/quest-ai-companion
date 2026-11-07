@@ -4,7 +4,15 @@ import { AppState } from '../state.js';
 import { animateRig } from '../avatars/rig.js';
 import { initSpaces, updateCurrentSpace, setSpaceVisibility } from '../spaces/index.js';
 import { createCamera, createOrbitControls, applyResponsiveFraming as applyCameraFraming } from './camera.js';
-import { setupXRControllers, handleXRControllerInput, toggleWebXR as toggleXR } from './xr.js';
+import {
+  setupXRControllers,
+  handleXRControllerInput,
+  toggleWebXR as toggleXR,
+  enterVR as xrEnterVR,
+  enterAR as xrEnterAR,
+  toggleFullscreen as xrToggleFullscreen,
+  isXRSessionActive
+} from './xr.js';
 
 export let scene, camera, renderer, controls, clock;
 export let avatarGroup;
@@ -97,8 +105,26 @@ export function applyResponsiveFraming() {
   applyCameraFraming(camera, controls, renderer);
 }
 
-export async function toggleWebXR(onSessionChange) {
-  return toggleXR(renderer, scene, onSessionChange);
+export async function toggleWebXR(onSessionChange, mode = 'vr') {
+  if (typeof onSessionChange === 'string') {
+    // Called as toggleWebXR('vr', cb) or toggleWebXR('ar', cb)
+    const tempMode = onSessionChange;
+    const actualCb = mode && typeof mode === 'function' ? mode : null;
+    return toggleXR(renderer, scene, actualCb, tempMode);
+  }
+  return toggleXR(renderer, scene, onSessionChange, mode);
+}
+
+export async function enterVR(onSessionChange) {
+  return xrEnterVR(renderer, scene, onSessionChange);
+}
+
+export async function enterAR(onSessionChange) {
+  return xrEnterAR(renderer, scene, onSessionChange);
+}
+
+export function toggleFullscreen() {
+  return xrToggleFullscreen();
 }
 
 function renderLoop(timestamp, frame) {
@@ -127,5 +153,6 @@ export {
   createCamera,
   createOrbitControls,
   setupXRControllers,
-  handleXRControllerInput
+  handleXRControllerInput,
+  isXRSessionActive
 };
