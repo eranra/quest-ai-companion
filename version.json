@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.6",
-  "build": 17,
-  "released_at": "2026-11-07T11:40:00Z",
-  "changelog": "v0.2.6: Fix Android microphone hardware lock and speech delivery: eliminated competing getUserMedia lock during speech recognition so Google Speech Services receives clean unblocked audio; added onspeechend and isFinal auto-release to instantly close and release microphone hardware in Regular Mode; added 7s silence watchdog to auto-release microphone if user stays quiet; added resilient conversational fallback if WebGPU is absent."
+  "version": "v0.2.7",
+  "build": 18,
+  "released_at": "2026-11-07T12:45:00Z",
+  "changelog": "v0.2.7: Refactored and modularized AI and Scene subsystems into dedicated functional modules (js/ai/local.js, js/ai/gemini.js, js/ai/index.js, js/scene/camera.js, js/scene/xr.js, js/scene/index.js) with backwards-compatible forwarders and 52 comprehensive automated regression tests."
 }

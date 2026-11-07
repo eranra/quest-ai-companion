@@ -226,6 +226,45 @@ async function runTestSuite() {
                     assert('Live mode sets AppState.isLiveMode = true', AppState.isLiveMode === true);
                     setLiveMode(false); // Reset to regular mode
 
+                    // Test 6: Refactored AI Subsystem Modularization
+                    const aiSubsystem = await import('./js/ai/index.js');
+                    const aiForwarder = await import('./js/ai.js');
+                    assert('ai/index.js exports generateAIResponse', typeof aiSubsystem.generateAIResponse === 'function');
+                    assert('ai/index.js exports abortActiveGeneration', typeof aiSubsystem.abortActiveGeneration === 'function');
+                    assert('ai/index.js exports initLocalWebLLM', typeof aiSubsystem.initLocalWebLLM === 'function');
+                    assert('ai/index.js exports checkGeminiResponsiveness', typeof aiSubsystem.checkGeminiResponsiveness === 'function');
+                    assert('ai.js forwarder exports generateAIResponse', typeof aiForwarder.generateAIResponse === 'function');
+                    assert('ai.js forwarder exports checkGeminiResponsiveness', typeof aiForwarder.checkGeminiResponsiveness === 'function');
+
+                    // Test 7: Refactored Scene Subsystem Modularization & Camera Framing
+                    const sceneCamera = await import('./js/scene/camera.js');
+                    const sceneXR = await import('./js/scene/xr.js');
+                    const sceneSubsystem = await import('./js/scene/index.js');
+                    const sceneForwarder = await import('./js/scene.js');
+
+                    assert('scene/camera.js exports createCamera', typeof sceneCamera.createCamera === 'function');
+                    assert('scene/camera.js exports applyResponsiveFraming', typeof sceneCamera.applyResponsiveFraming === 'function');
+                    assert('scene/xr.js exports setupXRControllers', typeof sceneXR.setupXRControllers === 'function');
+                    assert('scene/xr.js exports toggleWebXR', typeof sceneXR.toggleWebXR === 'function');
+                    assert('scene/index.js exports initScene', typeof sceneSubsystem.initScene === 'function');
+                    assert('scene.js forwarder exports initScene', typeof sceneForwarder.initScene === 'function');
+
+                    // Test Camera Responsive Framing calculations
+                    const dummyCam = sceneCamera.createCamera();
+                    const dummyControls = { target: new THREE.Vector3(), update: () => {} };
+                    const dummyRenderer = { setSize: () => {} };
+                    // Test portrait aspect ratio (< 0.8)
+                    window.innerWidth = 400;
+                    window.innerHeight = 800;
+                    sceneCamera.applyResponsiveFraming(dummyCam, dummyControls, dummyRenderer);
+                    assert('Portrait camera framing sets z ~ 3.1m', Math.abs(dummyCam.position.z - 3.1) < 0.05);
+
+                    // Test landscape aspect ratio (>= 1.2)
+                    window.innerWidth = 1200;
+                    window.innerHeight = 600;
+                    sceneCamera.applyResponsiveFraming(dummyCam, dummyControls, dummyRenderer);
+                    assert('Landscape camera framing sets z ~ 2.2m', Math.abs(dummyCam.position.z - 2.2) < 0.05);
+
                     return results;
                   })()
                 `,
