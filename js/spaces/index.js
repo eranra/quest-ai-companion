@@ -10,28 +10,28 @@ export const SPACE_DEFINITIONS = [
     id: 'hall',
     name: 'Study Hall',
     icon: '🏛️',
-    tagline: 'Warm academic forum with moving clouds & sunbeams',
+    tagline: '360° Photorealistic grand forum with sunbeams & gliding birds',
     factory: createStudyHallSpace
   },
   {
     id: 'garden',
     name: 'Zen Garden',
     icon: '🌿',
-    tagline: 'Tranquil courtyard with cherry blossoms & soaring birds',
+    tagline: '360° Photorealistic Japanese courtyard with falling petals & birds',
     factory: createGardenSpace
   },
   {
     id: 'penthouse',
     name: 'Sky Penthouse',
     icon: '🌌',
-    tagline: 'Cyber city vista with animated skycar traffic',
+    tagline: '360° Photorealistic luxury skyline with cruising skycars',
     factory: createPenthouseSpace
   },
   {
     id: 'cafe',
     name: 'Cozy Cafe',
     icon: '☕',
-    tagline: 'Warm lounge with steaming coffee & window rain',
+    tagline: '360° Photorealistic coffeehouse with rising steam & window rain',
     factory: createCafeSpace
   }
 ];

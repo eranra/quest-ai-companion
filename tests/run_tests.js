@@ -173,13 +173,24 @@ async function runTestSuite() {
                     }
 
                     // Test 3C: Organic Rig Idle, Weight-Shift, and Speech Blend
-                    const { animateRig } = await import('./js/avatars/rig.js');
+                    const { animateRig, rig } = await import('./js/avatars/rig.js');
+                    const THREE = await import('three');
                     try {
                       // Test idle ticks
                       animateRig(0.016, 1.0, camera, avatarGroup);
                       animateRig(0.016, 2.5, camera, avatarGroup);
                       animateRig(0.016, 4.0, camera, avatarGroup);
                       assert('Organic idle rig animation tick success', true);
+
+                      // Test Arm Relaxation (elbows/forearms resting naturally, not wide open)
+                      if (rig.leftForearm && rig.rightForearm) {
+                        const lPos = new THREE.Vector3();
+                        const rPos = new THREE.Vector3();
+                        rig.leftForearm.getWorldPosition(lPos);
+                        rig.rightForearm.getWorldPosition(rPos);
+                        const armSpan = Math.abs(lPos.x - rPos.x);
+                        assert('Arms relaxed near torso (span < 0.50m)', armSpan < 0.50, 'Span: ' + armSpan.toFixed(3) + 'm');
+                      }
                     } catch (err) {
                       assert('Organic idle rig animation tick success', false, err.message);
                     }

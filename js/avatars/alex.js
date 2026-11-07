@@ -1,6 +1,6 @@
 // Realistic Male Humanoid Avatar (Alex - Ready Player Me Model)
 import * as THREE from 'three';
-import { rig, bindBonesFromHierarchy } from './rig.js';
+import { rig, bindBonesFromHierarchy, groundAvatar } from './rig.js';
 import { loadGLBAvatar } from './loader.js';
 
 export function buildAlexHumanoid(avatarGroup) {
@@ -12,6 +12,7 @@ export function buildAlexHumanoid(avatarGroup) {
   // Build temporary high-res placeholder while GLB loads
   const placeholder = buildProceduralAlex();
   root.add(placeholder);
+  groundAvatar(root);
 
   // Load realistic photorealistic Ready Player Me humanoid model
   loadGLBAvatar('assets/models/alex.glb').then(({ scene, animations }) => {
@@ -19,11 +20,12 @@ export function buildAlexHumanoid(avatarGroup) {
     if (rig.root === root) {
       root.remove(placeholder);
 
-      scene.position.set(0, -0.15, 0);
+      scene.position.set(0, 0, 0);
       scene.scale.setScalar(0.85);
       root.add(scene);
 
       bindBonesFromHierarchy(scene);
+      groundAvatar(root);
 
       if (animations && animations.length > 0) {
         const idleClip = animations.find(a => a.name.toLowerCase().includes('idle') || a.name.toLowerCase().includes('breath'));

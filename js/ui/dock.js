@@ -75,17 +75,22 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, appVersi
     };
   }
 
-  // Version Check & Live Update
+  // Version Check & Live Update (Preserves WebLLM local model weights cache)
   function forceAppRefresh(targetVersion) {
     if ('caches' in window) {
       try {
         caches.keys().then(names => {
-          Promise.all(names.map(name => caches.delete(name))).catch(() => {});
+          // Explicitly preserve WebLLM / MLC AI model weight caches so users don't redownload models on updates
+          const nonModelCaches = names.filter(n => {
+            const lower = n.toLowerCase();
+            return !lower.includes('webllm') && !lower.includes('mlc') && !lower.includes('model') && !lower.includes('weight');
+          });
+          Promise.all(nonModelCaches.map(name => caches.delete(name))).catch(() => {});
         });
       } catch (e) {}
     }
     const v = targetVersion || appVersion;
-    window.location.href = window.location.origin + window.location.pathname + '?v=' + v + '&nocache=' + Date.now();
+    window.location.href = window.location.origin + window.location.pathname + '?v=' + v;
   }
 
   async function checkAppVersion(manual = false) {

@@ -110,6 +110,27 @@ export function bindBonesFromHierarchy(root) {
   });
 }
 
+// Grounding helper ensuring the avatar's shoes/feet rest precisely on top of the ground plane
+export function groundAvatar(target) {
+  if (!target || rig.isFloating) return;
+  target.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(target);
+  if (isFinite(box.min.y)) {
+    // 0.005 ensures shoes are strictly on top of the floor and not clipped into ground
+    const targetMinY = 0.005;
+    const diff = targetMinY - box.min.y;
+    // Shift the child root inside avatarGroup so avatarGroup anchor remains at y=0
+    if (target.children && target.children.length > 0) {
+      target.children.forEach(c => {
+        c.position.y += diff;
+      });
+    } else {
+      target.position.y += diff;
+    }
+    target.updateMatrixWorld(true);
+  }
+}
+
 let blinkTimer = 0;
 let gestureCycle = 0;
 let speechWeight = 0; // Lerps smoothly between 0 (idle/listening) and 1 (speaking)
@@ -210,14 +231,17 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
       });
     }
 
-    // ARMS & HANDS: Dynamic conversational gesticulation blended smoothly
-    const rightArmX = lerp(breathRise, Math.sin(gestureCycle) * 0.2, speechWeight);
-    const rightArmZ = lerp(0, Math.cos(gestureCycle * 0.8) * 0.1, speechWeight);
-    const rightForearmX = lerp(0, Math.sin(gestureCycle * 1.2) * 0.25, speechWeight);
+    // ARMS & HANDS: Dynamic conversational gesticulation blended smoothly from relaxed rest pose
+    const isSkeletal = rig.leftArm && rig.leftArm.isBone;
+    const armAdduction = isSkeletal ? 0.85 : 0.0;
 
-    const leftArmX = lerp(breathRise, Math.cos(gestureCycle * 0.9) * 0.15, speechWeight);
-    const leftArmZ = lerp(0, Math.sin(gestureCycle * 0.7) * 0.1, speechWeight);
-    const leftForearmX = lerp(0, Math.cos(gestureCycle * 1.1) * 0.2, speechWeight);
+    const rightArmX = lerp(armAdduction + breathRise, armAdduction - 0.35 + Math.sin(gestureCycle) * 0.22, speechWeight);
+    const rightArmZ = lerp(-0.02, -0.06 + Math.cos(gestureCycle * 0.8) * 0.1, speechWeight);
+    const rightForearmX = lerp(isSkeletal ? 0.18 : 0.08, 0.35 + Math.sin(gestureCycle * 1.2) * 0.25, speechWeight);
+
+    const leftArmX = lerp(armAdduction + breathRise, armAdduction - 0.28 + Math.cos(gestureCycle * 0.9) * 0.18, speechWeight);
+    const leftArmZ = lerp(0.02, 0.06 + Math.sin(gestureCycle * 0.7) * 0.1, speechWeight);
+    const leftForearmX = lerp(isSkeletal ? 0.18 : 0.08, 0.32 + Math.cos(gestureCycle * 1.1) * 0.22, speechWeight);
 
     setBoneRot(rig.rightArm, rightArmX, 0, rightArmZ);
     setBoneRot(rig.rightForearm, rightForearmX, 0, 0);
@@ -237,14 +261,17 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     setBoneRot(rig.rightThigh, 0, 0, -hipSway * 0.6);
 
   // ===========================================================
-  // B. LISTENING MODE (Attentive posture & chin touch)
+  // B. LISTENING MODE (Attentive posture & relaxed arms near body)
   // ===========================================================
   } else if (AppState.isListening) {
+    const isSkeletal = rig.leftArm && rig.leftArm.isBone;
+    const armAdduction = isSkeletal ? 0.85 : 0.0;
+
     // Subtle inquisitive head tilt & forward lean
-    setBoneRot(rig.head, 0.08 + microGlancePitch, microGlanceYaw * 0.5, -0.08);
+    setBoneRot(rig.head, 0.06 + microGlancePitch, microGlanceYaw * 0.4, -0.06);
 
     // Torso leans forward attentively toward user while breathing gently
-    setBoneRot(rig.chest, 0.05 + breathRise, chestSwivel, hipSway * 0.5);
+    setBoneRot(rig.chest, 0.04 + breathRise, chestSwivel, hipSway * 0.4);
 
     // Eyes: Wide open and focused intently
     if (rig.eyeLeft && rig.eyeRight) {
@@ -258,13 +285,12 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
       rig.browRight.position.y = 0.075;
     }
 
-    // Hand touches chin thoughtfully (offsets relative to rest pose)
-    setBoneRot(rig.rightArm, -0.4 + breathRise * 0.5, 0, -0.2);
-    setBoneRot(rig.rightForearm, -0.6, 0, 0);
+    // Natural attentive arms resting comfortably close to hips/waist (no wide elbow flaring)
+    setBoneRot(rig.rightArm, armAdduction + 0.04 + breathRise * 0.5, 0, -0.03);
+    setBoneRot(rig.rightForearm, isSkeletal ? 0.22 : 0.12, 0, 0);
 
-    // Left arm rests gently across waist
-    setBoneRot(rig.leftArm, -0.15 + breathRise * 0.5, 0, 0.15);
-    setBoneRot(rig.leftForearm, -0.3, 0, 0);
+    setBoneRot(rig.leftArm, armAdduction + 0.04 + breathRise * 0.5, 0, 0.03);
+    setBoneRot(rig.leftForearm, isSkeletal ? 0.22 : 0.12, 0, 0);
 
     // Natural standing stance with weight shift (keeps legs 100% attached to hips)
     setBoneRot(rig.leftThigh, 0, 0, -hipSway * 0.6);
@@ -291,6 +317,9 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
   // C. IDLE / READY MODE (Organic alive breathing, weight shift & turns)
   // ===========================================================
   } else {
+    const isSkeletal = rig.leftArm && rig.leftArm.isBone;
+    const armAdduction = isSkeletal ? 0.85 : 0.0;
+
     // Head: alive micro glances + soft breathing compensation
     setBoneRot(rig.head, microGlancePitch - breathRise * 0.3, microGlanceYaw - bodySwivel * 0.6, 0);
 
@@ -298,10 +327,10 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     setBoneRot(rig.chest, breathRise * 1.2, chestSwivel, hipSway * 0.4);
 
     // Relaxed arms at sides with subtle breathing motion and natural rest drape
-    setBoneRot(rig.leftArm, breathRise * 1.1, 0, 0.04);
-    setBoneRot(rig.leftForearm, 0.08, 0, 0);
-    setBoneRot(rig.rightArm, -breathRise * 1.1, 0, -0.04);
-    setBoneRot(rig.rightForearm, 0.08, 0, 0);
+    setBoneRot(rig.leftArm, armAdduction + breathRise * 0.8, 0, 0.02);
+    setBoneRot(rig.leftForearm, isSkeletal ? 0.16 : 0.08, 0, 0);
+    setBoneRot(rig.rightArm, armAdduction - breathRise * 0.8, 0, -0.02);
+    setBoneRot(rig.rightForearm, isSkeletal ? 0.16 : 0.08, 0, 0);
 
     // Natural leg stance firmly attached to hips with subtle weight shift
     setBoneRot(rig.leftThigh, 0, 0, -hipSway * 0.6);

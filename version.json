@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.2",
-  "build": 13,
-  "released_at": "2026-11-07T08:40:00Z",
-  "changelog": "v0.2.2: Add 4 dynamic 3D Spaces (Study Hall, Zen Garden, Sky Penthouse, Cozy Cafe) with living ambient elements (drifting clouds, flying birds, falling petals, steam, cyber skycars); remove obstructive debug grid chart; auto-fade speech bubble when idle; introduce lifelike organic idle motions (natural breathing, weight shifting, gentle body swivel and glances); smooth lerp transition when speech finishes; and contact shadow grounding."
+  "version": "v0.2.3",
+  "build": 14,
+  "released_at": "2026-11-07T09:35:00Z",
+  "changelog": "v0.2.3: Upgrade to 360° photorealistic real-life panoramic spaces (Study Hall, Zen Garden, Sky Penthouse, Cozy Cafe) with living ambient elements; fix avatar foot grounding so shoes sit firmly on top of the ground across all avatars; relax arm postures for humanoid models (adduct wide A-pose/T-pose arms into comfortable resting and listening poses); and preserve WebLLM AI model weight caches across page reloads and version updates."
 }

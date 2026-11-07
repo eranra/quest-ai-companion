@@ -1,4 +1,4 @@
-import { resetRig } from './rig.js';
+import { resetRig, groundAvatar } from './rig.js';
 import { buildEchoDrone } from './echo.js';
 import { buildSparkDrone } from './spark.js';
 import { buildPipCartoon } from './pip.js';
@@ -34,4 +34,7 @@ export function buildAvatar(avatarId, avatarGroup) {
       buildEchoDrone(avatarGroup);
       break;
   }
+
+  // Ensure standing avatar feet are placed directly on top of the floor
+  groundAvatar(avatarGroup);
 }

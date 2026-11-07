@@ -1,115 +1,79 @@
-// Space 3: Sky Penthouse / Cyberpunk Horizon (High-Tech Lounge)
+// Space 3: Sky Penthouse / Cyber Skyline (360° Photorealistic Environment)
 import * as THREE from 'three';
 
 export function createPenthouseSpace() {
   const group = new THREE.Group();
 
-  // 1. Polished Reflective Dark Marble Floor
-  const floorGeo = new THREE.PlaneGeometry(16, 16);
-  const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x090d16,
-    roughness: 0.15,
-    metalness: 0.8
+  // 1. 360° Photorealistic Equirectangular Spherical Panorama
+  const sphereGeo = new THREE.SphereGeometry(35, 60, 40);
+  sphereGeo.scale(-1, 1, 1);
+  const texLoader = new THREE.TextureLoader();
+  const panoTexture = texLoader.load('assets/spaces/penthouse.jpg');
+  panoTexture.encoding = THREE.sRGBEncoding;
+
+  const sphereMat = new THREE.MeshBasicMaterial({
+    map: panoTexture,
+    depthWrite: false
   });
-  const floor = new THREE.Mesh(floorGeo, floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  group.add(floor);
+  const skyDome = new THREE.Mesh(sphereGeo, sphereMat);
+  skyDome.position.set(0, 1.2, 0);
+  group.add(skyDome);
 
-  // Subtle interior floor edge lights
-  const edgeLightMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4 });
-  const edgeL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 10), edgeLightMat);
-  edgeL.position.set(-3.5, 0.01, 0);
-  const edgeR = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 10), edgeLightMat);
-  edgeR.position.set(3.5, 0.01, 0);
-  group.add(edgeL, edgeR);
+  // 2. Invisible Ground Plane
+  const floorPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 20),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  floorPlane.rotation.x = -Math.PI / 2;
+  floorPlane.position.y = 0;
+  group.add(floorPlane);
 
-  // 2. High-Tech Panoramic Glass Window Wall & Pillars
-  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.7 });
-  const pillarL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 0.3), pillarMat);
-  pillarL.position.set(-3.2, 3.5, -3.8);
-  const pillarR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 0.3), pillarMat);
-  pillarR.position.set(3.2, 3.5, -3.8);
-  group.add(pillarL, pillarR);
+  // 3. Twilight Mood Lighting
+  const ambientLight = new THREE.AmbientLight(0x1e1b4b, 1.4);
+  const cityGlow = new THREE.DirectionalLight(0x38bdf8, 1.2);
+  cityGlow.position.set(-3, 5, -2);
+  const neonPurple = new THREE.PointLight(0xa855f7, 1.4, 10);
+  neonPurple.position.set(2, 3, 1);
+  const neonCyan = new THREE.PointLight(0x06b6d4, 1.1, 10);
+  neonCyan.position.set(-2, 2.5, 0);
+  group.add(ambientLight, cityGlow, neonPurple, neonCyan);
 
-  // Ceiling
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(16, 8), pillarMat);
-  ceiling.rotation.x = Math.PI / 2;
-  ceiling.position.set(0, 6.0, 0);
-  group.add(ceiling);
-
-  // 3. Cyberpunk City Skyline Outside Window
-  const nightSkyMat = new THREE.MeshBasicMaterial({ color: 0x030712 });
-  const nightSky = new THREE.Mesh(new THREE.PlaneGeometry(24, 12), nightSkyMat);
-  nightSky.position.set(0, 5, -8.0);
-  group.add(nightSky);
-
-  // City skyscrapers with window lights
-  const bldgColors = [0x0f172a, 0x1e1b4b, 0x172554, 0x111827];
-  const bldgMatCache = bldgColors.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }));
-
-  for (let i = -7; i <= 7; i += 1.8) {
-    const height = 4.0 + Math.abs(Math.sin(i * 2.3)) * 4.5;
-    const width = 1.0 + Math.random() * 0.8;
-    const mat = bldgMatCache[Math.abs(Math.round(i)) % bldgMatCache.length];
-    const bldg = new THREE.Mesh(new THREE.BoxGeometry(width, height, 1.2), mat);
-    bldg.position.set(i * 1.4, height / 2 - 1.0, -7.5 + Math.random() * 1.5);
-    group.add(bldg);
-
-    // Glowing rooftop antenna beacon
-    const beaconMat = new THREE.MeshBasicMaterial({
-      color: i % 2 === 0 ? 0xef4444 : 0x06b6d4
-    });
-    const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), beaconMat);
-    beacon.position.set(bldg.position.x, height - 0.9, bldg.position.z);
-    group.add(beacon);
-  }
-
-  // 4. LIVING DYNAMIC ELEMENTS: Flying Skycars / Aerocars along Sky-lanes
+  // 4. Dynamic Living Elements:
+  // Animated Aerial Skycars / Cruising City Traffic in the distance
   const skycars = [];
-  for (let c = 0; c < 6; c++) {
-    const carGroup = new THREE.Group();
-    const isEastbound = c % 2 === 0;
+  const carCount = 5;
 
-    // Sleek vehicle chassis
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: isEastbound ? 0x38bdf8 : 0xf43f5e,
-      roughness: 0.3,
-      metalness: 0.8
+  for (let i = 0; i < carCount; i++) {
+    const carGroup = new THREE.Group();
+    const isEast = i % 2 === 0;
+
+    // Streamlined craft body
+    const carMat = new THREE.MeshBasicMaterial({
+      color: isEast ? 0x38bdf8 : 0xf43f5e
     });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.12, 0.18), bodyMat);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.1), carMat);
     carGroup.add(body);
 
-    // Headlights & Taillights
+    // Glowing headlight / trail
     const lightMat = new THREE.MeshBasicMaterial({
-      color: isEastbound ? 0x67e8f9 : 0xf43f5e
+      color: isEast ? 0x67e8f9 : 0xfb7185
     });
-    const beam = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), lightMat);
-    beam.position.set(isEastbound ? 0.22 : -0.22, 0, 0);
-    carGroup.add(beam);
+    const headLight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.04), lightMat);
+    headLight.position.x = isEast ? 0.16 : -0.16;
+    carGroup.add(headLight);
 
-    const laneY = 1.8 + (c * 0.7);
-    const laneZ = -5.5 - (c * 0.4);
-    const startX = -10 + (c * 3.5);
+    const laneY = 2.2 + (i * 0.45);
+    const laneZ = -7.5 - (i * 0.8);
+    carGroup.position.set((Math.random() - 0.5) * 14, laneY, laneZ);
 
-    carGroup.position.set(startX, laneY, laneZ);
     group.add(carGroup);
-
     skycars.push({
       group: carGroup,
-      speed: (isEastbound ? 1.8 : -2.2) + Math.random() * 0.4,
-      isEast: isEastbound,
+      speed: (isEast ? 1.5 : -1.8) * (0.8 + Math.random() * 0.4),
       laneY,
-      laneZ
+      isEast
     });
   }
-
-  // Interior Ambient Lights (Cyan & Purple Neon Ambiance)
-  const neonCyan = new THREE.PointLight(0x06b6d4, 1.4, 8);
-  neonCyan.position.set(-2.5, 3.5, 0);
-  const neonPurple = new THREE.PointLight(0xa855f7, 1.2, 8);
-  neonPurple.position.set(2.5, 3.5, 0);
-  group.add(neonCyan, neonPurple);
 
   return {
     group,
@@ -117,8 +81,7 @@ export function createPenthouseSpace() {
       // Animate flying skycars along aerial lanes
       skycars.forEach(car => {
         car.group.position.x += delta * car.speed;
-        // Subtle hover altitude bob
-        car.group.position.y = car.laneY + Math.sin(elapsed * 3.0 + car.group.position.x) * 0.04;
+        car.group.position.y = car.laneY + Math.sin(elapsed * 2.5 + car.group.position.x) * 0.03;
 
         if (car.isEast && car.group.position.x > 11) {
           car.group.position.x = -11;
@@ -126,6 +89,10 @@ export function createPenthouseSpace() {
           car.group.position.x = 11;
         }
       });
+
+      // Subtle pulse on city neon
+      neonPurple.intensity = 1.3 + Math.sin(elapsed * 2.0) * 0.15;
+      neonCyan.intensity = 1.1 + Math.cos(elapsed * 2.5) * 0.12;
     }
   };
 }

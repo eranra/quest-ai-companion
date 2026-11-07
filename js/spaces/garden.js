@@ -1,175 +1,108 @@
-// Space 2: Zen Garden / Bamboo Courtyard (Outdoor Environment)
+// Space 2: Zen Garden / Japanese Courtyard (360° Photorealistic Environment)
 import * as THREE from 'three';
 
 export function createGardenSpace() {
   const group = new THREE.Group();
 
-  // 1. Ground: Stone Path + Manicured Moss + Fine Raked Gravel
-  const groundGeo = new THREE.PlaneGeometry(16, 16);
-  const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x22381e,
-    roughness: 0.9
+  // 1. 360° Photorealistic Equirectangular Spherical Panorama
+  const sphereGeo = new THREE.SphereGeometry(35, 60, 40);
+  sphereGeo.scale(-1, 1, 1);
+  const texLoader = new THREE.TextureLoader();
+  const panoTexture = texLoader.load('assets/spaces/garden.jpg');
+  panoTexture.encoding = THREE.sRGBEncoding;
+
+  const sphereMat = new THREE.MeshBasicMaterial({
+    map: panoTexture,
+    depthWrite: false
   });
-  const ground = new THREE.Mesh(groundGeo, groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.01;
-  ground.receiveShadow = true;
-  group.add(ground);
+  const skyDome = new THREE.Mesh(sphereGeo, sphereMat);
+  skyDome.position.set(0, 1.2, 0);
+  group.add(skyDome);
 
-  // Stepping Stone Walkway (Avatar stands directly on center stone)
-  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 });
-  for (let z = -4; z <= 4; z += 1.4) {
-    const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.6, 0.04, 16), stoneMat);
-    stone.scale.set(1.1, 1, 0.9);
-    stone.position.set((Math.sin(z * 1.5) * 0.15), 0.01, z);
-    stone.receiveShadow = true;
-    group.add(stone);
-  }
+  // 2. Invisible Ground Plane
+  const floorPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 20),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  floorPlane.rotation.x = -Math.PI / 2;
+  floorPlane.position.y = 0;
+  group.add(floorPlane);
 
-  // 2. Distant Horizon: Misty Mountains & Blue Sky
-  const skyMat = new THREE.MeshBasicMaterial({ color: 0x93c5fd });
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(18, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.5), skyMat);
-  sky.scale.set(1, 0.7, 1);
-  group.add(sky);
+  // 3. Natural Outdoor Daylight
+  const ambientLight = new THREE.AmbientLight(0xf0fdf4, 1.3);
+  const sunLight = new THREE.DirectionalLight(0xfef08a, 1.5);
+  sunLight.position.set(4, 8, 3);
+  const skyLight = new THREE.HemisphereLight(0x93c5fd, 0x166534, 0.8);
+  group.add(ambientLight, sunLight, skyLight);
 
-  // Distant mountain ridges
-  const mtnMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.95 });
-  for (let m = -3; m <= 3; m++) {
-    const mtn = new THREE.Mesh(new THREE.ConeGeometry(3.5, 4.5, 5), mtnMat);
-    mtn.position.set(m * 3.8, 1.8, -10 + Math.abs(m) * 0.5);
-    mtn.scale.set(1.4, 1, 0.8);
-    group.add(mtn);
-  }
-
-  // 3. Bamboo Grove & Swaying Stalks
-  const bambooStalks = [];
-  const bambooMat = new THREE.MeshStandardMaterial({ color: 0x4d7c0f, roughness: 0.4 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.5, side: THREE.DoubleSide });
-
-  for (let b = 0; b < 18; b++) {
-    const stalk = new THREE.Group();
-    const side = b % 2 === 0 ? -1 : 1;
-    const xPos = side * (2.2 + Math.random() * 3.5);
-    const zPos = -3.5 + Math.random() * 6.5;
-
-    const height = 3.5 + Math.random() * 2.0;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, height, 8), bambooMat);
-    trunk.position.y = height / 2;
-    trunk.castShadow = true;
-    stalk.add(trunk);
-
-    // Bamboo leafy tufts
-    for (let l = 0; l < 4; l++) {
-      const leafGroup = new THREE.Group();
-      leafGroup.position.set(0, height * 0.6 + l * 0.4, 0);
-      const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.12), leafMat);
-      leaf.rotation.x = Math.PI / 4;
-      leaf.position.x = 0.15;
-      leafGroup.add(leaf);
-      leafGroup.rotation.y = l * 1.5;
-      stalk.add(leafGroup);
-    }
-
-    stalk.position.set(xPos, 0, zPos);
-    group.add(stalk);
-    bambooStalks.push({ group: stalk, phase: Math.random() * Math.PI * 2 });
-  }
-
-  // 4. Stone Lanterns with warm glow
-  function createStoneLantern(x, z) {
-    const lanternGroup = new THREE.Group();
-    lanternGroup.position.set(x, 0, z);
-
-    const lMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 });
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.5, 8), lMat);
-    base.position.y = 0.25;
-    const chamber = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), lMat);
-    chamber.position.y = 0.65;
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.25, 4), lMat);
-    roof.position.y = 0.95;
-    roof.rotation.y = Math.PI / 4;
-
-    // Warm lantern light
-    const light = new THREE.PointLight(0xf59e0b, 1.2, 3.5);
-    light.position.y = 0.65;
-
-    lanternGroup.add(base, chamber, roof, light);
-    return lanternGroup;
-  }
-
-  group.add(createStoneLantern(-2.2, -1.5));
-  group.add(createStoneLantern(2.2, -1.5));
-
-  // 5. LIVING DYNAMIC ELEMENTS: Drifting Petals & Soaring Birds
-  // Cherry Blossom Petals
-  const petalCount = 40;
+  // 4. Dynamic Living Elements:
+  // A. Floating Cherry Blossom Petals gently swirling down in 3D space
+  const petalCount = 75;
   const petalGeo = new THREE.BufferGeometry();
   const petalPositions = new Float32Array(petalCount * 3);
   for (let i = 0; i < petalCount; i++) {
     petalPositions[i * 3] = (Math.random() - 0.5) * 8.0;
-    petalPositions[i * 3 + 1] = 0.5 + Math.random() * 4.0;
-    petalPositions[i * 3 + 2] = (Math.random() - 0.5) * 8.0;
+    petalPositions[i * 3 + 1] = 0.2 + Math.random() * 4.2;
+    petalPositions[i * 3 + 2] = -0.5 - Math.random() * 5.0;
   }
   petalGeo.setAttribute('position', new THREE.BufferAttribute(petalPositions, 3));
   const petalMat = new THREE.PointsMaterial({
-    color: 0xfbcfe8,
-    size: 0.06,
+    color: 0xfda4af, // Soft cherry blossom pink
+    size: 0.05,
     transparent: true,
     opacity: 0.85
   });
   const petals = new THREE.Points(petalGeo, petalMat);
   group.add(petals);
 
-  // Birds in sky
-  const birdMat = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide });
+  // B. Distant Soaring Birds across mountain vista
   const gardenBirds = [];
-  for (let i = 0; i < 3; i++) {
-    const bird = new THREE.Group();
-    const wingGeo = new THREE.BufferGeometry();
-    const verts = new Float32Array([-0.12, 0, 0, 0, 0, -0.04, 0.12, 0, 0]);
-    wingGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-    const mesh = new THREE.Mesh(wingGeo, birdMat);
-    bird.add(mesh);
-    bird.position.set(-6 + i * 4, 4.5 + i * 0.4, -8);
-    group.add(bird);
-    gardenBirds.push({ group: bird, speed: 0.5 + i * 0.2, phase: i * 1.5 });
-  }
+  const birdGeo = new THREE.BufferGeometry();
+  birdGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+    -0.18, 0, 0,
+    0, 0.04, 0.06,
+    0.18, 0, 0
+  ]), 3));
+  const birdMat = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 2 });
 
-  // Sunlight
-  const sunLight = new THREE.DirectionalLight(0xfef08a, 1.3);
-  sunLight.position.set(5, 8, 4);
-  group.add(sunLight);
+  for (let i = 0; i < 4; i++) {
+    const bMesh = new THREE.Line(birdGeo, birdMat);
+    bMesh.position.set(-8 + i * 4.5, 4.5 + Math.random() * 2.0, -8 - i * 1.5);
+    group.add(bMesh);
+    gardenBirds.push({
+      mesh: bMesh,
+      speed: 0.8 + i * 0.25,
+      phase: i * 1.8
+    });
+  }
 
   return {
     group,
     update(delta, elapsed) {
-      // 1. Bamboo swaying organically in breeze
-      bambooStalks.forEach(b => {
-        const sway = Math.sin(elapsed * 1.5 + b.phase) * 0.035;
-        b.group.rotation.z = sway;
-      });
-
-      // 2. Cherry blossom petals gently fluttering downwards
+      // 1. Cherry blossom petals gently fluttering downwards
       const pos = petalGeo.attributes.position.array;
       for (let i = 0; i < petalCount; i++) {
-        pos[i * 3 + 1] -= delta * 0.35; // fall
-        pos[i * 3] += Math.sin(elapsed * 2.0 + i) * 0.008; // drift x
-        pos[i * 3 + 2] += Math.cos(elapsed * 1.5 + i) * 0.006; // drift z
+        pos[i * 3 + 1] -= delta * 0.28; // gentle fall
+        pos[i * 3] += Math.sin(elapsed * 1.8 + i) * 0.007; // lateral drift
+        pos[i * 3 + 2] += Math.cos(elapsed * 1.4 + i) * 0.005;
 
         // Reset if hitting ground
-        if (pos[i * 3 + 1] < 0.05) {
-          pos[i * 3 + 1] = 4.5;
+        if (pos[i * 3 + 1] < 0.03) {
+          pos[i * 3 + 1] = 4.4;
           pos[i * 3] = (Math.random() - 0.5) * 8.0;
+          pos[i * 3 + 2] = -0.5 - Math.random() * 5.0;
         }
       }
       petalGeo.attributes.position.needsUpdate = true;
 
-      // 3. Birds soaring across sky
+      // 2. Soaring birds across garden sky
       gardenBirds.forEach(b => {
-        b.group.position.x += delta * b.speed;
-        b.group.position.y += Math.sin(elapsed * 2.5 + b.phase) * 0.004;
-        b.group.children[0].rotation.z = Math.sin(elapsed * 9.0 + b.phase) * 0.45;
-        if (b.group.position.x > 8.0) b.group.position.x = -8.0;
+        b.mesh.position.x += delta * b.speed;
+        b.mesh.position.y += Math.sin(elapsed * 2.2 + b.phase) * 0.003;
+        b.mesh.rotation.z = Math.sin(elapsed * 7.0 + b.phase) * 0.25;
+        if (b.mesh.position.x > 10.0) {
+          b.mesh.position.x = -10.0;
+        }
       });
     }
   };

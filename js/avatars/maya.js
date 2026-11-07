@@ -1,6 +1,6 @@
 // Realistic Female Humanoid Avatar (Maya)
 import * as THREE from 'three';
-import { rig, bindBonesFromHierarchy } from './rig.js';
+import { rig, bindBonesFromHierarchy, groundAvatar } from './rig.js';
 import { loadGLBAvatar } from './loader.js';
 
 export function buildMayaHumanoid(avatarGroup) {
@@ -12,6 +12,7 @@ export function buildMayaHumanoid(avatarGroup) {
   // Build temporary high-res placeholder while GLB loads
   const placeholder = buildProceduralMaya();
   root.add(placeholder);
+  groundAvatar(root);
 
   // Load realistic photorealistic GLB humanoid model
   loadGLBAvatar('assets/models/maya.glb').then(({ scene, animations }) => {
@@ -19,11 +20,12 @@ export function buildMayaHumanoid(avatarGroup) {
     if (rig.root === root) {
       root.remove(placeholder);
       
-      scene.position.set(0, -0.15, 0);
+      scene.position.set(0, 0, 0);
       scene.scale.setScalar(0.85);
       root.add(scene);
 
       bindBonesFromHierarchy(scene);
+      groundAvatar(root);
 
       // Only play subtle idle animations, never wild dance clips
       if (animations && animations.length > 0) {
