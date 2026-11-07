@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.5",
-  "build": 16,
-  "released_at": "2026-11-07T11:05:00Z",
-  "changelog": "v0.2.5: Fix speech recognition on Android and desktop with dual-mode operation: when Live Mode is OFF, microphone is push-to-talk (starts on mic tap, auto-finalizes and stops mic when user finishes speaking, keeping mic closed afterwards); when Live Mode is ON, microphone stays continuously open and auto-reopens after AI speaks; fix false-positive anti-echo rejection by ensuring echo filtering is only active while assistant is speaking."
+  "version": "v0.2.6",
+  "build": 17,
+  "released_at": "2026-11-07T11:40:00Z",
+  "changelog": "v0.2.6: Fix Android microphone hardware lock and speech delivery: eliminated competing getUserMedia lock during speech recognition so Google Speech Services receives clean unblocked audio; added onspeechend and isFinal auto-release to instantly close and release microphone hardware in Regular Mode; added 7s silence watchdog to auto-release microphone if user stays quiet; added resilient conversational fallback if WebGPU is absent."
 }

@@ -22,7 +22,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.2.5';
+export const APP_VERSION = 'v0.2.6';
 
 // DOM References
 const dom = {
@@ -186,7 +186,6 @@ function initApp() {
       if (dockController) dockController.updateLiveModeUI();
 
       if (nextMode) {
-        initMicAnalyser((level) => updateMicLevel(level));
         setPipelineState('listening', 'Live Mode: Listening...');
         speakReply(`Live conversation active. Just start speaking anytime, and you can interrupt me whenever you want.`);
       } else {
@@ -204,7 +203,6 @@ function initApp() {
         stopMicAnalyser();
         setPipelineState('idle');
       } else {
-        initMicAnalyser((level) => updateMicLevel(level));
         setPipelineState('listening', 'Listening to you...');
         startListening();
       }
@@ -233,13 +231,12 @@ function initApp() {
       onInterimSpeech: (interim) => {
         setPipelineState('listening', `Listening: "${interim}..."`);
         dom.speechText.textContent = `Listening: "${interim}..."`;
-        updateMicLevel(0.65);
       },
+      onVolume: (level) => updateMicLevel(level),
       onStatusChange: (status) => {
         if (status === 'listening') {
           setPipelineState('listening', AppState.isLiveMode ? 'Live Mode: Listening...' : 'Listening to you...');
           if (dom.btnMic) dom.btnMic.classList.add('listening');
-          initMicAnalyser((level) => updateMicLevel(level));
         } else if (status === 'idle') {
           if (dom.btnMic) dom.btnMic.classList.remove('listening');
           if (!AppState.isSpeaking && !AppState.isGenerating) {

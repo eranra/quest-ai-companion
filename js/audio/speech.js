@@ -1,4 +1,4 @@
-// Robust Speech Recognition Engine: Dual-Mode (Push-to-Talk vs Always-On Live Mode)
+// Robust Native Speech Recognition Engine: Dual-Mode (Push-to-Talk vs Always-On Live Mode)
 import { AppState } from '../state.js';
 import { isSelfEcho, stopSpeaking, getSpokenRegistry } from './tts.js';
 import { abortActiveGeneration } from '../ai.js';
@@ -6,16 +6,20 @@ import { abortActiveGeneration } from '../ai.js';
 let recognition = null;
 let currentTranscript = '';
 let silenceTimer = null;
+let restartBackoffTimer = null;
+let speechWatchdogTimer = null;
+
 let onSpeechFinishedCallback = null;
 let onSpeechInterimCallback = null;
 let onStatusChangeCallback = null;
+let onVolumeCallback = null;
 let isExplicitlyStopped = true;
-let restartBackoffTimer = null;
 
 export function initSpeechRecognition(handlers) {
   onSpeechFinishedCallback = handlers.onFinalSpeech;
   onSpeechInterimCallback = handlers.onInterimSpeech;
   onStatusChangeCallback = handlers.onStatusChange;
+  onVolumeCallback = handlers.onVolume;
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -25,8 +29,24 @@ export function initSpeechRecognition(handlers) {
 
   recognition = new SpeechRecognition();
   recognition.interimResults = true;
-  recognition.lang = AppState.speechLang || 'en-US';
+  recognition.lang = AppState.speechLang || navigator.language || 'en-US';
   recognition.continuous = !!AppState.isLiveMode;
+
+  recognition.onaudiostart = () => {
+    AppState.isListening = true;
+    if (onStatusChangeCallback) onStatusChangeCallback('listening');
+    if (onVolumeCallback) onVolumeCallback(0.2);
+  };
+
+  recognition.onsoundstart = () => {
+    if (onVolumeCallback) onVolumeCallback(0.55);
+  };
+
+  recognition.onspeechstart = () => {
+    if (onVolumeCallback) onVolumeCallback(0.75);
+    // User began speaking -> cancel watchdog timeout
+    if (speechWatchdogTimer) clearTimeout(speechWatchdogTimer);
+  };
 
   recognition.onstart = () => {
     AppState.isListening = true;
@@ -55,6 +75,9 @@ export function initSpeechRecognition(handlers) {
     const candidate = (final || interim).trim();
     if (!candidate) return;
     currentTranscript = candidate;
+
+    // Bounce visualizer bars to speaking intensity
+    if (onVolumeCallback) onVolumeCallback(0.85);
 
     // 1. Acoustic Loopback / Echo Guard: ONLY test if assistant is actively speaking or reverberation cooldown is active
     const spoken = getSpokenRegistry();
@@ -98,13 +121,14 @@ export function initSpeechRecognition(handlers) {
     }
 
     // 3. Immediate Sentence Finalization:
-    // A. Engine reported isFinal = true (clean phrase completion)
-    if (final && final.trim().length >= 2) {
+    // A. Engine reported isFinal = true (clean sentence completion)
+    if (final && final.trim().length >= 1) {
       const completedText = final.trim();
       currentTranscript = '';
       if (silenceTimer) clearTimeout(silenceTimer);
+      if (speechWatchdogTimer) clearTimeout(speechWatchdogTimer);
 
-      // In Regular Mode (Push-to-Talk): immediately stop recognition so mic closes
+      // In Regular Mode (Push-to-Talk): immediately stop recognition so mic hardware is released!
       if (!AppState.isLiveMode) {
         stopListening();
       }
@@ -117,14 +141,14 @@ export function initSpeechRecognition(handlers) {
 
     // B. Interim pause / silence detection
     const sensitivity = AppState.liveSensitivity || 'normal';
-    let silenceDelay = AppState.isLiveMode ? 1100 : 750;
+    let silenceDelay = AppState.isLiveMode ? 1000 : 700;
     if (sensitivity === 'high_filter') silenceDelay += 300;
     if (sensitivity === 'sensitive') silenceDelay -= 200;
 
     if (silenceTimer) clearTimeout(silenceTimer);
     silenceTimer = setTimeout(() => {
       const pendingText = currentTranscript.trim();
-      if (pendingText.length >= 2) {
+      if (pendingText.length >= 1) {
         currentTranscript = '';
         if (!AppState.isLiveMode) {
           stopListening();
@@ -136,8 +160,38 @@ export function initSpeechRecognition(handlers) {
     }, silenceDelay);
   };
 
+  recognition.onspeechend = () => {
+    if (onVolumeCallback) onVolumeCallback(0.15);
+    // In Regular Mode, when speech ends, finalize and release the mic immediately!
+    if (!AppState.isLiveMode) {
+      if (currentTranscript && currentTranscript.trim().length >= 1) {
+        const pending = currentTranscript.trim();
+        currentTranscript = '';
+        if (silenceTimer) clearTimeout(silenceTimer);
+        if (speechWatchdogTimer) clearTimeout(speechWatchdogTimer);
+        stopListening();
+        if (onSpeechFinishedCallback) {
+          onSpeechFinishedCallback(pending);
+        }
+      } else {
+        stopListening();
+      }
+    }
+  };
+
+  recognition.onsoundend = () => {
+    if (onVolumeCallback) onVolumeCallback(0.0);
+  };
+
+  recognition.onaudioend = () => {
+    if (onVolumeCallback) onVolumeCallback(0.0);
+  };
+
   recognition.onerror = (event) => {
     if (event.error === 'no-speech' || event.error === 'aborted') {
+      if (!AppState.isLiveMode) {
+        stopListening();
+      }
       return;
     }
     console.warn('SpeechRecognition error:', event.error);
@@ -149,12 +203,14 @@ export function initSpeechRecognition(handlers) {
 
   recognition.onend = () => {
     AppState.isListening = false;
+    if (onVolumeCallback) onVolumeCallback(0.0);
 
     // Safety fallback: if recognizer ended with unsubmitted text, dispatch it immediately
-    if (currentTranscript && currentTranscript.trim().length >= 2) {
+    if (currentTranscript && currentTranscript.trim().length >= 1) {
       const pendingText = currentTranscript.trim();
       currentTranscript = '';
       if (silenceTimer) clearTimeout(silenceTimer);
+      if (speechWatchdogTimer) clearTimeout(speechWatchdogTimer);
       if (onSpeechFinishedCallback) {
         onSpeechFinishedCallback(pendingText);
       }
@@ -173,7 +229,7 @@ export function initSpeechRecognition(handlers) {
         }
       }, delay);
     } else {
-      // Regular Mode (Push-to-Talk): stays idle after single utterance
+      // Regular Mode (Push-to-Talk): stays idle after single utterance and mic hardware is released
       if (onStatusChangeCallback && !AppState.isSpeaking && !AppState.isGenerating) {
         onStatusChangeCallback('idle');
       }
@@ -188,6 +244,7 @@ export function startListening() {
   currentTranscript = '';
   if (silenceTimer) clearTimeout(silenceTimer);
   if (restartBackoffTimer) clearTimeout(restartBackoffTimer);
+  if (speechWatchdogTimer) clearTimeout(speechWatchdogTimer);
 
   if (recognition) {
     try {
@@ -195,10 +252,19 @@ export function startListening() {
       // Live Mode: continuous = true (stays open indefinitely)
       recognition.continuous = !!AppState.isLiveMode;
       recognition.interimResults = true;
-      recognition.lang = AppState.speechLang || 'en-US';
+      recognition.lang = AppState.speechLang || navigator.language || 'en-US';
       recognition.start();
     } catch (e) {
       // Already running
+    }
+
+    // Regular Mode watchdog: if user clicks mic but stays silent for 7s, auto-release mic hardware!
+    if (!AppState.isLiveMode) {
+      speechWatchdogTimer = setTimeout(() => {
+        if (!AppState.isLiveMode && AppState.isListening && !currentTranscript) {
+          stopListening();
+        }
+      }, 7000);
     }
   }
 }
@@ -207,12 +273,14 @@ export function stopListening() {
   isExplicitlyStopped = true;
   if (silenceTimer) clearTimeout(silenceTimer);
   if (restartBackoffTimer) clearTimeout(restartBackoffTimer);
+  if (speechWatchdogTimer) clearTimeout(speechWatchdogTimer);
   if (recognition) {
     try {
       recognition.stop();
     } catch (e) {}
   }
   AppState.isListening = false;
+  if (onVolumeCallback) onVolumeCallback(0.0);
   if (onStatusChangeCallback && !AppState.isSpeaking && !AppState.isGenerating) {
     onStatusChangeCallback('idle');
   }

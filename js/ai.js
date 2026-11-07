@@ -167,6 +167,13 @@ export async function generateAIResponse(prompt, onProgress) {
 }
 
 async function callLocalWebLLM(prompt, onProgress, signal) {
+  if (!navigator.gpu) {
+    if (AppState.geminiKey && AppState.geminiKey.trim()) {
+      return await callGeminiAPI(prompt, signal);
+    }
+    return `I heard your message: "${prompt}". Your browser does not have WebGPU enabled for local weights. You can enter a Google Gemini key in Settings (⚙️) to enable AI responses on this device!`;
+  }
+
   let engine = webllmEngine;
   if (!engine || currentLoadedModel !== AppState.localModel) {
     engine = await initLocalWebLLM(onProgress);

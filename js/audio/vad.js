@@ -84,8 +84,17 @@ export function stopMicAnalyser() {
     animationFrameId = null;
   }
   if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream.getTracks().forEach(t => {
+      try {
+        t.stop();
+      } catch (e) {}
+    });
     mediaStream = null;
+  }
+  if (audioContext && audioContext.state !== 'closed') {
+    try {
+      audioContext.suspend().catch(() => {});
+    } catch (e) {}
   }
   if (volumeCallback) {
     volumeCallback(0);
