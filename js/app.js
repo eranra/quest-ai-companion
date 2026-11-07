@@ -11,7 +11,8 @@ import {
   startListening,
   stopListening,
   setLiveMode,
-  initMicAnalyser
+  initMicAnalyser,
+  stopMicAnalyser
 } from './audio/index.js';
 import {
   initPipelineUI,
@@ -21,7 +22,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.2.4';
+export const APP_VERSION = 'v0.2.5';
 
 // DOM References
 const dom = {
@@ -48,6 +49,12 @@ async function handleUserSpeech(userText) {
   unlockAudio();
   userText = userText.trim();
 
+  // If in regular mode (Live Mode OFF): ensure mic is stopped and closed
+  if (!AppState.isLiveMode) {
+    stopListening();
+    stopMicAnalyser();
+  }
+
   if (dom.promptInput) {
     dom.promptInput.value = '';
     dom.promptInput.blur();
@@ -67,21 +74,27 @@ async function handleUserSpeech(userText) {
     // Step 4: Speaking Reply
     setPipelineState('speaking');
     speakReply(reply, () => {
-      // Complete speaking -> return to active listening if Live Mode is ON
+      // Completed speaking reply:
       if (AppState.isLiveMode) {
-        setPipelineState('listening');
+        // In Live Mode: automatically resume continuous listening!
+        setPipelineState('listening', 'Live Mode: Listening...');
+        initMicAnalyser((level) => updateMicLevel(level));
         startListening();
       } else {
+        // In Regular Mode (Live Mode OFF): return to idle and KEEP MIC CLOSED!
         setPipelineState('idle');
+        stopMicAnalyser();
       }
     });
   } catch (err) {
     console.error('Conversation Error:', err);
     dom.speechText.textContent = `Error: ${err.message}`;
     setPipelineState('idle');
+    stopMicAnalyser();
     if (AppState.isLiveMode) {
       setTimeout(() => {
-        setPipelineState('listening');
+        setPipelineState('listening', 'Live Mode: Listening...');
+        initMicAnalyser((level) => updateMicLevel(level));
         startListening();
       }, 1500);
     }
@@ -177,6 +190,8 @@ function initApp() {
         setPipelineState('listening', 'Live Mode: Listening...');
         speakReply(`Live conversation active. Just start speaking anytime, and you can interrupt me whenever you want.`);
       } else {
+        stopListening();
+        stopMicAnalyser();
         setPipelineState('idle');
       }
     },
@@ -186,10 +201,11 @@ function initApp() {
       }
       if (AppState.isListening) {
         stopListening();
+        stopMicAnalyser();
         setPipelineState('idle');
       } else {
         initMicAnalyser((level) => updateMicLevel(level));
-        setPipelineState('listening');
+        setPipelineState('listening', 'Listening to you...');
         startListening();
       }
     }
@@ -217,17 +233,23 @@ function initApp() {
       onInterimSpeech: (interim) => {
         setPipelineState('listening', `Listening: "${interim}..."`);
         dom.speechText.textContent = `Listening: "${interim}..."`;
+        updateMicLevel(0.65);
       },
       onStatusChange: (status) => {
         if (status === 'listening') {
-          setPipelineState('listening');
+          setPipelineState('listening', AppState.isLiveMode ? 'Live Mode: Listening...' : 'Listening to you...');
+          if (dom.btnMic) dom.btnMic.classList.add('listening');
           initMicAnalyser((level) => updateMicLevel(level));
         } else if (status === 'idle') {
+          if (dom.btnMic) dom.btnMic.classList.remove('listening');
           if (!AppState.isSpeaking && !AppState.isGenerating) {
             setPipelineState('idle');
+            stopMicAnalyser();
           }
         } else if (status === 'mic-denied') {
+          if (dom.btnMic) dom.btnMic.classList.remove('listening');
           setPipelineState('mic-denied');
+          stopMicAnalyser();
         }
       }
     });

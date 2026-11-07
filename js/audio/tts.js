@@ -21,21 +21,26 @@ export function getSpokenRegistry() {
 
 export function isSelfEcho(transcript) {
   if (AppState.echoGuardMode === 'off') return false;
+  
+  // Anti-echo cancellation is ONLY active while assistant is speaking or within reverberation cooldown
+  const isAssistantActive = AppState.isSpeaking || AppState.isGenerating || Date.now() < echoCooldownUntil;
+  if (!isAssistantActive) return false;
+
   if (!activeSpokenText && activeSpokenWords.length === 0) return false;
-  if (!transcript || !transcript.trim()) return true;
+  if (!transcript || !transcript.trim()) return false;
 
   const candidateNorm = transcript.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
   const candidateWords = candidateNorm.split(/\s+/).filter(w => w.length > 1);
-  if (candidateWords.length === 0) return true;
+  if (candidateWords.length === 0) return false;
 
   const spokenNorm = activeSpokenText.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
 
-  // 1. Substring match
-  if (candidateNorm.length > 3 && spokenNorm.includes(candidateNorm)) {
+  // 1. Exact or long substring match (> 6 chars)
+  if (candidateNorm.length > 6 && spokenNorm.includes(candidateNorm)) {
     return true;
   }
 
-  // 2. Lexical word overlap check
+  // 2. High lexical word overlap check (>= 65% match of candidate words)
   let matches = 0;
   for (const word of candidateWords) {
     if (activeSpokenWords.includes(word)) {
@@ -44,7 +49,7 @@ export function isSelfEcho(transcript) {
   }
 
   const overlap = matches / candidateWords.length;
-  return overlap >= 0.38;
+  return overlap >= 0.65;
 }
 
 export function stopSpeaking() {

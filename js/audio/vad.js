@@ -32,8 +32,8 @@ export async function initMicAnalyser(onVolume) {
       mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          noiseSuppression: false, // Prevents exclusive DSP hardware lock on Android
+          autoGainControl: false
         }
       });
     }

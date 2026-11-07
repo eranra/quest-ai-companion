@@ -209,6 +209,23 @@ async function runTestSuite() {
                     setPipelineState('idle');
                     assert('Pipeline resets to idle', !document.getElementById('step-speaking').classList.contains('active'));
 
+                    // Test 5: Speech & Dual-Mode Configuration
+                    const { isSelfEcho, speakReply, stopSpeaking } = await import('./js/audio/tts.js');
+                    const { setLiveMode, startListening, stopListening } = await import('./js/audio/speech.js');
+                    const { AppState } = await import('./js/state.js');
+
+                    // 5A: Anti-Self-Echo when assistant is silent
+                    stopSpeaking();
+                    const echoWhenSilent = isSelfEcho("Hello companion, are you ready?");
+                    assert('Anti-Self-Echo does not reject user speech when assistant is silent', echoWhenSilent === false);
+
+                    // 5B: Live Mode vs Push-to-Talk state toggling
+                    setLiveMode(false);
+                    assert('Regular mode sets AppState.isLiveMode = false', AppState.isLiveMode === false);
+                    setLiveMode(true);
+                    assert('Live mode sets AppState.isLiveMode = true', AppState.isLiveMode === true);
+                    setLiveMode(false); // Reset to regular mode
+
                     return results;
                   })()
                 `,
