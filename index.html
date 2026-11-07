@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.2.1">
+  <link rel="stylesheet" href="css/styles.css?v=0.2.2">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.1</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.2</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -70,6 +70,10 @@
 
         <button id="btn-avatars" class="icon-btn" title="Choose Avatar">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        </button>
+
+        <button id="btn-spaces" class="icon-btn" title="Choose 3D Space / Environment">
+          <span style="font-size: 16px;">🏛️</span>
         </button>
 
         <button id="btn-xr" class="icon-btn" title="Enter WebXR / AR Passthrough">
@@ -234,6 +238,54 @@
     </div>
   </div>
 
+  <!-- Space / Atmosphere Selector Modal (4 Dynamic 3D Environments) -->
+  <div id="modal-spaces" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Choose 3D Space</h3>
+        <button id="btn-close-spaces" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
+      </div>
+
+      <p class="help-hint" style="margin-bottom: 6px;">Select a realistic dynamic 3D space for your companion to inhabit:</p>
+
+      <div class="space-grid">
+        <div class="space-card active" data-space-id="hall">
+          <div class="space-icon-header">
+            <div class="space-icon-box">🏛️</div>
+            <div class="space-name">Study Hall (Default)</div>
+          </div>
+          <div class="space-desc">Warm hardwood forum, bookshelves, moving clouds & sunbeam dust motes</div>
+        </div>
+
+        <div class="space-card" data-space-id="garden">
+          <div class="space-icon-header">
+            <div class="space-icon-box">🌿</div>
+            <div class="space-name">Zen Garden</div>
+          </div>
+          <div class="space-desc">Stone path courtyard, swaying bamboo, floating petals & soaring birds</div>
+        </div>
+
+        <div class="space-card" data-space-id="penthouse">
+          <div class="space-icon-header">
+            <div class="space-icon-box">🌌</div>
+            <div class="space-name">Sky Penthouse</div>
+          </div>
+          <div class="space-desc">Dark marble floor, neon skyscraper vista & flying aerial skycars</div>
+        </div>
+
+        <div class="space-card" data-space-id="cafe">
+          <div class="space-icon-header">
+            <div class="space-icon-box">☕</div>
+            <div class="space-name">Cozy Cafe</div>
+          </div>
+          <div class="space-desc">Warm lounge, exposed brick, window rain & steaming cup of coffee</div>
+        </div>
+      </div>
+
+      <button id="btn-confirm-space" class="action-btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 10px;">Save & Enter Space</button>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div id="modal-settings" class="modal-backdrop">
     <div class="modal">
@@ -287,6 +339,18 @@
         <p class="help-hint" style="margin-top: 4px;">
           Free key from <a href="https://aistudio.google.com" target="_blank" style="color: #818cf8;">aistudio.google.com</a>. Saved securely in local storage.
         </p>
+      </div>
+
+      <!-- 3D Environment Space Selection -->
+      <div class="form-group">
+        <label class="form-label">3D Environment Space</label>
+        <select id="cfg-space-select" class="form-input">
+          <option value="hall">🏛️ Study Hall (Academic forum, sunbeams, clouds)</option>
+          <option value="garden">🌿 Zen Garden (Bamboo grove, petals, birds)</option>
+          <option value="penthouse">🌌 Sky Penthouse (Cyber city vista, aerial skycars)</option>
+          <option value="cafe">☕ Cozy Cafe (Herringbone wood, window rain, steaming cup)</option>
+        </select>
+        <p class="help-hint">Active background space where your companion stands and interacts.</p>
       </div>
 
       <!-- Avatar Scale & Distance Sliders -->
@@ -344,7 +408,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.2.1"></script>
+  <script type="module" src="js/app.js?v=0.2.2"></script>
 
 </body>
 </html>

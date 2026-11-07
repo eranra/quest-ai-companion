@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.1",
-  "build": 12,
-  "released_at": "2026-11-07T08:15:00Z",
-  "changelog": "v0.2.1: Fix humanoid skeletal leg rotation bug (preserve bone bind pose rest rotations so legs stay 100% attached to hips and firmly grounded rather than inverted), disable wild dance animation clips, and optimize avatar vertical camera framing."
+  "version": "v0.2.2",
+  "build": 13,
+  "released_at": "2026-11-07T08:40:00Z",
+  "changelog": "v0.2.2: Add 4 dynamic 3D Spaces (Study Hall, Zen Garden, Sky Penthouse, Cozy Cafe) with living ambient elements (drifting clouds, flying birds, falling petals, steam, cyber skycars); remove obstructive debug grid chart; auto-fade speech bubble when idle; introduce lifelike organic idle motions (natural breathing, weight shifting, gentle body swivel and glances); smooth lerp transition when speech finishes; and contact shadow grounding."
 }

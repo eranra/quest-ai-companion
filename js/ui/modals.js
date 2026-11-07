@@ -1,23 +1,29 @@
-// UI Controllers for Settings and Avatar Selection Modals
+// UI Controllers for Settings, Space Selection, and Avatar Selection Modals
 import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform } from '../scene.js';
 import { unlockAudio, speakReply } from '../audio/index.js';
 import { checkGeminiResponsiveness } from '../ai.js';
+import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
 export function initModals({ onEngineChange }) {
   const dom = {
     modalAvatars: document.getElementById('modal-avatars'),
+    modalSpaces: document.getElementById('modal-spaces'),
     modalSettings: document.getElementById('modal-settings'),
     btnAvatars: document.getElementById('btn-avatars'),
+    btnSpaces: document.getElementById('btn-spaces'),
     btnSettings: document.getElementById('btn-settings'),
     btnCloseAvatars: document.getElementById('btn-close-avatars'),
+    btnCloseSpaces: document.getElementById('btn-close-spaces'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
     btnConfirmAvatar: document.getElementById('btn-confirm-avatar'),
+    btnConfirmSpace: document.getElementById('btn-confirm-space'),
     btnSaveSettings: document.getElementById('btn-save-settings'),
     cfgGeminiKey: document.getElementById('cfg-gemini-key'),
     cfgEngineSelect: document.getElementById('cfg-engine-select'),
     cfgLocalModel: document.getElementById('cfg-local-model'),
+    cfgSpaceSelect: document.getElementById('cfg-space-select'),
     cfgLiveSensitivity: document.getElementById('cfg-live-sensitivity'),
     cfgEchoGuard: document.getElementById('cfg-echo-guard'),
     groupLocalModel: document.getElementById('group-local-model'),
@@ -37,6 +43,13 @@ export function initModals({ onEngineChange }) {
   function syncAvatarCards() {
     document.querySelectorAll('.avatar-card').forEach(card => {
       card.classList.toggle('active', card.dataset.avatarId === AppState.avatarId);
+    });
+  }
+
+  // Sync active space card
+  function syncSpaceCards() {
+    document.querySelectorAll('.space-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.spaceId === AppState.spaceId);
     });
   }
 
@@ -100,6 +113,40 @@ export function initModals({ onEngineChange }) {
     };
   }
 
+  // Space Modal Handlers
+  if (dom.btnSpaces) {
+    dom.btnSpaces.onclick = () => {
+      unlockAudio();
+      syncSpaceCards();
+      dom.modalSpaces.classList.add('open');
+    };
+  }
+
+  if (dom.btnCloseSpaces) {
+    dom.btnCloseSpaces.onclick = () => dom.modalSpaces.classList.remove('open');
+  }
+
+  document.querySelectorAll('.space-card').forEach(card => {
+    card.onclick = () => {
+      unlockAudio();
+      document.querySelectorAll('.space-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+    };
+  });
+
+  if (dom.btnConfirmSpace) {
+    dom.btnConfirmSpace.onclick = () => {
+      unlockAudio();
+      const activeCard = document.querySelector('.space-card.active');
+      const selectedSpaceId = activeCard ? activeCard.dataset.spaceId : 'hall';
+      const def = switchSpace(selectedSpaceId);
+      dom.modalSpaces.classList.remove('open');
+      if (def) {
+        speakReply(`Entered ${def.name}.`);
+      }
+    };
+  }
+
   // Settings Modal Handlers
   if (dom.btnSettings) {
     dom.btnSettings.onclick = () => {
@@ -107,6 +154,7 @@ export function initModals({ onEngineChange }) {
       dom.cfgGeminiKey.value = AppState.geminiKey;
       dom.cfgEngineSelect.value = AppState.engine;
       dom.cfgLocalModel.value = AppState.localModel;
+      if (dom.cfgSpaceSelect) dom.cfgSpaceSelect.value = AppState.spaceId;
       dom.cfgLiveSensitivity.value = AppState.liveSensitivity || 'normal';
       dom.cfgEchoGuard.value = AppState.echoGuardMode || 'smart';
       dom.sliderScale.value = AppState.avatarScale;
@@ -199,10 +247,14 @@ export function initModals({ onEngineChange }) {
       unlockAudio();
       const prevEngine = AppState.engine;
       const prevModel = AppState.localModel;
+      const prevSpace = AppState.spaceId;
 
       AppState.geminiKey = dom.cfgGeminiKey.value.trim();
       AppState.engine = dom.cfgEngineSelect.value;
       AppState.localModel = dom.cfgLocalModel.value;
+      if (dom.cfgSpaceSelect && dom.cfgSpaceSelect.value !== prevSpace) {
+        switchSpace(dom.cfgSpaceSelect.value);
+      }
       AppState.liveSensitivity = dom.cfgLiveSensitivity.value;
       AppState.echoGuardMode = dom.cfgEchoGuard.value;
       if (dom.cfgVoiceSelect) {
@@ -218,5 +270,5 @@ export function initModals({ onEngineChange }) {
     };
   }
 
-  return { syncAvatarCards, populateVoiceList };
+  return { syncAvatarCards, syncSpaceCards, populateVoiceList };
 }

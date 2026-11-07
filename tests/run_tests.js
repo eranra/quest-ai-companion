@@ -125,10 +125,25 @@ async function runTestSuite() {
                     btnCloseAvatars.click();
                     assert('Avatars Modal closes', !modalAvatars.classList.contains('open'));
 
+                    // Test 2B: Spaces Modal
+                    const btnSpaces = document.getElementById('btn-spaces');
+                    const modalSpaces = document.getElementById('modal-spaces');
+                    assert('Spaces button exists in UI', !!btnSpaces);
+                    assert('Spaces Modal exists in UI', !!modalSpaces);
+                    btnSpaces.click();
+                    assert('Spaces Modal opens on click', modalSpaces.classList.contains('open'));
+
+                    const spaceCards = document.querySelectorAll('.space-card');
+                    assert('All 4 Spaces in Gallery', spaceCards.length === 4, 'Found: ' + spaceCards.length);
+
+                    const btnCloseSpaces = document.getElementById('btn-close-spaces');
+                    btnCloseSpaces.click();
+                    assert('Spaces Modal closes', !modalSpaces.classList.contains('open'));
+
                     // Test 3: Avatar Switching without crash
                     const avatarIds = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
                     const { buildAvatar } = await import('./js/avatars/index.js');
-                    const { avatarGroup } = await import('./js/scene.js');
+                    const { avatarGroup, camera } = await import('./js/scene.js');
 
                     for (const id of avatarIds) {
                       try {
@@ -137,6 +152,36 @@ async function runTestSuite() {
                       } catch (err) {
                         assert('Avatar build success: ' + id, false, err.message);
                       }
+                    }
+
+                    // Test 3B: Spaces Switching & Dynamic Particle Simulation
+                    const { switchSpace, updateCurrentSpace } = await import('./js/spaces/index.js');
+                    const spaceIds = ['hall', 'garden', 'penthouse', 'cafe'];
+
+                    for (const sId of spaceIds) {
+                      try {
+                        const def = switchSpace(sId);
+                        assert('Space switch success: ' + sId, def && def.id === sId);
+                        // Run 5 animation ticks to test particle and object updates
+                        for (let t = 0; t < 5; t++) {
+                          updateCurrentSpace(0.016, 1.0 + t * 0.016, avatarGroup.position, 1.0);
+                        }
+                        assert('Space update success: ' + sId, true);
+                      } catch (err) {
+                        assert('Space switch/update: ' + sId, false, err.message);
+                      }
+                    }
+
+                    // Test 3C: Organic Rig Idle, Weight-Shift, and Speech Blend
+                    const { animateRig } = await import('./js/avatars/rig.js');
+                    try {
+                      // Test idle ticks
+                      animateRig(0.016, 1.0, camera, avatarGroup);
+                      animateRig(0.016, 2.5, camera, avatarGroup);
+                      animateRig(0.016, 4.0, camera, avatarGroup);
+                      assert('Organic idle rig animation tick success', true);
+                    } catch (err) {
+                      assert('Organic idle rig animation tick success', false, err.message);
                     }
 
                     // Test 4: Pipeline Status Transitions

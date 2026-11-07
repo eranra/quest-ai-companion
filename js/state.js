@@ -5,6 +5,7 @@ export const AppState = {
   localModel: localStorage.getItem('quest_local_model') || 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
   geminiKey: localStorage.getItem('quest_gemini_key') || '',
   avatarId: localStorage.getItem('quest_avatar_id') || 'echo',
+  spaceId: localStorage.getItem('quest_space_id') || 'hall',
   isLiveMode: localStorage.getItem('quest_live_mode') === 'true',
   
   // Runtime status
@@ -32,6 +33,7 @@ export const AppState = {
     localStorage.setItem('quest_local_model', this.localModel);
     localStorage.setItem('quest_gemini_key', this.geminiKey);
     localStorage.setItem('quest_avatar_id', this.avatarId);
+    localStorage.setItem('quest_space_id', this.spaceId);
     localStorage.setItem('quest_live_mode', this.isLiveMode ? 'true' : 'false');
     localStorage.setItem('quest_avatar_dist', this.avatarDistance.toFixed(2));
     localStorage.setItem('quest_avatar_scale', this.avatarScale.toFixed(2));

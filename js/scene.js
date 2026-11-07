@@ -4,10 +4,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { AppState } from './state.js';
 import { animateRig, rig } from './avatars/rig.js';
 import { unlockAudio } from './audio.js';
+import { initSpaces, updateCurrentSpace, setSpaceVisibility } from './spaces/index.js';
 
 export let scene, camera, renderer, controls, clock;
 export let avatarGroup;
-let gridHelper;
 let xrSession = null;
 let xrControllers = [];
 let hudElement = null;
@@ -54,10 +54,8 @@ export function initScene(container, hud) {
   fillLight.position.set(-2, 1, 2);
   scene.add(fillLight);
 
-  // Floor Grid (Visible in 3D mode, hidden in WebXR passthrough)
-  gridHelper = new THREE.GridHelper(10, 20, 0x4f46e5, 0x1e1b4b);
-  gridHelper.position.y = 0;
-  scene.add(gridHelper);
+  // Initialize Atmospheric Spaces (Environments) & Avatar Grounding
+  initSpaces(scene);
 
   // Avatar Root Group
   avatarGroup = new THREE.Group();
@@ -192,13 +190,13 @@ export async function toggleWebXR(onSessionChange) {
 
       if (isArSupported) {
         scene.background = null;
-        if (gridHelper) gridHelper.visible = false;
+        setSpaceVisibility(false);
       }
 
       session.addEventListener('end', () => {
         xrSession = null;
         scene.background = new THREE.Color(0x05070f);
-        if (gridHelper) gridHelper.visible = true;
+        setSpaceVisibility(true);
         if (onSessionChange) onSessionChange(false);
       });
 
@@ -220,6 +218,9 @@ function renderLoop(timestamp, frame) {
   if (frame) {
     handleXRControllerInput(delta);
   }
+
+  // Animate dynamic elements in current 3D space (clouds, petals, steam, skycars)
+  updateCurrentSpace(delta, elapsed, avatarGroup.position, AppState.avatarScale);
 
   // Update Procedural Rig Animations
   animateRig(delta, elapsed, camera, avatarGroup);

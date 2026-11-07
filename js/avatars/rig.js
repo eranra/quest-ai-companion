@@ -79,6 +79,11 @@ function setBoneRot(bone, dx = 0, dy = 0, dz = 0) {
   bone.rotation.z = rest.z + dz;
 }
 
+// Smooth linear interpolation
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
 // Automatically binds Mixamo / ReadyPlayerMe bones from a loaded glTF scene to rig controls
 export function bindBonesFromHierarchy(root) {
   root.traverse((node) => {
@@ -107,6 +112,7 @@ export function bindBonesFromHierarchy(root) {
 
 let blinkTimer = 0;
 let gestureCycle = 0;
+let speechWeight = 0; // Lerps smoothly between 0 (idle/listening) and 1 (speaking)
 const _tempCamTarget = new THREE.Vector3();
 
 export function animateRig(delta, elapsed, camera, avatarGroup) {
@@ -115,69 +121,48 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     rig.mixer.update(delta);
   }
 
-  // 1. Natural Eye/Head Look-At with proper parent-space conversion (only if no skeletal neck/head)
+  // 1. Natural Eye/Head Look-At with proper parent-space conversion (only if procedural head)
   if (rig.head && rig.head.parent && !rig.head.isBone) {
     _tempCamTarget.copy(camera.position);
     rig.head.parent.worldToLocal(_tempCamTarget);
     rig.head.lookAt(_tempCamTarget);
   }
 
-  // ===========================================================
-  // 1. LISTENING MODE (Attentive posture & chin touch)
-  // ===========================================================
-  if (AppState.isListening) {
-    // Subtle inquisitive head tilt & forward lean
-    setBoneRot(rig.head, 0.08, 0, -0.09);
+  // Smooth speech state transition:
+  // When speaking starts, ramp up quickly. When speaking stops, smoothly ease down over ~0.6s
+  const targetSpeechWeight = AppState.isSpeaking ? 1.0 : 0.0;
+  const speechRampSpeed = AppState.isSpeaking ? 6.0 : 2.5;
+  speechWeight = lerp(speechWeight, targetSpeechWeight, Math.min(1.0, delta * speechRampSpeed));
 
-    // Torso leans forward attentively toward user
-    setBoneRot(rig.chest, 0.05, 0, 0);
+  // Organic Lifelike Idle Dynamics (running continuously so avatars always feel alive):
+  // 1. Natural human breathing cycle (approx. 14 breaths per minute)
+  const breath = Math.sin(elapsed * 1.6);
+  const breathRise = Math.max(0, breath) * 0.015;
 
-    // Eyes: Wide open and focused intently
-    if (rig.eyeLeft && rig.eyeRight) {
-      rig.eyeLeft.scale.set(1.15, 1.25, 1.0);
-      rig.eyeRight.scale.set(1.15, 1.25, 1.0);
-    }
+  // 2. Subtle weight-shift between left and right feet (approx. 7-8 second cycle)
+  const weightShift = Math.sin(elapsed * 0.4);
+  const hipSway = weightShift * 0.025;
 
-    // Eyebrows raised slightly with genuine curiosity
-    if (rig.browLeft && rig.browRight) {
-      rig.browLeft.position.y = 0.075;
-      rig.browRight.position.y = 0.075;
-    }
+  // 3. Alive body swivel / turning slightly (subtle natural sway while still facing user)
+  const bodySwivel = Math.sin(elapsed * 0.28) * 0.06; // +/- 3.5 degrees
+  const chestSwivel = Math.sin(elapsed * 0.28 + 0.3) * 0.04;
 
-    // Hand touches chin thoughtfully (offsets relative to rest pose)
-    setBoneRot(rig.rightArm, -0.4, 0, -0.2);
-    setBoneRot(rig.rightForearm, -0.6, 0, 0);
+  // 4. Micro look-around curiosity glances
+  const glanceCycle = Math.sin(elapsed * 0.18);
+  const microGlanceYaw = glanceCycle > 0.8 ? (glanceCycle - 0.8) * 0.35 : 0;
+  const microGlancePitch = Math.sin(elapsed * 0.35) * 0.02;
 
-    // Left arm rests gently across waist
-    setBoneRot(rig.leftArm, -0.15, 0, 0.15);
-    setBoneRot(rig.leftForearm, -0.3, 0, 0);
-
-    // Natural standing stance with tiny weight shift (keeps legs 100% attached to hips)
-    setBoneRot(rig.leftThigh, 0, 0, -0.02);
-    setBoneRot(rig.rightThigh, 0, 0, 0.02);
-
-    // Mouth closed in attentive smile
-    if (rig.jaw) rig.jaw.position.y = -0.06;
-    if (rig.mouth) rig.mouth.scale.set(1.0, 0.7, 1.0);
-
-    // Reset morph targets in listening
-    rig.morphMeshes.forEach(mesh => {
-      const dict = mesh.morphTargetDictionary;
-      const infl = mesh.morphTargetInfluences;
-      if (dict && infl) {
-        if (dict['mouthOpen'] !== undefined) infl[dict['mouthOpen']] = 0;
-        if (dict['mouthSmile'] !== undefined) infl[dict['mouthSmile']] = 0.2;
-      }
-    });
+  // Apply base organic alive motion to hips & chest (additive to rest pose)
+  setBoneRot(rig.hips, 0, bodySwivel, hipSway);
 
   // ===========================================================
-  // 2. SPEAKING MODE (Eyes, mouth visemes, gesturing arms)
+  // A. SPEAKING MODE (Full speech or decaying smoothly back)
   // ===========================================================
-  } else if (AppState.isSpeaking) {
+  if (speechWeight > 0.01) {
     gestureCycle += delta * 3.5;
     const syllable1 = Math.sin(elapsed * 16);
     const syllable2 = Math.cos(elapsed * 24);
-    const speechPower = Math.max(0, (syllable1 * 0.6 + syllable2 * 0.4));
+    const speechPower = Math.max(0, (syllable1 * 0.6 + syllable2 * 0.4)) * speechWeight;
 
     // EYES: Animated expressive emphasis
     if (rig.eyeLeft && rig.eyeRight) {
@@ -186,9 +171,9 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
       rig.eyeRight.scale.set(eyeEmphasis, eyeEmphasis, 1.0);
     }
 
-    // Eyebrow emphasis
+    // Eyebrow conversational emphasis
     if (rig.browLeft && rig.browRight) {
-      const browLift = Math.sin(elapsed * 6) * 0.015;
+      const browLift = Math.sin(elapsed * 6) * 0.015 * speechWeight;
       rig.browLeft.position.y = 0.065 + Math.max(0, browLift);
       rig.browRight.position.y = 0.065 + Math.max(0, browLift);
     }
@@ -220,46 +205,107 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     // Equalizer wave for Echo drone
     if (rig.equalizerBars.length) {
       rig.equalizerBars.forEach((bar, i) => {
-        const barEnergy = Math.abs(Math.sin(elapsed * (15 + i * 4)));
+        const barEnergy = Math.abs(Math.sin(elapsed * (15 + i * 4))) * speechWeight;
         bar.scale.y = 1.0 + barEnergy * 4.5;
       });
     }
 
-    // ARMS & HANDS: Dynamic conversational gesticulation (additive offsets to rest pose)
-    setBoneRot(rig.rightArm, Math.sin(gestureCycle) * 0.2, 0, Math.cos(gestureCycle * 0.8) * 0.1);
-    setBoneRot(rig.rightForearm, Math.sin(gestureCycle * 1.2) * 0.25, 0, 0);
+    // ARMS & HANDS: Dynamic conversational gesticulation blended smoothly
+    const rightArmX = lerp(breathRise, Math.sin(gestureCycle) * 0.2, speechWeight);
+    const rightArmZ = lerp(0, Math.cos(gestureCycle * 0.8) * 0.1, speechWeight);
+    const rightForearmX = lerp(0, Math.sin(gestureCycle * 1.2) * 0.25, speechWeight);
 
-    setBoneRot(rig.leftArm, Math.cos(gestureCycle * 0.9) * 0.15, 0, Math.sin(gestureCycle * 0.7) * 0.1);
-    setBoneRot(rig.leftForearm, Math.cos(gestureCycle * 1.1) * 0.2, 0, 0);
+    const leftArmX = lerp(breathRise, Math.cos(gestureCycle * 0.9) * 0.15, speechWeight);
+    const leftArmZ = lerp(0, Math.sin(gestureCycle * 0.7) * 0.1, speechWeight);
+    const leftForearmX = lerp(0, Math.cos(gestureCycle * 1.1) * 0.2, speechWeight);
 
-    // HEAD: Conversational nodding
-    setBoneRot(rig.head, Math.sin(elapsed * 7) * 0.03, Math.sin(elapsed * 3) * 0.03, 0);
+    setBoneRot(rig.rightArm, rightArmX, 0, rightArmZ);
+    setBoneRot(rig.rightForearm, rightForearmX, 0, 0);
+    setBoneRot(rig.leftArm, leftArmX, 0, leftArmZ);
+    setBoneRot(rig.leftForearm, leftForearmX, 0, 0);
 
-    // TORSO: Subtle weight shifts
-    setBoneRot(rig.chest, Math.sin(elapsed * 4) * 0.015, 0, Math.sin(elapsed * 2.5) * 0.02);
+    // HEAD: Conversational nodding blended with alive look-around
+    const headNod = Math.sin(elapsed * 7) * 0.03 * speechWeight;
+    const headTurn = Math.sin(elapsed * 3) * 0.03 * speechWeight;
+    setBoneRot(rig.head, headNod + microGlancePitch, headTurn + microGlanceYaw, 0);
 
-    // Legs firmly grounded in natural stance
-    setBoneRot(rig.leftThigh, 0, 0, 0);
-    setBoneRot(rig.rightThigh, 0, 0, 0);
+    // TORSO: Breathing + alive swivel
+    setBoneRot(rig.chest, breathRise + Math.sin(elapsed * 4) * 0.015 * speechWeight, chestSwivel, hipSway * 0.5);
+
+    // Legs firmly grounded in natural stance, counter-balancing hip sway
+    setBoneRot(rig.leftThigh, 0, 0, -hipSway * 0.6);
+    setBoneRot(rig.rightThigh, 0, 0, -hipSway * 0.6);
 
   // ===========================================================
-  // 3. IDLE / READY MODE (Natural breathing & relaxed presence)
+  // B. LISTENING MODE (Attentive posture & chin touch)
+  // ===========================================================
+  } else if (AppState.isListening) {
+    // Subtle inquisitive head tilt & forward lean
+    setBoneRot(rig.head, 0.08 + microGlancePitch, microGlanceYaw * 0.5, -0.08);
+
+    // Torso leans forward attentively toward user while breathing gently
+    setBoneRot(rig.chest, 0.05 + breathRise, chestSwivel, hipSway * 0.5);
+
+    // Eyes: Wide open and focused intently
+    if (rig.eyeLeft && rig.eyeRight) {
+      rig.eyeLeft.scale.set(1.15, 1.25, 1.0);
+      rig.eyeRight.scale.set(1.15, 1.25, 1.0);
+    }
+
+    // Eyebrows raised slightly with genuine curiosity
+    if (rig.browLeft && rig.browRight) {
+      rig.browLeft.position.y = 0.075;
+      rig.browRight.position.y = 0.075;
+    }
+
+    // Hand touches chin thoughtfully (offsets relative to rest pose)
+    setBoneRot(rig.rightArm, -0.4 + breathRise * 0.5, 0, -0.2);
+    setBoneRot(rig.rightForearm, -0.6, 0, 0);
+
+    // Left arm rests gently across waist
+    setBoneRot(rig.leftArm, -0.15 + breathRise * 0.5, 0, 0.15);
+    setBoneRot(rig.leftForearm, -0.3, 0, 0);
+
+    // Natural standing stance with weight shift (keeps legs 100% attached to hips)
+    setBoneRot(rig.leftThigh, 0, 0, -hipSway * 0.6);
+    setBoneRot(rig.rightThigh, 0, 0, -hipSway * 0.6);
+
+    // Mouth closed in attentive smile
+    if (rig.jaw) {
+      rig.jaw.position.y = -0.06;
+      rig.jaw.rotation.x = 0;
+    }
+    if (rig.mouth) rig.mouth.scale.set(1.0, 0.7, 1.0);
+
+    // Reset morph targets in listening
+    rig.morphMeshes.forEach(mesh => {
+      const dict = mesh.morphTargetDictionary;
+      const infl = mesh.morphTargetInfluences;
+      if (dict && infl) {
+        if (dict['mouthOpen'] !== undefined) infl[dict['mouthOpen']] = 0;
+        if (dict['mouthSmile'] !== undefined) infl[dict['mouthSmile']] = 0.2;
+      }
+    });
+
+  // ===========================================================
+  // C. IDLE / READY MODE (Organic alive breathing, weight shift & turns)
   // ===========================================================
   } else {
-    // Subtle breathing
-    const breath = Math.sin(elapsed * 2.0);
-    setBoneRot(rig.head, 0, 0, 0);
-    setBoneRot(rig.chest, breath * 0.012, 0, 0);
+    // Head: alive micro glances + soft breathing compensation
+    setBoneRot(rig.head, microGlancePitch - breathRise * 0.3, microGlanceYaw - bodySwivel * 0.6, 0);
 
-    // Relaxed arms at sides
-    setBoneRot(rig.leftArm, breath * 0.02, 0, 0);
-    setBoneRot(rig.leftForearm, 0, 0, 0);
-    setBoneRot(rig.rightArm, -breath * 0.02, 0, 0);
-    setBoneRot(rig.rightForearm, 0, 0, 0);
+    // Chest: organic breathing + gentle swivel
+    setBoneRot(rig.chest, breathRise * 1.2, chestSwivel, hipSway * 0.4);
 
-    // Natural leg stance firmly attached to hips
-    setBoneRot(rig.leftThigh, 0, 0, 0);
-    setBoneRot(rig.rightThigh, 0, 0, 0);
+    // Relaxed arms at sides with subtle breathing motion and natural rest drape
+    setBoneRot(rig.leftArm, breathRise * 1.1, 0, 0.04);
+    setBoneRot(rig.leftForearm, 0.08, 0, 0);
+    setBoneRot(rig.rightArm, -breathRise * 1.1, 0, -0.04);
+    setBoneRot(rig.rightForearm, 0.08, 0, 0);
+
+    // Natural leg stance firmly attached to hips with subtle weight shift
+    setBoneRot(rig.leftThigh, 0, 0, -hipSway * 0.6);
+    setBoneRot(rig.rightThigh, 0, 0, -hipSway * 0.6);
 
     if (rig.jaw) {
       rig.jaw.position.y = -0.06;
@@ -275,30 +321,32 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     rig.morphMeshes.forEach(mesh => {
       const dict = mesh.morphTargetDictionary;
       const infl = mesh.morphTargetInfluences;
-      if (dict && infl && dict['mouthOpen'] !== undefined) {
-        infl[dict['mouthOpen']] = 0;
+      if (dict && infl) {
+        if (dict['mouthOpen'] !== undefined) infl[dict['mouthOpen']] = 0;
+        if (dict['mouthSmile'] !== undefined) infl[dict['mouthSmile']] = 0.15;
       }
     });
   }
 
-  // Floating physics for Echo & Spark drones
+  // Floating physics for Echo drone
   if (rig.isFloating) {
     avatarGroup.position.y = (Math.sin(elapsed * 2.5) * 0.035);
     rig.thrusters.forEach((t, i) => {
       t.rotation.z += delta * (i === 0 ? 3 : -3);
     });
   } else {
+    // Firmly grounded on the physical floor
     avatarGroup.position.y = 0;
   }
 
-  // Periodic Blinking
+  // Periodic Blinking (Natural 3.6s cycle with fast 140ms close-open)
   blinkTimer += delta;
   if (blinkTimer > 3.6) {
     if (rig.eyeLeft && rig.eyeRight) {
       rig.eyeLeft.scale.y = 0.1;
       rig.eyeRight.scale.y = 0.1;
     }
-    if (blinkTimer > 3.75) {
+    if (blinkTimer > 3.74) {
       if (rig.eyeLeft && rig.eyeRight) {
         rig.eyeLeft.scale.y = 1.0;
         rig.eyeRight.scale.y = 1.0;

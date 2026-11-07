@@ -221,7 +221,13 @@
       width: 92%;
       margin-top: 14px;
       margin-bottom: auto;
-      transition: all 0.3s ease;
+      transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .speech-bubble-container.idle-dim {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-10px) scale(0.98);
     }
 
     /* Conversational Pipeline Stepper */
@@ -683,6 +689,71 @@
       flex-shrink: 0;
     }
 
+    /* 3D Spaces / Environment Grid Gallery */
+    .space-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .space-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .space-card:hover, .space-card:active {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--accent);
+    }
+
+    .space-card.active {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.25);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .space-icon-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .space-icon-box {
+      font-size: 22px;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .space-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .space-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .space-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
     .avatar-info {
       display: flex;
       flex-direction: column;
@@ -875,7 +946,7 @@
         font-size: 9px;
       }
 
-      .avatar-grid {
+      .avatar-grid, .space-grid {
         grid-template-columns: 1fr;
       }
     }

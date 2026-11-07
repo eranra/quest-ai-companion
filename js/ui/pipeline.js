@@ -5,17 +5,43 @@ let pipelineElement = null;
 let statusTextElement = null;
 let statusPillElement = null;
 let micMeterElement = null;
+let bubbleContainer = null;
 let meterBars = [];
+let idleDimTimeout = null;
 
 export function initPipelineUI() {
   pipelineElement = document.getElementById('pipeline-stepper');
   statusTextElement = document.getElementById('status-text');
   statusPillElement = document.getElementById('status-pill');
   micMeterElement = document.getElementById('mic-level-meter');
+  bubbleContainer = document.querySelector('.speech-bubble-container');
 
   if (micMeterElement) {
     meterBars = Array.from(micMeterElement.querySelectorAll('.meter-bar'));
   }
+
+  // Waking the speech bubble when user interacts with screen or input
+  window.addEventListener('pointerdown', () => wakeSpeechBubble());
+  window.addEventListener('keydown', () => wakeSpeechBubble());
+
+  // Initial schedule after start
+  scheduleIdleDim(6000);
+}
+
+export function wakeSpeechBubble() {
+  if (bubbleContainer) {
+    bubbleContainer.classList.remove('idle-dim');
+  }
+}
+
+export function scheduleIdleDim(delayMs = 5000) {
+  if (idleDimTimeout) clearTimeout(idleDimTimeout);
+  idleDimTimeout = setTimeout(() => {
+    // Only dim if not actively analyzing or speaking
+    if (bubbleContainer) {
+      bubbleContainer.classList.add('idle-dim');
+    }
+  }, delayMs);
 }
 
 export function setPipelineState(state, detailText = '') {
@@ -30,13 +56,18 @@ export function setPipelineState(state, detailText = '') {
 
   switch (state) {
     case 'listening': {
+      wakeSpeechBubble();
       statusTextElement.textContent = detailText || (window.innerWidth <= 540 ? 'Listening...' : 'Listening to you...');
       statusPillElement.className = 'avatar-state listening';
       setStepActive('step-listening');
       if (micMeterElement) micMeterElement.style.display = 'flex';
+      // In listening mode, if idle waiting for speech, fade after 8 seconds
+      scheduleIdleDim(8000);
       break;
     }
     case 'analyzing': {
+      wakeSpeechBubble();
+      if (idleDimTimeout) clearTimeout(idleDimTimeout);
       statusTextElement.textContent = detailText || (window.innerWidth <= 540 ? 'Thinking...' : '⚡ Sent to AI... Analyzing...');
       statusPillElement.className = 'avatar-state thinking';
       setStepActive('step-analyzing');
@@ -44,12 +75,16 @@ export function setPipelineState(state, detailText = '') {
       break;
     }
     case 'ready': {
+      wakeSpeechBubble();
+      if (idleDimTimeout) clearTimeout(idleDimTimeout);
       statusTextElement.textContent = detailText || '💬 Answer Ready';
       statusPillElement.className = 'avatar-state ready';
       setStepActive('step-ready');
       break;
     }
     case 'speaking': {
+      wakeSpeechBubble();
+      if (idleDimTimeout) clearTimeout(idleDimTimeout);
       statusTextElement.textContent = detailText || (window.innerWidth <= 540 ? 'Speaking...' : '🗣️ Speaking Reply...');
       statusPillElement.className = 'avatar-state speaking';
       setStepActive('step-speaking');
@@ -57,9 +92,11 @@ export function setPipelineState(state, detailText = '') {
       break;
     }
     case 'mic-denied': {
+      wakeSpeechBubble();
       statusTextElement.textContent = '⚠️ Mic permission required';
       statusPillElement.className = 'avatar-state';
       if (micMeterElement) micMeterElement.style.display = 'none';
+      scheduleIdleDim(5000);
       break;
     }
     case 'idle':
@@ -67,6 +104,8 @@ export function setPipelineState(state, detailText = '') {
       statusTextElement.textContent = detailText || 'Ready';
       statusPillElement.className = 'avatar-state';
       if (micMeterElement) micMeterElement.style.display = 'none';
+      // Fade away cleanly when idle
+      scheduleIdleDim(4500);
       break;
     }
   }
@@ -82,6 +121,9 @@ function setStepActive(stepId) {
 
 // Bounces real-time audio wave bars when user speaks
 export function updateMicLevel(normalizedVolume) {
+  if (normalizedVolume > 0.1) {
+    wakeSpeechBubble();
+  }
   if (!meterBars || meterBars.length === 0) return;
   // Normalized 0.0 to 1.0
   const heightMultiplier = Math.min(1.0, Math.max(0.12, normalizedVolume * 1.5));
