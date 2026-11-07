@@ -1,11 +1,12 @@
 // Space 2: Zen Garden / Japanese Courtyard (360° Photorealistic Environment)
 import * as THREE from 'three';
+import { createGardenGroundTexture } from './textures.js';
 
 export function createGardenSpace() {
   const group = new THREE.Group();
 
   // 1. 360° Photorealistic Equirectangular Spherical Panorama
-  const sphereGeo = new THREE.SphereGeometry(35, 60, 40);
+  const sphereGeo = new THREE.SphereGeometry(20, 60, 40);
   sphereGeo.scale(-1, 1, 1);
   const texLoader = new THREE.TextureLoader();
   const panoTexture = texLoader.load('assets/spaces/garden.jpg');
@@ -16,23 +17,37 @@ export function createGardenSpace() {
     depthWrite: false
   });
   const skyDome = new THREE.Mesh(sphereGeo, sphereMat);
-  skyDome.position.set(0, 1.2, 0);
+  skyDome.position.set(0, 1.0, 0);
   group.add(skyDome);
 
-  // 2. Invisible Ground Plane
-  const floorPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(20, 20),
-    new THREE.MeshBasicMaterial({ visible: false })
-  );
-  floorPlane.rotation.x = -Math.PI / 2;
-  floorPlane.position.y = 0;
-  group.add(floorPlane);
+  // 2. Physical 3D Ground: Natural Raked Gravel + Flagstone Stepping Stones at y = 0
+  const groundGeo = new THREE.PlaneGeometry(18, 18);
+  const groundMat = new THREE.MeshStandardMaterial({
+    map: createGardenGroundTexture(),
+    roughness: 0.85,
+    metalness: 0.02
+  });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0;
+  ground.receiveShadow = true;
+  group.add(ground);
+
+  // Stepping stones right beneath the avatar's feet
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 });
+  for (let z = -4; z <= 4; z += 1.4) {
+    const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.6, 0.04, 16), stoneMat);
+    stone.scale.set(1.1, 1, 0.9);
+    stone.position.set((Math.sin(z * 1.5) * 0.15), 0.01, z);
+    stone.receiveShadow = true;
+    group.add(stone);
+  }
 
   // 3. Natural Outdoor Daylight
-  const ambientLight = new THREE.AmbientLight(0xf0fdf4, 1.3);
-  const sunLight = new THREE.DirectionalLight(0xfef08a, 1.5);
+  const ambientLight = new THREE.AmbientLight(0xf0fdf4, 0.9);
+  const sunLight = new THREE.DirectionalLight(0xfef9c3, 1.0);
   sunLight.position.set(4, 8, 3);
-  const skyLight = new THREE.HemisphereLight(0x93c5fd, 0x166534, 0.8);
+  const skyLight = new THREE.HemisphereLight(0x93c5fd, 0x166534, 0.6);
   group.add(ambientLight, sunLight, skyLight);
 
   // 4. Dynamic Living Elements:

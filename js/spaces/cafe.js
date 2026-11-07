@@ -1,11 +1,12 @@
 // Space 4: Cozy Cafe / Coffee Lounge (360° Photorealistic Environment)
 import * as THREE from 'three';
+import { createParquetFloorTexture } from './textures.js';
 
 export function createCafeSpace() {
   const group = new THREE.Group();
 
   // 1. 360° Photorealistic Equirectangular Spherical Panorama
-  const sphereGeo = new THREE.SphereGeometry(35, 60, 40);
+  const sphereGeo = new THREE.SphereGeometry(14, 60, 40);
   sphereGeo.scale(-1, 1, 1);
   const texLoader = new THREE.TextureLoader();
   const panoTexture = texLoader.load('assets/spaces/cafe.jpg');
@@ -16,40 +17,74 @@ export function createCafeSpace() {
     depthWrite: false
   });
   const skyDome = new THREE.Mesh(sphereGeo, sphereMat);
-  skyDome.position.set(0, 1.2, 0);
+  skyDome.position.set(0, 1.0, 0);
   group.add(skyDome);
 
-  // 2. Invisible Ground Plane
-  const floorPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(20, 20),
-    new THREE.MeshBasicMaterial({ visible: false })
-  );
-  floorPlane.rotation.x = -Math.PI / 2;
-  floorPlane.position.y = 0;
-  group.add(floorPlane);
+  // 2. Physical 3D Warm Parquet Wood Floor at y = 0
+  const floorGeo = new THREE.PlaneGeometry(14, 14);
+  const floorMat = new THREE.MeshStandardMaterial({
+    map: createParquetFloorTexture(),
+    roughness: 0.55,
+    metalness: 0.04
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  floor.receiveShadow = true;
+  group.add(floor);
 
-  // 3. Warm Vintage Ambient & Edison Lighting
-  const ambientLight = new THREE.AmbientLight(0xffedd5, 1.4);
-  const warmLamp = new THREE.PointLight(0xf59e0b, 1.5, 8);
-  warmLamp.position.set(-1.2, 2.6, -1.0);
-  const fillLight = new THREE.PointLight(0xfef3c7, 1.0, 10);
-  fillLight.position.set(1.5, 2.2, 0.5);
+  // 3. Cafe Bistro Table & Ceramic Coffee Cup at y = 0
+  const tableGroup = new THREE.Group();
+  tableGroup.position.set(-0.9, 0, -1.0);
+
+  const tabletop = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.35, 0.35, 0.03, 24),
+    new THREE.MeshStandardMaterial({ color: 0x291408, roughness: 0.3 })
+  );
+  tabletop.position.y = 0.72;
+  const tableLeg = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.035, 0.72, 12),
+    new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8, roughness: 0.2 })
+  );
+  tableLeg.position.y = 0.36;
+  const tableBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2, 0.22, 0.02, 16),
+    new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8, roughness: 0.2 })
+  );
+  tableBase.position.y = 0.01;
+
+  // Coffee cup on table
+  const cup = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.03, 0.07, 16),
+    new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 })
+  );
+  cup.position.y = 0.77;
+
+  tableGroup.add(tabletop, tableLeg, tableBase, cup);
+  group.add(tableGroup);
+
+  // 4. Warm Vintage Ambient & Edison Lighting
+  const ambientLight = new THREE.AmbientLight(0xffedd5, 1.0);
+  const warmLamp = new THREE.PointLight(0xf59e0b, 1.1, 8);
+  warmLamp.position.set(-0.9, 2.2, -1.0);
+  const fillLight = new THREE.PointLight(0xfef3c7, 0.7, 10);
+  fillLight.position.set(1.5, 2.0, 0.5);
   group.add(ambientLight, warmLamp, fillLight);
 
-  // 4. Dynamic Living Elements:
-  // A. Rising Volumetric Coffee Steam Particles
+  // 5. Dynamic Living Elements:
+  // A. Rising Volumetric Coffee Steam Particles from the cup
   const steamCount = 35;
   const steamGeo = new THREE.BufferGeometry();
   const steamPositions = new Float32Array(steamCount * 3);
   for (let i = 0; i < steamCount; i++) {
-    steamPositions[i * 3] = -0.9 + (Math.random() - 0.5) * 0.12;
-    steamPositions[i * 3 + 1] = 0.85 + Math.random() * 0.6;
-    steamPositions[i * 3 + 2] = -1.1 + (Math.random() - 0.5) * 0.12;
+    steamPositions[i * 3] = -0.9 + (Math.random() - 0.5) * 0.08;
+    steamPositions[i * 3 + 1] = 0.82 + Math.random() * 0.5;
+    steamPositions[i * 3 + 2] = -1.0 + (Math.random() - 0.5) * 0.08;
   }
   steamGeo.setAttribute('position', new THREE.BufferAttribute(steamPositions, 3));
   const steamMat = new THREE.PointsMaterial({
     color: 0xfef3c7,
-    size: 0.045,
+    size: 0.035,
     transparent: true,
     opacity: 0.45,
     blending: THREE.AdditiveBlending
@@ -84,9 +119,9 @@ export function createCafeSpace() {
       for (let i = 0; i < steamCount; i++) {
         sPos[i * 3 + 1] += delta * 0.16; // rise
         sPos[i * 3] += Math.sin(elapsed * 2.5 + i) * 0.0015;
-        if (sPos[i * 3 + 1] > 1.45) {
-          sPos[i * 3 + 1] = 0.85;
-          sPos[i * 3] = -0.9 + (Math.random() - 0.5) * 0.08;
+        if (sPos[i * 3 + 1] > 1.35) {
+          sPos[i * 3 + 1] = 0.82;
+          sPos[i * 3] = -0.9 + (Math.random() - 0.5) * 0.06;
         }
       }
       steamGeo.attributes.position.needsUpdate = true;

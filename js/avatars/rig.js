@@ -70,7 +70,7 @@ function storeRestRotation(node) {
 }
 
 // Sets rotational offset relative to the bone's rest pose
-function setBoneRot(bone, dx = 0, dy = 0, dz = 0) {
+export function setBoneRot(bone, dx = 0, dy = 0, dz = 0) {
   if (!bone) return;
   storeRestRotation(bone);
   const rest = bone.userData.restRotation;
@@ -82,6 +82,16 @@ function setBoneRot(bone, dx = 0, dy = 0, dz = 0) {
 // Smooth linear interpolation
 function lerp(a, b, t) {
   return a + (b - a) * t;
+}
+
+// Calculates dynamic arm adduction based on avatar's rest pose
+// T-pose models (like Maya, rx ≈ -0.30 rad) need ~1.25 rad adduction to drape relaxed at sides (~0.95 rad).
+// A-pose models (like Alex, rx ≈ 1.0 rad) are already draped and need 0 rad extra adduction.
+// Procedural models (!isBone) have vertical rest pose and need 0.
+function getSkeletalArmAdduction(bone) {
+  if (!bone || !bone.isBone) return 0.0;
+  const restX = bone.userData.restRotation ? bone.userData.restRotation.x : 0;
+  return Math.max(0, 0.95 - restX);
 }
 
 // Automatically binds Mixamo / ReadyPlayerMe bones from a loaded glTF scene to rig controls
@@ -231,22 +241,27 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
       });
     }
 
-    // ARMS & HANDS: Dynamic conversational gesticulation blended smoothly from relaxed rest pose
+    // ARMS & HANDS: Dynamic conversational gesticulation with guaranteed body clearance
     const isSkeletal = rig.leftArm && rig.leftArm.isBone;
-    const armAdduction = isSkeletal ? 0.85 : 0.0;
+    const armAdduction = getSkeletalArmAdduction(rig.leftArm);
+    const armForwardZ = isSkeletal ? 0.12 : 0.0;
 
-    const rightArmX = lerp(armAdduction + breathRise, armAdduction - 0.35 + Math.sin(gestureCycle) * 0.22, speechWeight);
-    const rightArmZ = lerp(-0.02, -0.06 + Math.cos(gestureCycle * 0.8) * 0.1, speechWeight);
-    const rightForearmX = lerp(isSkeletal ? 0.18 : 0.08, 0.35 + Math.sin(gestureCycle * 1.2) * 0.25, speechWeight);
+    // Left Arm & Forearm (gesturing in front of body)
+    const leftArmX = lerp(armAdduction + breathRise * 0.5, armAdduction - 0.22 + Math.cos(gestureCycle * 0.9) * 0.15, speechWeight);
+    const leftArmZ = lerp(armForwardZ, armForwardZ + 0.06 + Math.sin(gestureCycle * 0.7) * 0.08, speechWeight);
+    const leftForearmZ = isSkeletal ? lerp(0.2, 0.42 + Math.sin(gestureCycle * 1.1) * 0.18, speechWeight) : 0;
+    const leftForearmX = !isSkeletal ? lerp(0.1, 0.32 + Math.sin(gestureCycle * 1.1) * 0.18, speechWeight) : 0;
 
-    const leftArmX = lerp(armAdduction + breathRise, armAdduction - 0.28 + Math.cos(gestureCycle * 0.9) * 0.18, speechWeight);
-    const leftArmZ = lerp(0.02, 0.06 + Math.sin(gestureCycle * 0.7) * 0.1, speechWeight);
-    const leftForearmX = lerp(isSkeletal ? 0.18 : 0.08, 0.32 + Math.cos(gestureCycle * 1.1) * 0.22, speechWeight);
+    // Right Arm & Forearm (gesturing in front of body)
+    const rightArmX = lerp(armAdduction + breathRise * 0.5, armAdduction - 0.25 + Math.sin(gestureCycle) * 0.18, speechWeight);
+    const rightArmZ = lerp(-armForwardZ, -armForwardZ - 0.06 + Math.cos(gestureCycle * 0.8) * 0.08, speechWeight);
+    const rightForearmZ = isSkeletal ? lerp(-0.2, -0.42 - Math.cos(gestureCycle * 1.2) * 0.18, speechWeight) : 0;
+    const rightForearmX = !isSkeletal ? lerp(0.1, 0.32 + Math.cos(gestureCycle * 1.2) * 0.18, speechWeight) : 0;
 
-    setBoneRot(rig.rightArm, rightArmX, 0, rightArmZ);
-    setBoneRot(rig.rightForearm, rightForearmX, 0, 0);
     setBoneRot(rig.leftArm, leftArmX, 0, leftArmZ);
-    setBoneRot(rig.leftForearm, leftForearmX, 0, 0);
+    setBoneRot(rig.leftForearm, leftForearmX, 0, leftForearmZ);
+    setBoneRot(rig.rightArm, rightArmX, 0, rightArmZ);
+    setBoneRot(rig.rightForearm, rightForearmX, 0, rightForearmZ);
 
     // HEAD: Conversational nodding blended with alive look-around
     const headNod = Math.sin(elapsed * 7) * 0.03 * speechWeight;
@@ -261,11 +276,12 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     setBoneRot(rig.rightThigh, 0, 0, -hipSway * 0.6);
 
   // ===========================================================
-  // B. LISTENING MODE (Attentive posture & relaxed arms near body)
+  // B. LISTENING MODE (Attentive posture & hands in front of body)
   // ===========================================================
   } else if (AppState.isListening) {
     const isSkeletal = rig.leftArm && rig.leftArm.isBone;
-    const armAdduction = isSkeletal ? 0.85 : 0.0;
+    const armAdduction = getSkeletalArmAdduction(rig.leftArm);
+    const armForwardZ = isSkeletal ? 0.14 : 0.0;
 
     // Subtle inquisitive head tilt & forward lean
     setBoneRot(rig.head, 0.06 + microGlancePitch, microGlanceYaw * 0.4, -0.06);
@@ -285,12 +301,12 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
       rig.browRight.position.y = 0.075;
     }
 
-    // Natural attentive arms resting comfortably close to hips/waist (no wide elbow flaring)
-    setBoneRot(rig.rightArm, armAdduction + 0.04 + breathRise * 0.5, 0, -0.03);
-    setBoneRot(rig.rightForearm, isSkeletal ? 0.22 : 0.12, 0, 0);
+    // Natural attentive arms resting comfortably in front of hips/waist (no body clipping)
+    setBoneRot(rig.leftArm, armAdduction + breathRise * 0.5, 0, armForwardZ);
+    setBoneRot(rig.leftForearm, !isSkeletal ? 0.18 : 0, 0, isSkeletal ? 0.28 : 0);
 
-    setBoneRot(rig.leftArm, armAdduction + 0.04 + breathRise * 0.5, 0, 0.03);
-    setBoneRot(rig.leftForearm, isSkeletal ? 0.22 : 0.12, 0, 0);
+    setBoneRot(rig.rightArm, armAdduction + breathRise * 0.5, 0, -armForwardZ);
+    setBoneRot(rig.rightForearm, !isSkeletal ? 0.18 : 0, 0, isSkeletal ? -0.28 : 0);
 
     // Natural standing stance with weight shift (keeps legs 100% attached to hips)
     setBoneRot(rig.leftThigh, 0, 0, -hipSway * 0.6);
@@ -314,11 +330,12 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     });
 
   // ===========================================================
-  // C. IDLE / READY MODE (Organic alive breathing, weight shift & turns)
+  // C. IDLE / READY MODE (Organic alive breathing & relaxed hand clearance)
   // ===========================================================
   } else {
     const isSkeletal = rig.leftArm && rig.leftArm.isBone;
-    const armAdduction = isSkeletal ? 0.85 : 0.0;
+    const armAdduction = getSkeletalArmAdduction(rig.leftArm);
+    const armForwardZ = isSkeletal ? 0.10 : 0.0;
 
     // Head: alive micro glances + soft breathing compensation
     setBoneRot(rig.head, microGlancePitch - breathRise * 0.3, microGlanceYaw - bodySwivel * 0.6, 0);
@@ -326,11 +343,12 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     // Chest: organic breathing + gentle swivel
     setBoneRot(rig.chest, breathRise * 1.2, chestSwivel, hipSway * 0.4);
 
-    // Relaxed arms at sides with subtle breathing motion and natural rest drape
-    setBoneRot(rig.leftArm, armAdduction + breathRise * 0.8, 0, 0.02);
-    setBoneRot(rig.leftForearm, isSkeletal ? 0.16 : 0.08, 0, 0);
-    setBoneRot(rig.rightArm, armAdduction - breathRise * 0.8, 0, -0.02);
-    setBoneRot(rig.rightForearm, isSkeletal ? 0.16 : 0.08, 0, 0);
+    // Relaxed arms at sides with forward clearance so hands NEVER clip thighs/hips
+    setBoneRot(rig.leftArm, armAdduction + breathRise * 0.5, 0, armForwardZ);
+    setBoneRot(rig.leftForearm, !isSkeletal ? 0.12 : 0, 0, isSkeletal ? 0.18 : 0);
+
+    setBoneRot(rig.rightArm, armAdduction - breathRise * 0.5, 0, -armForwardZ);
+    setBoneRot(rig.rightForearm, !isSkeletal ? 0.12 : 0, 0, isSkeletal ? -0.18 : 0);
 
     // Natural leg stance firmly attached to hips with subtle weight shift
     setBoneRot(rig.leftThigh, 0, 0, -hipSway * 0.6);

@@ -1,12 +1,14 @@
 // Space 1: Grand Study Hall / Academic Forum (360° Photorealistic Environment)
 import * as THREE from 'three';
+import { createHardwoodFloorTexture } from './textures.js';
 
 export function createStudyHallSpace() {
   const group = new THREE.Group();
 
   // 1. 360° Photorealistic Equirectangular Spherical Panorama
-  const sphereGeo = new THREE.SphereGeometry(35, 60, 40);
-  sphereGeo.scale(-1, 1, 1); // View from inside
+  // Scale 16m matches human room scale and prevents "giant room / floating avatar" distortion
+  const sphereGeo = new THREE.SphereGeometry(16, 60, 40);
+  sphereGeo.scale(-1, 1, 1);
   const texLoader = new THREE.TextureLoader();
   const panoTexture = texLoader.load('assets/spaces/hall.jpg');
   panoTexture.encoding = THREE.sRGBEncoding;
@@ -16,23 +18,27 @@ export function createStudyHallSpace() {
     depthWrite: false
   });
   const skyDome = new THREE.Mesh(sphereGeo, sphereMat);
-  skyDome.position.set(0, 1.2, 0);
+  skyDome.position.set(0, 1.0, 0);
   group.add(skyDome);
 
-  // 2. Invisible Ground Plane for Contact Shadow & Depth
-  const floorPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(20, 20),
-    new THREE.MeshBasicMaterial({ visible: false })
-  );
-  floorPlane.rotation.x = -Math.PI / 2;
-  floorPlane.position.y = 0;
-  group.add(floorPlane);
+  // 2. Physical 3D Hardwood Floor firmly grounding the avatar at y = 0
+  const floorGeo = new THREE.PlaneGeometry(16, 16);
+  const floorMat = new THREE.MeshStandardMaterial({
+    map: createHardwoodFloorTexture(),
+    roughness: 0.55,
+    metalness: 0.04
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  floor.receiveShadow = true;
+  group.add(floor);
 
   // 3. Tailored Atmosphere Lighting
-  const ambientLight = new THREE.AmbientLight(0xfff5ea, 1.2);
-  const sunLight = new THREE.DirectionalLight(0xffe4b5, 1.4);
+  const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.85);
+  const sunLight = new THREE.DirectionalLight(0xffe4b5, 0.95);
   sunLight.position.set(3, 6, 2);
-  const fillLight = new THREE.PointLight(0xe0e7ff, 0.8, 12);
+  const fillLight = new THREE.PointLight(0xe0e7ff, 0.5, 12);
   fillLight.position.set(-2, 3, 1);
   group.add(ambientLight, sunLight, fillLight);
 
@@ -57,7 +63,7 @@ export function createStudyHallSpace() {
   const motes = new THREE.Points(moteGeo, moteMat);
   group.add(motes);
 
-  // B. Animated Distant Birds gliding across skylight
+  // B. Animated Distant Birds gliding across high windows
   const birdCount = 3;
   const birds = [];
   const birdGeo = new THREE.BufferGeometry();
