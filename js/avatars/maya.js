@@ -19,17 +19,17 @@ export function buildMayaHumanoid(avatarGroup) {
     if (rig.root === root) {
       root.remove(placeholder);
       
-      scene.position.set(0, 0, 0);
-      scene.scale.setScalar(0.92);
+      scene.position.set(0, -0.15, 0);
+      scene.scale.setScalar(0.85);
       root.add(scene);
 
       bindBonesFromHierarchy(scene);
 
-      // Setup animation mixer if animations exist
+      // Only play subtle idle animations, never wild dance clips
       if (animations && animations.length > 0) {
-        const mixer = new THREE.AnimationMixer(scene);
-        const idleClip = animations.find(a => a.name.toLowerCase().includes('idle')) || animations[0];
+        const idleClip = animations.find(a => a.name.toLowerCase().includes('idle') || a.name.toLowerCase().includes('breath'));
         if (idleClip) {
+          const mixer = new THREE.AnimationMixer(scene);
           const action = mixer.clipAction(idleClip);
           action.play();
           rig.mixer = mixer;

@@ -57,9 +57,32 @@ export function resetRig() {
   }
 }
 
+// Stores initial bind pose rest rotation for any bone or procedural joint
+function storeRestRotation(node) {
+  if (!node) return;
+  if (!node.userData.restRotation) {
+    node.userData.restRotation = {
+      x: node.rotation.x,
+      y: node.rotation.y,
+      z: node.rotation.z
+    };
+  }
+}
+
+// Sets rotational offset relative to the bone's rest pose
+function setBoneRot(bone, dx = 0, dy = 0, dz = 0) {
+  if (!bone) return;
+  storeRestRotation(bone);
+  const rest = bone.userData.restRotation;
+  bone.rotation.x = rest.x + dx;
+  bone.rotation.y = rest.y + dy;
+  bone.rotation.z = rest.z + dz;
+}
+
 // Automatically binds Mixamo / ReadyPlayerMe bones from a loaded glTF scene to rig controls
 export function bindBonesFromHierarchy(root) {
   root.traverse((node) => {
+    storeRestRotation(node);
     const name = node.name || '';
     const norm = name.toLowerCase().replace(/mixamorig:?|_/g, '');
 
@@ -92,8 +115,8 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
     rig.mixer.update(delta);
   }
 
-  // 1. Natural Eye/Head Look-At with proper parent-space conversion
-  if (rig.head && rig.head.parent) {
+  // 1. Natural Eye/Head Look-At with proper parent-space conversion (only if no skeletal neck/head)
+  if (rig.head && rig.head.parent && !rig.head.isBone) {
     _tempCamTarget.copy(camera.position);
     rig.head.parent.worldToLocal(_tempCamTarget);
     rig.head.lookAt(_tempCamTarget);
@@ -104,16 +127,10 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
   // ===========================================================
   if (AppState.isListening) {
     // Subtle inquisitive head tilt & forward lean
-    if (rig.head) {
-      rig.head.rotation.z = -0.09;
-      rig.head.rotation.x = 0.08;
-    }
+    setBoneRot(rig.head, 0.08, 0, -0.09);
 
     // Torso leans forward attentively toward user
-    if (rig.chest) {
-      rig.chest.rotation.x = 0.07;
-      rig.chest.position.z = 0.02;
-    }
+    setBoneRot(rig.chest, 0.05, 0, 0);
 
     // Eyes: Wide open and focused intently
     if (rig.eyeLeft && rig.eyeRight) {
@@ -127,25 +144,17 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
       rig.browRight.position.y = 0.075;
     }
 
-    // Hand touches chin thoughtfully
-    if (rig.rightArm && rig.rightForearm) {
-      rig.rightArm.rotation.x = -1.1;
-      rig.rightArm.rotation.z = -0.3;
-      rig.rightForearm.rotation.x = -1.2;
-    }
+    // Hand touches chin thoughtfully (offsets relative to rest pose)
+    setBoneRot(rig.rightArm, -0.4, 0, -0.2);
+    setBoneRot(rig.rightForearm, -0.6, 0, 0);
 
     // Left arm rests gently across waist
-    if (rig.leftArm && rig.leftForearm) {
-      rig.leftArm.rotation.x = -0.4;
-      rig.leftArm.rotation.z = 0.35;
-      rig.leftForearm.rotation.x = -0.8;
-    }
+    setBoneRot(rig.leftArm, -0.15, 0, 0.15);
+    setBoneRot(rig.leftForearm, -0.3, 0, 0);
 
-    // Weight shifted stance
-    if (rig.leftThigh && rig.rightThigh) {
-      rig.leftThigh.rotation.z = -0.05;
-      rig.rightThigh.rotation.z = 0.08;
-    }
+    // Natural standing stance with tiny weight shift (keeps legs 100% attached to hips)
+    setBoneRot(rig.leftThigh, 0, 0, -0.02);
+    setBoneRot(rig.rightThigh, 0, 0, 0.02);
 
     // Mouth closed in attentive smile
     if (rig.jaw) rig.jaw.position.y = -0.06;
@@ -216,64 +225,41 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
       });
     }
 
-    // ARMS & HANDS: Dynamic conversational gesticulation!
-    if (rig.rightArm && rig.rightForearm) {
-      rig.rightArm.rotation.x = -0.6 + Math.sin(gestureCycle) * 0.3;
-      rig.rightArm.rotation.z = -0.25 + Math.cos(gestureCycle * 0.8) * 0.15;
-      rig.rightForearm.rotation.x = -0.9 + Math.sin(gestureCycle * 1.2) * 0.35;
-    }
+    // ARMS & HANDS: Dynamic conversational gesticulation (additive offsets to rest pose)
+    setBoneRot(rig.rightArm, Math.sin(gestureCycle) * 0.2, 0, Math.cos(gestureCycle * 0.8) * 0.1);
+    setBoneRot(rig.rightForearm, Math.sin(gestureCycle * 1.2) * 0.25, 0, 0);
 
-    if (rig.leftArm && rig.leftForearm) {
-      rig.leftArm.rotation.x = -0.5 + Math.cos(gestureCycle * 0.9) * 0.25;
-      rig.leftArm.rotation.z = 0.2 + Math.sin(gestureCycle * 0.7) * 0.15;
-      rig.leftForearm.rotation.x = -0.7 + Math.cos(gestureCycle * 1.1) * 0.3;
-    }
+    setBoneRot(rig.leftArm, Math.cos(gestureCycle * 0.9) * 0.15, 0, Math.sin(gestureCycle * 0.7) * 0.1);
+    setBoneRot(rig.leftForearm, Math.cos(gestureCycle * 1.1) * 0.2, 0, 0);
 
     // HEAD: Conversational nodding
-    if (rig.head) {
-      rig.head.rotation.x += Math.sin(elapsed * 7) * 0.025;
-      rig.head.rotation.y += Math.sin(elapsed * 3) * 0.03;
-    }
+    setBoneRot(rig.head, Math.sin(elapsed * 7) * 0.03, Math.sin(elapsed * 3) * 0.03, 0);
 
     // TORSO: Subtle weight shifts
-    if (rig.chest) {
-      rig.chest.rotation.z = Math.sin(elapsed * 2.5) * 0.025;
-      rig.chest.rotation.x = Math.sin(elapsed * 4) * 0.02;
-    }
+    setBoneRot(rig.chest, Math.sin(elapsed * 4) * 0.015, 0, Math.sin(elapsed * 2.5) * 0.02);
+
+    // Legs firmly grounded in natural stance
+    setBoneRot(rig.leftThigh, 0, 0, 0);
+    setBoneRot(rig.rightThigh, 0, 0, 0);
 
   // ===========================================================
   // 3. IDLE / READY MODE (Natural breathing & relaxed presence)
   // ===========================================================
   } else {
-    if (rig.head) {
-      rig.head.rotation.z = 0;
-    }
-
     // Subtle breathing
     const breath = Math.sin(elapsed * 2.0);
-    if (rig.chest) {
-      rig.chest.rotation.x = breath * 0.015;
-      rig.chest.rotation.z = 0;
-      rig.chest.position.z = 0;
-    }
+    setBoneRot(rig.head, 0, 0, 0);
+    setBoneRot(rig.chest, breath * 0.012, 0, 0);
 
     // Relaxed arms at sides
-    if (rig.leftArm && rig.leftForearm) {
-      rig.leftArm.rotation.x = -0.05 + breath * 0.03;
-      rig.leftArm.rotation.z = 0.08;
-      rig.leftForearm.rotation.x = -0.15;
-    }
+    setBoneRot(rig.leftArm, breath * 0.02, 0, 0);
+    setBoneRot(rig.leftForearm, 0, 0, 0);
+    setBoneRot(rig.rightArm, -breath * 0.02, 0, 0);
+    setBoneRot(rig.rightForearm, 0, 0, 0);
 
-    if (rig.rightArm && rig.rightForearm) {
-      rig.rightArm.rotation.x = -0.05 - breath * 0.03;
-      rig.rightArm.rotation.z = -0.08;
-      rig.rightForearm.rotation.x = -0.15;
-    }
-
-    if (rig.leftThigh && rig.rightThigh) {
-      rig.leftThigh.rotation.z = 0;
-      rig.rightThigh.rotation.z = 0;
-    }
+    // Natural leg stance firmly attached to hips
+    setBoneRot(rig.leftThigh, 0, 0, 0);
+    setBoneRot(rig.rightThigh, 0, 0, 0);
 
     if (rig.jaw) {
       rig.jaw.position.y = -0.06;

@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.0",
-  "build": 11,
-  "released_at": "2026-11-06T23:15:00Z",
-  "changelog": "v0.2.0: Major upgrade: 1) Eliminate native Android speech recognition beeps in Live Mode, 2) Add 4-phase visual Conversational Pipeline Stepper (Listening -> Analyzing -> Ready -> Speaking) and real-time Voice Activity Level Meter, 3) High-fidelity realistic 3D human avatars (Maya & Alex with Ready Player Me glTF models & articulated skeletal rigs), 4) Modular architecture with automated regression test suite."
+  "version": "v0.2.1",
+  "build": 12,
+  "released_at": "2026-11-07T08:15:00Z",
+  "changelog": "v0.2.1: Fix humanoid skeletal leg rotation bug (preserve bone bind pose rest rotations so legs stay 100% attached to hips and firmly grounded rather than inverted), disable wild dance animation clips, and optimize avatar vertical camera framing."
 }
