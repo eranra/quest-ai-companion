@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.2.8">
+  <link rel="stylesheet" href="css/styles.css?v=0.2.9">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.8</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.9</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -408,7 +408,7 @@
           <option value="half_duplex">🔇 Strict Half-Duplex (Pauses mic while assistant speaks - 100% echo proof)</option>
           <option value="off">Off (Raw microphone)</option>
         </select>
-        <p class="help-hint">Prevents the phone or Quest microphone from hearing the assistant's own loudspeaker responses.</p>
+        <p class="help-hint">Multi-tier echo suppression & barge-in. Headphones provide the best full-duplex experience (same as Gemini Live). Without headphones, Smart AEC or Half-Duplex protects against speaker bleed.</p>
       </div>
 
       <!-- Voice Selection -->
@@ -422,7 +422,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.2.8"></script>
+  <script type="module" src="js/app.js?v=0.2.9"></script>
 
 </body>
 </html>

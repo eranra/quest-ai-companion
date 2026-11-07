@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.8",
-  "build": 19,
-  "released_at": "2026-11-07T16:00:00Z",
-  "changelog": "v0.2.8: Fixed avatar forward-facing orientation for Maya procedural placeholder and humanoid models; added 🔄 180° avatar flip toggle and camera re-centering controls with persistence; expanded automated test suite (57 tests passing)."
+  "version": "v0.2.9",
+  "build": 20,
+  "released_at": "2026-11-07T16:35:00Z",
+  "changelog": "v0.2.9: Fixed Live Mode acoustic self-echo loop with multi-tier rolling spoken lexicon, phrase n-gram fingerprinting, post-speech grace period, novel-word user barge-in detection, verbal stop commands, and instant tap-to-interrupt (64 tests passing)."
 }

@@ -211,7 +211,7 @@ async function runTestSuite() {
                     assert('Pipeline resets to idle', !document.getElementById('step-speaking').classList.contains('active'));
 
                     // Test 5: Speech & Dual-Mode Configuration
-                    const { isSelfEcho, speakReply, stopSpeaking } = await import('./js/audio/tts.js');
+                    const { isSelfEcho, detectUserInterruption, speakReply, stopSpeaking } = await import('./js/audio/tts.js');
                     const { setLiveMode, startListening, stopListening } = await import('./js/audio/speech.js');
                     const { AppState } = await import('./js/state.js');
 
@@ -220,7 +220,24 @@ async function runTestSuite() {
                     const echoWhenSilent = isSelfEcho("Hello companion, are you ready?");
                     assert('Anti-Self-Echo does not reject user speech when assistant is silent', echoWhenSilent === false);
 
-                    // 5B: Live Mode vs Push-to-Talk state toggling
+                    // 5B: Multi-tier Echo Detection while speaking / cooldown
+                    speakReply("The weather in Paris is sunny with twenty two degrees.");
+                    assert('AEC detects exact phrase echo from spoken text', isSelfEcho("weather in Paris") === true);
+                    assert('AEC detects clause echo from spoken text', isSelfEcho("sunny with twenty two degrees") === true);
+                    assert('AEC rejects echo during barge-in detection', detectUserInterruption("weather in Paris").isInterruption === false);
+
+                    // 5C: True User Interruption & Stop Commands
+                    const stopResult = detectUserInterruption("stop talking please");
+                    assert('Barge-in detects stop command', stopResult.isInterruption === true && stopResult.isStopCommand === true);
+                    const questionResult = detectUserInterruption("what time is it in Tokyo");
+                    assert('Barge-in detects novel user question', questionResult.isInterruption === true && questionResult.isStopCommand === false);
+
+                    // 5D: Spoken History preserved after stopSpeaking()
+                    stopSpeaking();
+                    assert('AEC preserves spoken history in post-speech cooldown', isSelfEcho("weather in Paris") === true);
+                    assert('AEC allows novel question after speech stops', isSelfEcho("tell me an interesting space fact") === false);
+
+                    // 5E: Live Mode vs Push-to-Talk state toggling
                     setLiveMode(false);
                     assert('Regular mode sets AppState.isLiveMode = false', AppState.isLiveMode === false);
                     setLiveMode(true);

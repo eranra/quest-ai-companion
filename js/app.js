@@ -7,6 +7,7 @@ import {
   unlockAudio,
   speakReply,
   stopSpeaking,
+  isSelfEcho,
   initSpeechRecognition,
   startListening,
   stopListening,
@@ -22,7 +23,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.2.8';
+export const APP_VERSION = 'v0.2.9';
 
 // DOM References
 const dom = {
@@ -49,6 +50,12 @@ async function handleUserSpeech(userText) {
   unlockAudio();
   userText = userText.trim();
 
+  // Multi-tier echo gatekeeper: discard any acoustic reflection before LLM processing
+  if (isSelfEcho(userText)) {
+    console.warn(`[EchoGuard] Blocked self-echo from reaching AI: "${userText}"`);
+    return;
+  }
+
   // If in regular mode (Live Mode OFF): ensure mic is stopped and closed
   if (!AppState.isLiveMode) {
     stopListening();
@@ -72,7 +79,7 @@ async function handleUserSpeech(userText) {
     dom.speechText.textContent = reply;
 
     // Step 4: Speaking Reply
-    setPipelineState('speaking');
+    setPipelineState('speaking', '🗣️ Speaking (Tap to stop)...');
     speakReply(reply, () => {
       // Completed speaking reply:
       if (AppState.isLiveMode) {
@@ -188,7 +195,9 @@ function initApp() {
 
       if (nextMode) {
         setPipelineState('listening', 'Live Mode: Listening...');
-        speakReply(`Live conversation active. Just start speaking anytime, and you can interrupt me whenever you want.`);
+        initMicAnalyser((level) => updateMicLevel(level));
+        startListening();
+        dom.speechText.textContent = '⚡ Live Mode active: Listening hands-free. Speak anytime, or tap to stop me while speaking.';
       } else {
         stopListening();
         stopMicAnalyser();
@@ -198,6 +207,13 @@ function initApp() {
     onToggleMic: () => {
       if (AppState.isSpeaking) {
         stopSpeaking();
+        if (AppState.isLiveMode) {
+          setPipelineState('listening', 'Interrupted. Listening...');
+          return;
+        } else {
+          setPipelineState('idle');
+          return;
+        }
       }
       if (AppState.isListening) {
         stopListening();
@@ -273,6 +289,21 @@ function initApp() {
       initMicAnalyser((level) => updateMicLevel(level));
       setPipelineState('listening');
     } catch (err) {}
+  }
+
+  // Tap-to-Interrupt: Clicking speech bubble or status pill immediately interrupts speaking avatar
+  const bubbleElement = document.querySelector('.speech-bubble');
+  if (bubbleElement) {
+    bubbleElement.addEventListener('click', () => {
+      if (AppState.isSpeaking) {
+        stopSpeaking();
+        if (AppState.isLiveMode) {
+          setPipelineState('listening', 'Interrupted. Listening...');
+        } else {
+          setPipelineState('idle');
+        }
+      }
+    });
   }
 
   // Global touch / click unblock for audio
