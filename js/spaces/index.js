@@ -142,3 +142,11 @@ export function setSpaceVisibility(visible) {
 export function getCurrentSpaceId() {
   return currentSpaceId;
 }
+
+export function cycleSpace(direction = 1) {
+  const currentId = getCurrentSpaceId() || 'hall';
+  const index = SPACE_DEFINITIONS.findIndex(s => s.id === currentId);
+  const nextIndex = (index + direction + SPACE_DEFINITIONS.length) % SPACE_DEFINITIONS.length;
+  const nextDef = switchSpace(SPACE_DEFINITIONS[nextIndex].id);
+  return nextDef;
+}

@@ -11,7 +11,9 @@ import {
   enterVR as xrEnterVR,
   enterAR as xrEnterAR,
   toggleFullscreen as xrToggleFullscreen,
-  isXRSessionActive
+  isXRSessionActive,
+  setXRActionCallbacks,
+  updateVRHUDState
 } from './xr.js';
 
 export let scene, camera, renderer, controls, clock;
@@ -168,5 +170,7 @@ export {
   createOrbitControls,
   setupXRControllers,
   handleXRControllerInput,
-  isXRSessionActive
+  isXRSessionActive,
+  setXRActionCallbacks,
+  updateVRHUDState
 };

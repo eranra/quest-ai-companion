@@ -38,3 +38,15 @@ export function buildAvatar(avatarId, avatarGroup) {
   // Ensure standing avatar feet are placed directly on top of the floor
   groundAvatar(avatarGroup);
 }
+
+export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
+
+export function cycleAvatar(direction = 1, avatarGroup) {
+  const currentId = localStorage.getItem('quest_avatar_id') || 'echo';
+  const index = AVATAR_IDS.indexOf(currentId);
+  const nextIndex = (index + direction + AVATAR_IDS.length) % AVATAR_IDS.length;
+  const nextId = AVATAR_IDS[nextIndex];
+  localStorage.setItem('quest_avatar_id', nextId);
+  buildAvatar(nextId, avatarGroup);
+  return nextId;
+}

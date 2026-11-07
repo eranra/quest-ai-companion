@@ -354,6 +354,27 @@ async function runTestSuite() {
                     const { transcribeAudioWithGemini } = await import('./js/ai/index.js');
                     assert('ai/index.js exports transcribeAudioWithGemini', typeof transcribeAudioWithGemini === 'function');
 
+                    // Test 10: In-VR 3D HUD Console, Controller Laser Rays, and WebXR Actions
+                    const vrHUDModule = await import('./js/scene/vr_hud.js');
+                    assert('scene/vr_hud.js exports initVRHUD', typeof vrHUDModule.initVRHUD === 'function');
+                    assert('scene/vr_hud.js exports setVRHUDVisibility', typeof vrHUDModule.setVRHUDVisibility === 'function');
+                    assert('scene/vr_hud.js exports updateVRHUDState', typeof vrHUDModule.updateVRHUDState === 'function');
+                    assert('scene/vr_hud.js exports testVRHUDIntersection', typeof vrHUDModule.testVRHUDIntersection === 'function');
+
+                    const { setXRActionCallbacks, updateVRHUDState } = await import('./js/scene/index.js');
+                    assert('scene/index.js exports setXRActionCallbacks', typeof setXRActionCallbacks === 'function');
+                    assert('scene/index.js exports updateVRHUDState', typeof updateVRHUDState === 'function');
+
+                    const { cycleAvatar } = await import('./js/avatars/index.js');
+                    assert('avatars/index.js exports cycleAvatar', typeof cycleAvatar === 'function');
+                    const nextAvatar = cycleAvatar(1, avatarGroup);
+                    assert('cycleAvatar switches to a valid avatar ID', typeof nextAvatar === 'string' && nextAvatar.length > 0);
+
+                    const { cycleSpace } = await import('./js/spaces/index.js');
+                    assert('spaces/index.js exports cycleSpace', typeof cycleSpace === 'function');
+                    const nextSpace = cycleSpace(1);
+                    assert('cycleSpace switches to a valid space definition', nextSpace && typeof nextSpace.name === 'string');
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }

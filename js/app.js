@@ -1,7 +1,16 @@
 // Main Application Orchestrator - Quest AI Companion
 import { AppState } from './state.js';
-import { initScene, avatarGroup, applyAvatarTransform, flipAvatarOrientation } from './scene.js';
-import { buildAvatar } from './avatars/index.js';
+import {
+  initScene,
+  avatarGroup,
+  applyAvatarTransform,
+  flipAvatarOrientation,
+  enterVR,
+  setXRActionCallbacks,
+  updateVRHUDState
+} from './scene.js';
+import { buildAvatar, cycleAvatar } from './avatars/index.js';
+import { cycleSpace } from './spaces/index.js';
 import { generateAIResponse, initLocalWebLLM, checkGeminiResponsiveness } from './ai.js';
 import {
   unlockAudio,
@@ -25,7 +34,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.3';
+export const APP_VERSION = 'v0.3.4';
 
 // DOM References
 const dom = {
@@ -72,6 +81,7 @@ async function handleUserSpeech(userText) {
   // Step 2: Sent to AI & Analyzing
   setPipelineState('analyzing');
   dom.speechText.textContent = `You: "${userText}"\n\n⚡ Analyzing with AI...`;
+  updateVRHUDState({ status: '⚡ Analyzing...', text: `You: "${userText}"` });
 
   try {
     const reply = await generateAIResponse(userText);
@@ -79,31 +89,43 @@ async function handleUserSpeech(userText) {
     // Step 3: Answer Ready
     setPipelineState('ready');
     dom.speechText.textContent = reply;
+    updateVRHUDState({ status: 'Ready', text: reply });
 
     // Step 4: Speaking Reply
     setPipelineState('speaking', '🗣️ Speaking (Tap to stop)...');
+    updateVRHUDState({ status: '🗣️ Speaking', text: reply });
     speakReply(reply, () => {
       // Completed speaking reply:
       if (AppState.isLiveMode) {
         // In Live Mode: automatically resume continuous listening!
         setPipelineState('listening', 'Live Mode: Listening...');
-        initMicAnalyser((level) => updateMicLevel(level));
+        updateVRHUDState({ status: 'Live Mode: Listening...' });
+        initMicAnalyser((level) => {
+          updateMicLevel(level);
+          updateVRHUDState({ volume: level });
+        });
         startListening();
       } else {
         // In Regular Mode (Live Mode OFF): return to idle and KEEP MIC CLOSED!
         setPipelineState('idle');
         stopMicAnalyser();
+        updateVRHUDState({ status: 'Ready' });
       }
     });
   } catch (err) {
     console.error('Conversation Error:', err);
     dom.speechText.textContent = `Error: ${err.message}`;
+    updateVRHUDState({ status: 'Error', text: err.message });
     setPipelineState('idle');
     stopMicAnalyser();
     if (AppState.isLiveMode) {
       setTimeout(() => {
         setPipelineState('listening', 'Live Mode: Listening...');
-        initMicAnalyser((level) => updateMicLevel(level));
+        updateVRHUDState({ status: 'Live Mode: Listening...' });
+        initMicAnalyser((level) => {
+          updateMicLevel(level);
+          updateVRHUDState({ volume: level });
+        });
         startListening();
       }, 1500);
     }
@@ -213,59 +235,77 @@ function initApp() {
     }
   }
 
+  async function handleToggleLiveMode() {
+    const nextMode = !AppState.isLiveMode;
+    setLiveMode(nextMode);
+    if (dockController) dockController.updateLiveModeUI();
+    updateVRHUDState({ status: nextMode ? 'Live Mode: Listening...' : 'Ready' });
+
+    if (nextMode) {
+      setPipelineState('listening', 'Live Mode: Listening...');
+      try {
+        await ensureSTTReady();
+      } catch (err) {
+        dom.speechText.textContent = `Whisper load error: ${err.message}`;
+      }
+      initMicAnalyser((level) => {
+        updateMicLevel(level);
+        updateVRHUDState({ volume: level });
+      });
+      startListening();
+      dom.speechText.textContent = '⚡ Live Mode active: Listening hands-free. Speak anytime, or tap to stop me while speaking.';
+      updateVRHUDState({ text: dom.speechText.textContent });
+    } else {
+      stopListening();
+      stopMicAnalyser();
+      setPipelineState('idle');
+      updateVRHUDState({ text: '⚡ Live Mode turned OFF. Press A/X to talk or B/Y to exit VR.' });
+    }
+  }
+
+  async function handleToggleMic() {
+    if (AppState.isSpeaking) {
+      stopSpeaking();
+      if (AppState.isLiveMode) {
+        setPipelineState('listening', 'Interrupted. Listening...');
+        updateVRHUDState({ status: 'Interrupted. Listening...' });
+        return;
+      } else {
+        setPipelineState('idle');
+        updateVRHUDState({ status: 'Ready' });
+        return;
+      }
+    }
+    if (AppState.isListening) {
+      stopListening();
+      stopMicAnalyser();
+      setPipelineState('idle');
+      updateVRHUDState({ status: 'Ready' });
+    } else {
+      setPipelineState('listening', 'Listening to you...');
+      updateVRHUDState({ status: 'Listening to you...' });
+      try {
+        await ensureSTTReady();
+      } catch (err) {
+        dom.speechText.textContent = `Whisper load error: ${err.message}`;
+        setPipelineState('idle');
+        return;
+      }
+      initMicAnalyser((level) => {
+        updateMicLevel(level);
+        updateVRHUDState({ volume: level });
+      });
+      startListening();
+    }
+  }
+
   // 3. Initialize Top Dock & Bottom Controls
   dockController = initDock({
     appVersion: APP_VERSION,
     onSendPrompt: (prompt) => handleUserSpeech(prompt),
     onTurnAvatar: () => flipAvatarOrientation(),
-    onToggleLiveMode: async () => {
-      const nextMode = !AppState.isLiveMode;
-      setLiveMode(nextMode);
-      if (dockController) dockController.updateLiveModeUI();
-
-      if (nextMode) {
-        setPipelineState('listening', 'Live Mode: Listening...');
-        try {
-          await ensureSTTReady();
-        } catch (err) {
-          dom.speechText.textContent = `Whisper load error: ${err.message}`;
-        }
-        initMicAnalyser((level) => updateMicLevel(level));
-        startListening();
-        dom.speechText.textContent = '⚡ Live Mode active: Listening hands-free. Speak anytime, or tap to stop me while speaking.';
-      } else {
-        stopListening();
-        stopMicAnalyser();
-        setPipelineState('idle');
-      }
-    },
-    onToggleMic: async () => {
-      if (AppState.isSpeaking) {
-        stopSpeaking();
-        if (AppState.isLiveMode) {
-          setPipelineState('listening', 'Interrupted. Listening...');
-          return;
-        } else {
-          setPipelineState('idle');
-          return;
-        }
-      }
-      if (AppState.isListening) {
-        stopListening();
-        stopMicAnalyser();
-        setPipelineState('idle');
-      } else {
-        setPipelineState('listening', 'Listening to you...');
-        try {
-          await ensureSTTReady();
-        } catch (err) {
-          dom.speechText.textContent = `Whisper load error: ${err.message}`;
-          setPipelineState('idle');
-          return;
-        }
-        startListening();
-      }
-    }
+    onToggleLiveMode: () => handleToggleLiveMode(),
+    onToggleMic: () => handleToggleMic()
   });
 
   // Sync Badges
@@ -274,11 +314,34 @@ function initApp() {
     dockController.updateLiveModeUI();
   }
 
-  // 4. Initialize 3D Scene & Avatar
+  // 4. Initialize 3D Scene, Avatar, and WebXR Controller Action Handlers
   try {
     initScene(dom.container3d, dom.xrHud);
     buildAvatar(AppState.avatarId, avatarGroup);
     applyAvatarTransform();
+
+    // Register In-VR 3D Console & Quest Controller Hardware Buttons (B/Y, A/X, Grip, Sticks)
+    setXRActionCallbacks({
+      onExitVR: () => {
+        console.log('🚪 Exit VR triggered from Quest controller / in-VR Console');
+        enterVR();
+      },
+      onToggleMic: () => {
+        handleToggleMic();
+      },
+      onToggleLive: () => {
+        handleToggleLiveMode();
+      },
+      onCycleSpace: (dir) => {
+        const nextDef = cycleSpace(dir);
+        updateVRHUDState({ status: `Space: ${nextDef.name}` });
+      },
+      onCycleAvatar: (dir) => {
+        const nextId = cycleAvatar(dir, avatarGroup);
+        applyAvatarTransform();
+        updateVRHUDState({ status: `Avatar: ${nextId}` });
+      }
+    });
   } catch (err) {
     console.error('Scene/Avatar init error:', err);
   }

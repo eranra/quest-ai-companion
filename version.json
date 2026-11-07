@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.3",
-  "build": 24,
-  "released_at": "2026-11-07T22:20:00Z",
-  "changelog": "v0.3.3: Fixed Meta Quest 3 360° VR black screen and active session collision: inverted panorama rendering with THREE.BackSide, SRGBColorSpace, and 60m radius; re-entrancy lock and local reference space fallback on WebXR session creation; automatic WebXR avatar depth placement (1.8m in front of headset with thumbstick depth control)."
+  "version": "v0.3.4",
+  "build": 25,
+  "released_at": "2026-11-07T22:30:00Z",
+  "changelog": "v0.3.4: Meta Quest 3 In-VR 3D Control Console and Hardware Button Shortcuts: Press B/Y button to immediately exit VR to regular browser mode for full configuration; Press A/X to talk; Squeeze Grip for Live Mode; Thumbstick X to cycle 3D spaces and avatars; interactive 3D Floating Console with laser ray pointers (99 tests passing)."
 }
