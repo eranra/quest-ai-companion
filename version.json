@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.1",
-  "build": 22,
-  "released_at": "2026-11-07T20:25:00Z",
-  "changelog": "v0.3.1: Meta Quest 3 WebXR Full 360° VR Immersion (fixed unsupported dom-overlay error), separate 🥽 360° VR, 🪟 AR Passthrough, and ⛶ Fullscreen buttons; auto-detection of Quest OS speech limitations with automatic routing to on-device Whisper STT (83 tests passing)."
+  "version": "v0.3.2",
+  "build": 23,
+  "released_at": "2026-11-07T21:55:00Z",
+  "changelog": "v0.3.2: Meta Quest 3 synchronous WebXR 360° VR & AR session activation (zero-await gesture preservation); client-side 16-bit PCM WAV audio encoder with direct Gemini Multimodal audio transcription & Whisper fallback; guaranteed microphone hardware release on speech completion & silence watchdog in regular mode; automatic Neural TTS fallback for Quest OS voice limitations (89 tests passing)."
 }

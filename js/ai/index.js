@@ -1,7 +1,7 @@
 // AI Subsystem Facade
 import { AppState } from '../state.js';
 import { initLocalWebLLM, getWebLLM, callLocalWebLLM } from './local.js';
-import { checkGeminiResponsiveness, callGeminiAPI } from './gemini.js';
+import { checkGeminiResponsiveness, callGeminiAPI, transcribeAudioWithGemini } from './gemini.js';
 
 let activeAbortController = null;
 
@@ -38,5 +38,6 @@ export {
   getWebLLM,
   callLocalWebLLM,
   checkGeminiResponsiveness,
-  callGeminiAPI
+  callGeminiAPI,
+  transcribeAudioWithGemini
 };

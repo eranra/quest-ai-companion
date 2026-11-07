@@ -62,119 +62,157 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
 }
 
 /**
- * Enters Full 360° VR Immersion (Quest 3 Headset + 360 Photorealistic Environment)
+ * Enters Full 360° VR Immersion (Meta Quest 3 Headset + 360 Photorealistic Environment)
+ * SYNCHRONOUS: Calls navigator.xr.requestSession synchronously to preserve user activation!
  */
-export async function enterVR(renderer, scene, onSessionChange) {
-  if (!navigator.xr) {
-    throw new Error('WebXR is not supported on this device or browser. On Meta Quest 3, make sure you are using Meta Horizon Browser.');
+export function enterVR(renderer, scene, onSessionChange) {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    alert('WebXR requires HTTPS. Please open https://eranra.github.io/quest-ai-companion/ in Meta Quest Browser (HTTP over local IP disables WebXR).');
+    return Promise.reject(new Error('WebXR requires HTTPS'));
   }
 
-  const isVRSupported = await navigator.xr.isSessionSupported('immersive-vr');
-  if (!isVRSupported) {
-    throw new Error('Immersive 360° VR is not supported on this browser.');
+  if (!navigator.xr) {
+    alert('WebXR is not supported on this device/browser. Please open https://eranra.github.io/quest-ai-companion/ inside the Meta Quest Browser in your headset.');
+    return Promise.reject(new Error('WebXR not available'));
   }
 
   if (xrSession) {
-    await xrSession.end();
+    xrSession.end();
     xrSession = null;
+    return Promise.resolve(null);
   }
 
-  try {
-    // Crucial for Meta Quest: DO NOT request dom-overlay in immersive-vr!
-    // Quest Browser rejects dom-overlay in immersive-vr with "Feature not supported".
-    const sessionInit = {
-      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
-    };
+  // Ensure 360 photorealistic dome space is visible
+  setSpaceVisibility(true);
 
-    const session = await navigator.xr.requestSession('immersive-vr', sessionInit);
-    await renderer.xr.setSession(session);
-    xrSession = session;
+  // Standard Three.js Quest 3 session configuration
+  const sessionInit = {
+    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers']
+  };
 
-    // In 360° VR: keep the photorealistic 3D environment dome completely visible
-    setSpaceVisibility(true);
+  // Synchronous call inside the user gesture event: zero await delay!
+  return navigator.xr.requestSession('immersive-vr', sessionInit)
+    .then(async (session) => {
+      xrSession = session;
+      await renderer.xr.setSession(session);
 
-    session.addEventListener('end', () => {
-      xrSession = null;
-      setSpaceVisibility(true);
-      if (onSessionChange) onSessionChange(false, 'vr');
+      session.addEventListener('end', () => {
+        xrSession = null;
+        setSpaceVisibility(true);
+        if (onSessionChange) onSessionChange(false, 'vr');
+      });
+
+      if (onSessionChange) onSessionChange(true, 'vr');
+      return session;
+    })
+    .catch((err1) => {
+      console.warn('immersive-vr with optional features failed, attempting minimal session:', err1);
+      // Fallback: minimal session without optional feature constraints
+      return navigator.xr.requestSession('immersive-vr')
+        .then(async (session) => {
+          xrSession = session;
+          await renderer.xr.setSession(session);
+
+          session.addEventListener('end', () => {
+            xrSession = null;
+            setSpaceVisibility(true);
+            if (onSessionChange) onSessionChange(false, 'vr');
+          });
+
+          if (onSessionChange) onSessionChange(true, 'vr');
+          return session;
+        })
+        .catch((err2) => {
+          console.error('WebXR VR request failed:', err2);
+          alert(`Could not launch 360° VR: ${err2.message}\nMake sure you are viewing this page inside the Meta Quest Browser on Meta Quest 3.`);
+          throw err2;
+        });
     });
-
-    if (onSessionChange) onSessionChange(true, 'vr');
-    return session;
-  } catch (err) {
-    console.error('Failed to start 360° VR session:', err);
-    throw err;
-  }
 }
 
 /**
  * Enters Mixed Reality Passthrough (See your real room with the avatar)
+ * SYNCHRONOUS: Calls navigator.xr.requestSession synchronously to preserve user activation!
  */
-export async function enterAR(renderer, scene, onSessionChange) {
-  if (!navigator.xr) {
-    throw new Error('WebXR is not supported on this device or browser.');
+export function enterAR(renderer, scene, onSessionChange) {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    alert('WebXR requires HTTPS. Please open https://eranra.github.io/quest-ai-companion/ in Meta Quest Browser (HTTP over local IP disables WebXR).');
+    return Promise.reject(new Error('WebXR requires HTTPS'));
   }
 
-  const isARSupported = await navigator.xr.isSessionSupported('immersive-ar');
-  if (!isARSupported) {
-    throw new Error('Passthrough AR is not supported on this browser.');
+  if (!navigator.xr) {
+    alert('WebXR is not supported on this browser.');
+    return Promise.reject(new Error('WebXR not available'));
   }
 
   if (xrSession) {
-    await xrSession.end();
+    xrSession.end();
     xrSession = null;
+    return Promise.resolve(null);
   }
 
-  try {
-    let session;
-    try {
-      session = await navigator.xr.requestSession('immersive-ar', {
-        optionalFeatures: ['local-floor', 'hit-test', 'hand-tracking']
+  const sessionInit = {
+    optionalFeatures: ['local-floor', 'hit-test', 'hand-tracking']
+  };
+
+  return navigator.xr.requestSession('immersive-ar', sessionInit)
+    .then(async (session) => {
+      xrSession = session;
+      scene.background = null;
+      setSpaceVisibility(false);
+      await renderer.xr.setSession(session);
+
+      session.addEventListener('end', () => {
+        xrSession = null;
+        scene.background = new THREE.Color(0x05070f);
+        setSpaceVisibility(true);
+        if (onSessionChange) onSessionChange(false, 'ar');
       });
-    } catch (e1) {
-      session = await navigator.xr.requestSession('immersive-ar', {
-        optionalFeatures: ['local-floor']
-      });
-    }
 
-    await renderer.xr.setSession(session);
-    xrSession = session;
+      if (onSessionChange) onSessionChange(true, 'ar');
+      return session;
+    })
+    .catch((err1) => {
+      console.warn('immersive-ar with features failed, attempting minimal:', err1);
+      return navigator.xr.requestSession('immersive-ar')
+        .then(async (session) => {
+          xrSession = session;
+          scene.background = null;
+          setSpaceVisibility(false);
+          await renderer.xr.setSession(session);
 
-    // In AR Passthrough: hide virtual dome so user sees their actual physical room
-    scene.background = null;
-    setSpaceVisibility(false);
+          session.addEventListener('end', () => {
+            xrSession = null;
+            scene.background = new THREE.Color(0x05070f);
+            setSpaceVisibility(true);
+            if (onSessionChange) onSessionChange(false, 'ar');
+          });
 
-    session.addEventListener('end', () => {
-      xrSession = null;
-      scene.background = new THREE.Color(0x05070f);
-      setSpaceVisibility(true);
-      if (onSessionChange) onSessionChange(false, 'ar');
+          if (onSessionChange) onSessionChange(true, 'ar');
+          return session;
+        })
+        .catch((err2) => {
+          console.error('WebXR AR request failed:', err2);
+          alert(`Passthrough AR error: ${err2.message}`);
+          throw err2;
+        });
     });
-
-    if (onSessionChange) onSessionChange(true, 'ar');
-    return session;
-  } catch (err) {
-    console.error('Failed to start Passthrough AR session:', err);
-    throw err;
-  }
 }
 
 /**
  * Toggles WebXR session (defaults to 360° VR immersion)
  */
-export async function toggleWebXR(renderer, scene, onSessionChange, mode = 'vr') {
+export function toggleWebXR(renderer, scene, onSessionChange, mode = 'vr') {
   if (xrSession) {
-    await xrSession.end();
+    xrSession.end();
     xrSession = null;
-    return false;
+    return Promise.resolve(false);
   }
 
   if (mode === 'ar') {
-    await enterAR(renderer, scene, onSessionChange);
-    return true;
+    return enterAR(renderer, scene, onSessionChange);
   } else {
-    await enterVR(renderer, scene, onSessionChange);
-    return true;
+    return enterVR(renderer, scene, onSessionChange);
   }
 }
 

@@ -75,3 +75,49 @@ export async function callGeminiAPI(prompt, signal) {
   const data = await res.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm listening and ready.";
 }
+
+/**
+ * Transcribes audio WAV directly using Gemini 2.5 Flash Multimodal Audio API
+ */
+export async function transcribeAudioWithGemini(base64Wav, signal) {
+  if (!AppState.geminiKey) {
+    throw new Error('Google Gemini API key required for audio transcription.');
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(AppState.geminiKey.trim())}`;
+
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            inline_data: {
+              mime_type: "audio/wav",
+              data: base64Wav
+            }
+          },
+          {
+            text: "Transcribe the spoken words in this audio exactly. Output ONLY the transcribed words with standard punctuation and capitalization, nothing else. If the audio is completely silent or unintelligible noise, output an empty string."
+          }
+        ]
+      }
+    ]
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || `HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const transcript = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return transcript.trim();
+}

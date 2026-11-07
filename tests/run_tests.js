@@ -338,6 +338,22 @@ async function runTestSuite() {
                     flipAvatarOrientation();
                     assert('flipAvatarOrientation rotates back to original', Math.abs(avatarGroup.rotation.y - initialRot) < 0.01);
 
+                    // Test 9: WAV Audio Encoder and Cloud Multimodal Audio Pipeline
+                    const { encodeWAV, blobToBase64 } = await import('./js/audio/wav.js');
+                    assert('audio/wav.js exports encodeWAV', typeof encodeWAV === 'function');
+                    assert('audio/wav.js exports blobToBase64', typeof blobToBase64 === 'function');
+
+                    const dummySamples = new Float32Array([0.0, 0.5, -0.5, 0.25, -0.25]);
+                    const dummyBlob = encodeWAV(dummySamples, 16000);
+                    assert('encodeWAV generates valid audio/wav blob', dummyBlob instanceof Blob && dummyBlob.type === 'audio/wav');
+                    assert('WAV header size is 44 + 2*samples', dummyBlob.size === 44 + dummySamples.length * 2);
+
+                    const base64Data = await blobToBase64(dummyBlob);
+                    assert('blobToBase64 returns non-empty base64 string', typeof base64Data === 'string' && base64Data.length > 20);
+
+                    const { transcribeAudioWithGemini } = await import('./js/ai/index.js');
+                    assert('ai/index.js exports transcribeAudioWithGemini', typeof transcribeAudioWithGemini === 'function');
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }

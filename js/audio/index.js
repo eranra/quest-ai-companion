@@ -89,13 +89,20 @@ export function setLiveMode(enabled) {
 }
 
 /**
- * Speaks AI reply using active TTS engine (Neural Web Audio vs Browser OS voices)
+ * Speaks AI reply using active TTS engine with automatic fallback
  */
 export function speakReply(text, onComplete) {
   if (AppState.ttsEngine === 'neural') {
     speakNeuralTTS(text, onComplete);
   } else {
-    nativeSpeakReply(text, onComplete);
+    nativeSpeakReply(text, (err) => {
+      if (err) {
+        console.warn('Native TTS encountered error/missing voices. Falling back to Neural TTS:', err);
+        speakNeuralTTS(text, onComplete);
+      } else if (onComplete) {
+        onComplete();
+      }
+    });
   }
 }
 

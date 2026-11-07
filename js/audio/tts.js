@@ -227,7 +227,7 @@ export function speakReply(text, onComplete) {
 
   if (!('speechSynthesis' in window)) {
     console.warn('SpeechSynthesis not available in browser');
-    if (onComplete) onComplete();
+    if (onComplete) onComplete(new Error('SpeechSynthesis not supported'));
     return;
   }
 
@@ -282,7 +282,7 @@ export function speakReply(text, onComplete) {
         spokenHistory[spokenHistory.length - 1].finishedAt = Date.now();
       }
       if (onLipSyncCallback) onLipSyncCallback(0);
-      if (onComplete) onComplete();
+      if (onComplete) onComplete(e);
     };
 
     activeUtterance = utterance;

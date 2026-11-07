@@ -74,31 +74,27 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     };
   }
 
-  // Meta Quest 3 Full 360° VR Immersion
+  // Meta Quest 3 Full 360° VR Immersion (Synchronous gesture invocation)
   if (dom.btnVr) {
-    dom.btnVr.onclick = async () => {
+    dom.btnVr.onclick = () => {
       unlockAudio();
-      try {
-        await enterVR((isVR) => {
-          if (dom.vrLabel) dom.vrLabel.textContent = isVR ? 'Exit VR' : '360° VR';
-        });
-      } catch (err) {
-        alert(err.message || 'WebXR VR error');
-      }
+      enterVR((isVR) => {
+        if (dom.vrLabel) dom.vrLabel.textContent = isVR ? 'Exit VR' : '360° VR';
+      }).catch((err) => {
+        console.warn('WebXR VR entry rejected:', err);
+      });
     };
   }
 
-  // Meta Quest 3 Mixed Reality Passthrough
+  // Meta Quest 3 Mixed Reality Passthrough (Synchronous gesture invocation)
   if (dom.btnAr) {
-    dom.btnAr.onclick = async () => {
+    dom.btnAr.onclick = () => {
       unlockAudio();
-      try {
-        await enterAR((isAR) => {
-          if (dom.xrLabel) dom.xrLabel.textContent = isAR ? 'Exit AR' : 'AR';
-        });
-      } catch (err) {
-        alert(err.message || 'WebXR AR error');
-      }
+      enterAR((isAR) => {
+        if (dom.xrLabel) dom.xrLabel.textContent = isAR ? 'Exit AR' : 'AR';
+      }).catch((err) => {
+        console.warn('WebXR AR entry rejected:', err);
+      });
     };
   }
 
