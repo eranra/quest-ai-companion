@@ -6,15 +6,14 @@ export function createStudyHallSpace() {
   const group = new THREE.Group();
 
   // 1. 360° Photorealistic Equirectangular Spherical Panorama
-  // Scale 16m matches human room scale and prevents "giant room / floating avatar" distortion
-  const sphereGeo = new THREE.SphereGeometry(16, 60, 40);
-  sphereGeo.scale(-1, 1, 1);
+  const sphereGeo = new THREE.SphereGeometry(60, 60, 40);
   const texLoader = new THREE.TextureLoader();
   const panoTexture = texLoader.load('assets/spaces/hall.jpg');
-  panoTexture.encoding = THREE.sRGBEncoding;
+  panoTexture.colorSpace = THREE.SRGBColorSpace;
 
   const sphereMat = new THREE.MeshBasicMaterial({
     map: panoTexture,
+    side: THREE.BackSide,
     depthWrite: false
   });
   const skyDome = new THREE.Mesh(sphereGeo, sphereMat);

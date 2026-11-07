@@ -6,14 +6,14 @@ export function createGardenSpace() {
   const group = new THREE.Group();
 
   // 1. 360° Photorealistic Equirectangular Spherical Panorama
-  const sphereGeo = new THREE.SphereGeometry(20, 60, 40);
-  sphereGeo.scale(-1, 1, 1);
+  const sphereGeo = new THREE.SphereGeometry(60, 60, 40);
   const texLoader = new THREE.TextureLoader();
   const panoTexture = texLoader.load('assets/spaces/garden.jpg');
-  panoTexture.encoding = THREE.sRGBEncoding;
+  panoTexture.colorSpace = THREE.SRGBColorSpace;
 
   const sphereMat = new THREE.MeshBasicMaterial({
     map: panoTexture,
+    side: THREE.BackSide,
     depthWrite: false
   });
   const skyDome = new THREE.Mesh(sphereGeo, sphereMat);

@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.2",
-  "build": 23,
-  "released_at": "2026-11-07T21:55:00Z",
-  "changelog": "v0.3.2: Meta Quest 3 synchronous WebXR 360° VR & AR session activation (zero-await gesture preservation); client-side 16-bit PCM WAV audio encoder with direct Gemini Multimodal audio transcription & Whisper fallback; guaranteed microphone hardware release on speech completion & silence watchdog in regular mode; automatic Neural TTS fallback for Quest OS voice limitations (89 tests passing)."
+  "version": "v0.3.3",
+  "build": 24,
+  "released_at": "2026-11-07T22:20:00Z",
+  "changelog": "v0.3.3: Fixed Meta Quest 3 360° VR black screen and active session collision: inverted panorama rendering with THREE.BackSide, SRGBColorSpace, and 60m radius; re-entrancy lock and local reference space fallback on WebXR session creation; automatic WebXR avatar depth placement (1.8m in front of headset with thumbstick depth control)."
 }

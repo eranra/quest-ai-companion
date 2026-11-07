@@ -78,14 +78,20 @@ export function applyAvatarTransform() {
   if (!avatarGroup) return;
   // Apply Quest 3 / user scale, distance, and orientation
   avatarGroup.scale.setScalar(AppState.avatarScale);
-  avatarGroup.position.z = AppState.avatarDistance;
+
+  // In WebXR: User stands at (0, 0, 0) looking down -Z axis.
+  // The avatar stands comfortably in front of the user (at -1.8m + thumbstick adjustment).
+  // In 2D: Camera is at +2.2m looking at (0, 1, 0), so avatar stands at 0.0m + adjustment.
+  const isXR = renderer && renderer.xr && renderer.xr.isPresenting;
+  const baseZ = isXR ? -1.8 : 0.0;
+  avatarGroup.position.z = baseZ - AppState.avatarDistance;
   avatarGroup.rotation.y = AppState.avatarRotationY;
 
   if (hudElement) {
     const scaleVal = hudElement.querySelector('#hud-scale-val');
     const distVal = hudElement.querySelector('#hud-dist-val');
     if (scaleVal) scaleVal.textContent = `${AppState.avatarScale.toFixed(2)}x`;
-    if (distVal) distVal.textContent = `${(1.5 + AppState.avatarDistance).toFixed(2)}m`;
+    if (distVal) distVal.textContent = `${(1.8 + AppState.avatarDistance).toFixed(2)}m`;
   }
 }
 
@@ -115,12 +121,20 @@ export async function toggleWebXR(onSessionChange, mode = 'vr') {
   return toggleXR(renderer, scene, onSessionChange, mode);
 }
 
-export async function enterVR(onSessionChange) {
-  return xrEnterVR(renderer, scene, onSessionChange);
+export function enterVR(onSessionChange) {
+  const wrappedCb = (isVR, mode) => {
+    applyAvatarTransform();
+    if (onSessionChange) onSessionChange(isVR, mode);
+  };
+  return xrEnterVR(renderer, scene, wrappedCb);
 }
 
-export async function enterAR(onSessionChange) {
-  return xrEnterAR(renderer, scene, onSessionChange);
+export function enterAR(onSessionChange) {
+  const wrappedCb = (isAR, mode) => {
+    applyAvatarTransform();
+    if (onSessionChange) onSessionChange(isAR, mode);
+  };
+  return xrEnterAR(renderer, scene, wrappedCb);
 }
 
 export function toggleFullscreen() {

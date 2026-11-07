@@ -6,6 +6,7 @@ import { unlockAudio } from '../audio.js';
 import { setSpaceVisibility } from '../spaces/index.js';
 
 let xrSession = null;
+let isEnteringXR = false;
 let xrControllers = [];
 
 export function setupXRControllers(scene, renderer) {
@@ -39,7 +40,7 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
       if (source.handedness === 'right') {
         // Right stick Y controls distance (back and forth)
         AppState.avatarDistance += stickY * delta * 1.5;
-        AppState.avatarDistance = Math.max(-1.0, Math.min(3.5, AppState.avatarDistance));
+        AppState.avatarDistance = Math.max(-1.5, Math.min(2.5, AppState.avatarDistance));
         changed = true;
       } else if (source.handedness === 'left') {
         // Left stick Y controls size (scale up and down)
@@ -82,6 +83,13 @@ export function enterVR(renderer, scene, onSessionChange) {
     return Promise.resolve(null);
   }
 
+  if (isEnteringXR) {
+    console.log('WebXR entry already in progress, ignoring duplicate trigger.');
+    return Promise.resolve(null);
+  }
+
+  isEnteringXR = true;
+
   // Ensure 360 photorealistic dome space is visible
   setSpaceVisibility(true);
 
@@ -94,39 +102,40 @@ export function enterVR(renderer, scene, onSessionChange) {
   return navigator.xr.requestSession('immersive-vr', sessionInit)
     .then(async (session) => {
       xrSession = session;
-      await renderer.xr.setSession(session);
+      isEnteringXR = false;
 
       session.addEventListener('end', () => {
         xrSession = null;
+        isEnteringXR = false;
         setSpaceVisibility(true);
         if (onSessionChange) onSessionChange(false, 'vr');
       });
 
+      try {
+        await renderer.xr.setSession(session);
+      } catch (xrErr) {
+        console.warn('Primary reference space setSession failed, attempting local reference space fallback:', xrErr);
+        try {
+          renderer.xr.setReferenceSpaceType('local');
+          await renderer.xr.setSession(session);
+        } catch (fatalErr) {
+          console.error('Fatal WebXR setSession error:', fatalErr);
+          session.end();
+          xrSession = null;
+          throw fatalErr;
+        }
+      }
+
       if (onSessionChange) onSessionChange(true, 'vr');
       return session;
     })
-    .catch((err1) => {
-      console.warn('immersive-vr with optional features failed, attempting minimal session:', err1);
-      // Fallback: minimal session without optional feature constraints
-      return navigator.xr.requestSession('immersive-vr')
-        .then(async (session) => {
-          xrSession = session;
-          await renderer.xr.setSession(session);
-
-          session.addEventListener('end', () => {
-            xrSession = null;
-            setSpaceVisibility(true);
-            if (onSessionChange) onSessionChange(false, 'vr');
-          });
-
-          if (onSessionChange) onSessionChange(true, 'vr');
-          return session;
-        })
-        .catch((err2) => {
-          console.error('WebXR VR request failed:', err2);
-          alert(`Could not launch 360° VR: ${err2.message}\nMake sure you are viewing this page inside the Meta Quest Browser on Meta Quest 3.`);
-          throw err2;
-        });
+    .catch((err) => {
+      isEnteringXR = false;
+      console.error('WebXR VR request failed:', err);
+      if (!xrSession) {
+        alert(`Could not launch 360° VR: ${err.message}\nMake sure you are viewing this page inside the Meta Quest Browser on Meta Quest 3.`);
+      }
+      throw err;
     });
 }
 
@@ -151,6 +160,13 @@ export function enterAR(renderer, scene, onSessionChange) {
     return Promise.resolve(null);
   }
 
+  if (isEnteringXR) {
+    console.log('WebXR AR entry already in progress, ignoring duplicate trigger.');
+    return Promise.resolve(null);
+  }
+
+  isEnteringXR = true;
+
   const sessionInit = {
     optionalFeatures: ['local-floor', 'hit-test', 'hand-tracking']
   };
@@ -158,44 +174,43 @@ export function enterAR(renderer, scene, onSessionChange) {
   return navigator.xr.requestSession('immersive-ar', sessionInit)
     .then(async (session) => {
       xrSession = session;
+      isEnteringXR = false;
       scene.background = null;
       setSpaceVisibility(false);
-      await renderer.xr.setSession(session);
 
       session.addEventListener('end', () => {
         xrSession = null;
+        isEnteringXR = false;
         scene.background = new THREE.Color(0x05070f);
         setSpaceVisibility(true);
         if (onSessionChange) onSessionChange(false, 'ar');
       });
 
+      try {
+        await renderer.xr.setSession(session);
+      } catch (xrErr) {
+        console.warn('AR setSession failed, attempting local fallback:', xrErr);
+        try {
+          renderer.xr.setReferenceSpaceType('local');
+          await renderer.xr.setSession(session);
+        } catch (fatalErr) {
+          console.error('Fatal WebXR AR setSession error:', fatalErr);
+          session.end();
+          xrSession = null;
+          throw fatalErr;
+        }
+      }
+
       if (onSessionChange) onSessionChange(true, 'ar');
       return session;
     })
-    .catch((err1) => {
-      console.warn('immersive-ar with features failed, attempting minimal:', err1);
-      return navigator.xr.requestSession('immersive-ar')
-        .then(async (session) => {
-          xrSession = session;
-          scene.background = null;
-          setSpaceVisibility(false);
-          await renderer.xr.setSession(session);
-
-          session.addEventListener('end', () => {
-            xrSession = null;
-            scene.background = new THREE.Color(0x05070f);
-            setSpaceVisibility(true);
-            if (onSessionChange) onSessionChange(false, 'ar');
-          });
-
-          if (onSessionChange) onSessionChange(true, 'ar');
-          return session;
-        })
-        .catch((err2) => {
-          console.error('WebXR AR request failed:', err2);
-          alert(`Passthrough AR error: ${err2.message}`);
-          throw err2;
-        });
+    .catch((err) => {
+      isEnteringXR = false;
+      console.error('WebXR AR request failed:', err);
+      if (!xrSession) {
+        alert(`Passthrough AR error: ${err.message}`);
+      }
+      throw err;
     });
 }
 
