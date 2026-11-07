@@ -1,7 +1,33 @@
-// Audio Module Facade & Web Audio Unlocker
+// Audio Subsystem Facade & Engine Router (Dual-Engine: Native vs Local Neural Models)
+import { AppState } from '../state.js';
 import { initMicAnalyser, stopMicAnalyser, getAudioContext } from './vad.js';
-import { speakReply, stopSpeaking, isSelfEcho, setLipSyncCallback } from './tts.js';
-import { initSpeechRecognition, startListening, stopListening, setLiveMode } from './speech.js';
+import {
+  speakReply as nativeSpeakReply,
+  stopSpeaking as nativeStopSpeaking,
+  isSelfEcho,
+  setLipSyncCallback as setNativeLipSyncCallback,
+  getSpokenRegistry
+} from './tts.js';
+import {
+  initSpeechRecognition as nativeInitSpeechRecognition,
+  startListening as nativeStartListening,
+  stopListening as nativeStopListening,
+  setLiveMode as nativeSetLiveMode
+} from './speech.js';
+import {
+  initWhisper,
+  startListeningWhisper,
+  stopListeningWhisper,
+  setWhisperHandlers,
+  isWhisperReady
+} from './whisper.js';
+import {
+  initNeuralTTS,
+  speakNeuralTTS,
+  stopNeuralTTS,
+  setNeuralLipSyncCallback,
+  isNeuralTTSReady
+} from './neural_tts.js';
 
 let audioUnlocked = false;
 
@@ -17,7 +43,6 @@ export function unlockAudio() {
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
-      // Prime mobile audio pipeline with an inaudible 0.01s utterance if idle
       if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
         const dummy = new SpeechSynthesisUtterance(' ');
         dummy.volume = 0.01;
@@ -28,15 +53,76 @@ export function unlockAudio() {
   } catch (e) {}
 }
 
+/**
+ * Initializes speech recognition handlers across both Native and Whisper engines
+ */
+export function initSpeechRecognition(handlers) {
+  nativeInitSpeechRecognition(handlers);
+  setWhisperHandlers(handlers);
+  return true;
+}
+
+/**
+ * Starts listening using active STT engine (Whisper WebGPU vs Browser Native)
+ */
+export function startListening() {
+  if (AppState.sttEngine === 'whisper') {
+    startListeningWhisper();
+  } else {
+    nativeStartListening();
+  }
+}
+
+/**
+ * Stops listening and releases hardware across active engines
+ */
+export function stopListening() {
+  stopListeningWhisper();
+  nativeStopListening();
+}
+
+/**
+ * Updates Live Mode state across active engines
+ */
+export function setLiveMode(enabled) {
+  nativeSetLiveMode(enabled);
+}
+
+/**
+ * Speaks AI reply using active TTS engine (Neural Web Audio vs Browser OS voices)
+ */
+export function speakReply(text, onComplete) {
+  if (AppState.ttsEngine === 'neural') {
+    speakNeuralTTS(text, onComplete);
+  } else {
+    nativeSpeakReply(text, onComplete);
+  }
+}
+
+/**
+ * Halts speaking immediately across both Native and Neural TTS engines
+ */
+export function stopSpeaking() {
+  stopNeuralTTS();
+  nativeStopSpeaking();
+}
+
+/**
+ * Registers 3D avatar lip-sync mouth animation callback
+ */
+export function setLipSyncCallback(cb) {
+  setNativeLipSyncCallback(cb);
+  setNeuralLipSyncCallback(cb);
+}
+
 export {
   initMicAnalyser,
   stopMicAnalyser,
-  speakReply,
-  stopSpeaking,
+  getAudioContext,
   isSelfEcho,
-  setLipSyncCallback,
-  initSpeechRecognition,
-  startListening,
-  stopListening,
-  setLiveMode
+  getSpokenRegistry,
+  initWhisper,
+  isWhisperReady,
+  initNeuralTTS,
+  isNeuralTTSReady
 };

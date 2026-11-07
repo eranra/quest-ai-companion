@@ -29,6 +29,10 @@ export const AppState = {
   // Acoustic Anti-Self-Echo Guard ('smart', 'half_duplex', 'off')
   echoGuardMode: localStorage.getItem('quest_echo_guard') || 'smart',
 
+  // Voice Engines (Native OS vs Downloaded Neural Models)
+  sttEngine: localStorage.getItem('quest_stt_engine') || 'native', // 'native' or 'whisper'
+  ttsEngine: localStorage.getItem('quest_tts_engine') || 'native', // 'native' or 'neural'
+
   save() {
     localStorage.setItem('quest_engine', this.engine);
     localStorage.setItem('quest_local_model', this.localModel);
@@ -41,5 +45,7 @@ export const AppState = {
     localStorage.setItem('quest_avatar_roty', this.avatarRotationY.toFixed(4));
     localStorage.setItem('quest_live_sensitivity', this.liveSensitivity);
     localStorage.setItem('quest_echo_guard', this.echoGuardMode);
+    localStorage.setItem('quest_stt_engine', this.sttEngine);
+    localStorage.setItem('quest_tts_engine', this.ttsEngine);
   }
 };

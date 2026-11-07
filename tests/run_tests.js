@@ -244,6 +244,34 @@ async function runTestSuite() {
                     assert('Live mode sets AppState.isLiveMode = true', AppState.isLiveMode === true);
                     setLiveMode(false); // Reset to regular mode
 
+                    // 5F: Local Neural Voice Models (Whisper STT & Neural TTS)
+                    const whisperModule = await import('./js/audio/whisper.js');
+                    const neuralTtsModule = await import('./js/audio/neural_tts.js');
+                    const audioSubsystem = await import('./js/audio/index.js');
+
+                    assert('audio/whisper.js exports initWhisper', typeof whisperModule.initWhisper === 'function');
+                    assert('audio/whisper.js exports startListeningWhisper', typeof whisperModule.startListeningWhisper === 'function');
+                    assert('audio/whisper.js exports stopListeningWhisper', typeof whisperModule.stopListeningWhisper === 'function');
+                    assert('audio/neural_tts.js exports initNeuralTTS', typeof neuralTtsModule.initNeuralTTS === 'function');
+                    assert('audio/neural_tts.js exports speakNeuralTTS', typeof neuralTtsModule.speakNeuralTTS === 'function');
+                    assert('audio/neural_tts.js exports stopNeuralTTS', typeof neuralTtsModule.stopNeuralTTS === 'function');
+                    assert('audio/index.js exports initWhisper', typeof audioSubsystem.initWhisper === 'function');
+                    assert('audio/index.js exports initNeuralTTS', typeof audioSubsystem.initNeuralTTS === 'function');
+
+                    const cfgSttEl = document.getElementById('cfg-stt-engine');
+                    const cfgTtsEl = document.getElementById('cfg-tts-engine');
+                    assert('Voice Input (STT) select exists in settings', !!cfgSttEl);
+                    assert('Voice Output (TTS) select exists in settings', !!cfgTtsEl);
+
+                    AppState.sttEngine = 'whisper';
+                    AppState.ttsEngine = 'neural';
+                    AppState.save();
+                    assert('AppState persists whisper and neural engines', localStorage.getItem('quest_stt_engine') === 'whisper' && localStorage.getItem('quest_tts_engine') === 'neural');
+                    // Reset to native
+                    AppState.sttEngine = 'native';
+                    AppState.ttsEngine = 'native';
+                    AppState.save();
+
                     // Test 6: Refactored AI Subsystem Modularization
                     const aiSubsystem = await import('./js/ai/index.js');
                     const aiForwarder = await import('./js/ai.js');

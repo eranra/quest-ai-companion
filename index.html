@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.2.9">
+  <link rel="stylesheet" href="css/styles.css?v=0.3.0">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.9</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.3.0</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -411,6 +411,42 @@
         <p class="help-hint">Multi-tier echo suppression & barge-in. Headphones provide the best full-duplex experience (same as Gemini Live). Without headphones, Smart AEC or Half-Duplex protects against speaker bleed.</p>
       </div>
 
+      <!-- Voice Input (STT) Engine Selection -->
+      <div class="form-group">
+        <label class="form-label">Voice Input (Speech-to-Text) Engine</label>
+        <select id="cfg-stt-engine" class="form-input">
+          <option value="native" selected>📱 Browser Native (Web Speech API - 0 MB, Instant - Default)</option>
+          <option value="whisper">🧠 Local Whisper Tiny (WebGPU / Neural ~39 MB - Zero System Beep!)</option>
+        </select>
+        <div id="whisper-loader-box" style="display: none; margin-top: 6px; padding: 6px 10px; background: rgba(30, 41, 59, 0.7); border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <button id="btn-download-whisper" type="button" class="action-btn" style="padding: 5px 12px; font-size: 11px; background: #6366f1;">
+              📥 Download Whisper (~39 MB)
+            </button>
+            <span id="whisper-status-label" style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Cached locally</span>
+          </div>
+        </div>
+        <p class="help-hint">Local Whisper runs 100% on-device via WebGPU, captures audio without Android's system mic beep, and enables true WebRTC echo cancellation.</p>
+      </div>
+
+      <!-- Voice Output (TTS) Engine Selection -->
+      <div class="form-group">
+        <label class="form-label">Voice Output (Text-to-Speech) Engine</label>
+        <select id="cfg-tts-engine" class="form-input">
+          <option value="native" selected>📱 Browser OS Voices (Instant, 0 MB - Default)</option>
+          <option value="neural">🧠 Local Neural TTS (Web Audio Direct Playback - Direct Sample Control)</option>
+        </select>
+        <div id="tts-loader-box" style="display: none; margin-top: 6px; padding: 6px 10px; background: rgba(30, 41, 59, 0.7); border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <button id="btn-download-tts" type="button" class="action-btn" style="padding: 5px 12px; font-size: 11px; background: #6366f1;">
+              📥 Download Neural TTS
+            </button>
+            <span id="tts-status-label" style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Cached locally</span>
+          </div>
+        </div>
+        <p class="help-hint">Local Neural TTS synthesizes raw audio directly into the browser's Web Audio graph with sample-level control.</p>
+      </div>
+
       <!-- Voice Selection -->
       <div class="form-group">
         <label class="form-label">Speech Synthesis Voice</label>
@@ -422,7 +458,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.2.9"></script>
+  <script type="module" src="js/app.js?v=0.3.0"></script>
 
 </body>
 </html>

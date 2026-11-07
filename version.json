@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.9",
-  "build": 20,
-  "released_at": "2026-11-07T16:35:00Z",
-  "changelog": "v0.2.9: Fixed Live Mode acoustic self-echo loop with multi-tier rolling spoken lexicon, phrase n-gram fingerprinting, post-speech grace period, novel-word user barge-in detection, verbal stop commands, and instant tap-to-interrupt (64 tests passing)."
+  "version": "v0.3.0",
+  "build": 21,
+  "released_at": "2026-11-07T20:10:00Z",
+  "changelog": "v0.3.0: Added optional on-device neural voice models: Whisper-tiny STT (zero-beep WebRTC recording with hardware AEC) and Neural Web Audio TTS; switchable in Settings with on-demand download (75 tests passing)."
 }

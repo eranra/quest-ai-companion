@@ -23,7 +23,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.2.9';
+export const APP_VERSION = 'v0.3.0';
 
 // DOM References
 const dom = {

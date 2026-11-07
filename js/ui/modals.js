@@ -2,7 +2,7 @@
 import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
-import { unlockAudio, speakReply } from '../audio/index.js';
+import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady } from '../audio/index.js';
 import { checkGeminiResponsiveness } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
@@ -36,7 +36,15 @@ export function initModals({ onEngineChange }) {
     sliderScale: document.getElementById('slider-scale'),
     sliderDist: document.getElementById('slider-dist'),
     valScale: document.getElementById('val-scale'),
-    valDist: document.getElementById('val-dist')
+    valDist: document.getElementById('val-dist'),
+    cfgSttEngine: document.getElementById('cfg-stt-engine'),
+    whisperLoaderBox: document.getElementById('whisper-loader-box'),
+    btnDownloadWhisper: document.getElementById('btn-download-whisper'),
+    whisperStatusLabel: document.getElementById('whisper-status-label'),
+    cfgTtsEngine: document.getElementById('cfg-tts-engine'),
+    ttsLoaderBox: document.getElementById('tts-loader-box'),
+    btnDownloadTts: document.getElementById('btn-download-tts'),
+    ttsStatusLabel: document.getElementById('tts-status-label')
   };
 
   // Sync active avatar card
@@ -173,6 +181,16 @@ export function initModals({ onEngineChange }) {
       if (dom.cfgSpaceSelect) dom.cfgSpaceSelect.value = AppState.spaceId;
       dom.cfgLiveSensitivity.value = AppState.liveSensitivity || 'normal';
       dom.cfgEchoGuard.value = AppState.echoGuardMode || 'smart';
+      if (dom.cfgSttEngine) {
+        dom.cfgSttEngine.value = AppState.sttEngine || 'native';
+        dom.whisperLoaderBox.style.display = dom.cfgSttEngine.value === 'whisper' ? 'block' : 'none';
+        dom.whisperStatusLabel.textContent = isWhisperReady() ? '✅ Whisper Ready' : 'Ready to download';
+      }
+      if (dom.cfgTtsEngine) {
+        dom.cfgTtsEngine.value = AppState.ttsEngine || 'native';
+        dom.ttsLoaderBox.style.display = dom.cfgTtsEngine.value === 'neural' ? 'block' : 'none';
+        dom.ttsStatusLabel.textContent = isNeuralTTSReady() ? '✅ Neural TTS Ready' : 'Ready to download';
+      }
       dom.sliderScale.value = AppState.avatarScale;
       dom.sliderDist.value = AppState.avatarDistance;
       dom.valScale.textContent = `${AppState.avatarScale.toFixed(2)}x`;
@@ -234,6 +252,66 @@ export function initModals({ onEngineChange }) {
     };
   }
 
+  // Voice Engine (STT: Whisper) Handlers
+  if (dom.cfgSttEngine) {
+    dom.cfgSttEngine.onchange = () => {
+      if (dom.whisperLoaderBox) {
+        dom.whisperLoaderBox.style.display = dom.cfgSttEngine.value === 'whisper' ? 'block' : 'none';
+      }
+    };
+  }
+
+  if (dom.btnDownloadWhisper) {
+    dom.btnDownloadWhisper.onclick = async () => {
+      unlockAudio();
+      dom.btnDownloadWhisper.disabled = true;
+      dom.whisperStatusLabel.textContent = 'Downloading Whisper-tiny (~39 MB)...';
+      dom.whisperStatusLabel.style.color = '#38bdf8';
+      try {
+        await initWhisper((report) => {
+          dom.whisperStatusLabel.textContent = report.text || `Loading (${report.progress}%)`;
+        });
+        dom.whisperStatusLabel.textContent = '✅ Whisper Ready!';
+        dom.whisperStatusLabel.style.color = '#10b981';
+      } catch (err) {
+        dom.whisperStatusLabel.textContent = `❌ Error: ${err.message}`;
+        dom.whisperStatusLabel.style.color = '#ef4444';
+      } finally {
+        dom.btnDownloadWhisper.disabled = false;
+      }
+    };
+  }
+
+  // Voice Engine (TTS: Neural) Handlers
+  if (dom.cfgTtsEngine) {
+    dom.cfgTtsEngine.onchange = () => {
+      if (dom.ttsLoaderBox) {
+        dom.ttsLoaderBox.style.display = dom.cfgTtsEngine.value === 'neural' ? 'block' : 'none';
+      }
+    };
+  }
+
+  if (dom.btnDownloadTts) {
+    dom.btnDownloadTts.onclick = async () => {
+      unlockAudio();
+      dom.btnDownloadTts.disabled = true;
+      dom.ttsStatusLabel.textContent = 'Downloading Neural TTS...';
+      dom.ttsStatusLabel.style.color = '#38bdf8';
+      try {
+        await initNeuralTTS((report) => {
+          dom.ttsStatusLabel.textContent = report.text || `Loading (${report.progress}%)`;
+        });
+        dom.ttsStatusLabel.textContent = '✅ Neural TTS Ready!';
+        dom.ttsStatusLabel.style.color = '#10b981';
+      } catch (err) {
+        dom.ttsStatusLabel.textContent = `❌ Error: ${err.message}`;
+        dom.ttsStatusLabel.style.color = '#ef4444';
+      } finally {
+        dom.btnDownloadTts.disabled = false;
+      }
+    };
+  }
+
   if (dom.sliderScale) {
     dom.sliderScale.oninput = (e) => {
       AppState.avatarScale = parseFloat(e.target.value);
@@ -273,6 +351,12 @@ export function initModals({ onEngineChange }) {
       }
       AppState.liveSensitivity = dom.cfgLiveSensitivity.value;
       AppState.echoGuardMode = dom.cfgEchoGuard.value;
+      if (dom.cfgSttEngine) {
+        AppState.sttEngine = dom.cfgSttEngine.value;
+      }
+      if (dom.cfgTtsEngine) {
+        AppState.ttsEngine = dom.cfgTtsEngine.value;
+      }
       if (dom.cfgVoiceSelect) {
         localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
       }
