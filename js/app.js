@@ -1,6 +1,6 @@
 // Main Application Orchestrator - Quest AI Companion
 import { AppState } from './state.js';
-import { initScene, avatarGroup, applyAvatarTransform } from './scene.js';
+import { initScene, avatarGroup, applyAvatarTransform, flipAvatarOrientation } from './scene.js';
 import { buildAvatar } from './avatars/index.js';
 import { generateAIResponse, initLocalWebLLM, checkGeminiResponsiveness } from './ai.js';
 import {
@@ -22,7 +22,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.2.7';
+export const APP_VERSION = 'v0.2.8';
 
 // DOM References
 const dom = {
@@ -180,6 +180,7 @@ function initApp() {
   dockController = initDock({
     appVersion: APP_VERSION,
     onSendPrompt: (prompt) => handleUserSpeech(prompt),
+    onTurnAvatar: () => flipAvatarOrientation(),
     onToggleLiveMode: () => {
       const nextMode = !AppState.isLiveMode;
       setLiveMode(nextMode);

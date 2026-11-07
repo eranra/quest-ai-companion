@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 const repoDir = path.resolve(__dirname, '..');
-const TEST_PORT = 8131;
-const CDP_PORT = 9345;
+const TEST_PORT = 8132;
+const CDP_PORT = 9346;
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
 const server = http.createServer((req, res) => {
@@ -55,9 +55,29 @@ async function capture() {
         const page = targets.find(t => t.type === 'page');
         const ws = new WebSocket(page.webSocketDebuggerUrl);
 
+        let callId = 10;
+        const pendingResolvers = new Map();
+
+        function sendCommand(method, params) {
+          const id = ++callId;
+          return new Promise(resolve => {
+            pendingResolvers.set(id, resolve);
+            ws.send(JSON.stringify({ id, method, params }));
+          });
+        }
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          if (msg.id && pendingResolvers.has(msg.id)) {
+            const resolver = pendingResolvers.get(msg.id);
+            pendingResolvers.delete(msg.id);
+            resolver(msg.result);
+          }
+        };
+
         ws.onopen = async () => {
-          ws.send(JSON.stringify({ id: 1, method: 'Runtime.enable' }));
-          ws.send(JSON.stringify({ id: 2, method: 'Page.enable' }));
+          await sendCommand('Runtime.enable');
+          await sendCommand('Page.enable');
 
           await new Promise(r => setTimeout(r, 2000));
 
@@ -65,65 +85,47 @@ async function capture() {
             { space: 'hall', avatar: 'maya' },
             { space: 'garden', avatar: 'alex' },
             { space: 'penthouse', avatar: 'echo' },
-            { space: 'cafe', avatar: 'pip' }
+            { space: 'cafe', avatar: 'pip' },
+            { space: 'hall', avatar: 'spark' },
+            { space: 'hall', avatar: 'ollie' }
           ];
 
-          for (let i = 0; i < scenes.length; i++) {
-            const sc = scenes[i];
-            ws.send(JSON.stringify({
-              id: 10 + i,
-              method: 'Runtime.evaluate',
-              params: {
-                expression: `
-                  (async () => {
-                    const { switchSpace } = await import('./js/spaces/index.js');
-                    const { buildAvatar } = await import('./js/avatars/index.js');
-                    const { avatarGroup } = await import('./js/scene.js');
-                    
-                    switchSpace('${sc.space}');
-                    buildAvatar('${sc.avatar}', avatarGroup);
-                    await new Promise(r => setTimeout(r, 1200));
-                  })()
-                `,
-                awaitPromise: true
-              }
-            }));
+          for (const sc of scenes) {
+            console.log(`Setting up scene: ${sc.space} with ${sc.avatar}...`);
+            await sendCommand('Runtime.evaluate', {
+              expression: `
+                (async () => {
+                  const { switchSpace } = await import('./js/spaces/index.js');
+                  const { buildAvatar } = await import('./js/avatars/index.js');
+                  const { avatarGroup } = await import('./js/scene.js');
+                  
+                  switchSpace('${sc.space}');
+                  buildAvatar('${sc.avatar}', avatarGroup);
+                  // Dismiss any speech bubble or error box so avatar is unobstructed
+                  const bubble = document.getElementById('ai-response-box');
+                  if (bubble) bubble.style.display = 'none';
+                  await new Promise(r => setTimeout(r, 2000));
+                })()
+              `,
+              awaitPromise: true
+            });
 
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 2500));
 
-            ws.send(JSON.stringify({
-              id: 100 + i,
-              method: 'Page.captureScreenshot',
-              params: { format: 'png' }
-            }));
-          }
-        };
-
-        let shotIndex = 0;
-        const scenes = [
-          { space: 'hall', avatar: 'maya' },
-          { space: 'garden', avatar: 'alex' },
-          { space: 'penthouse', avatar: 'echo' },
-          { space: 'cafe', avatar: 'pip' }
-        ];
-
-        ws.onmessage = (event) => {
-          const msg = JSON.parse(event.data);
-          if (msg.id >= 100 && msg.result && msg.result.data) {
-            const buffer = Buffer.from(msg.result.data, 'base64');
-            const sc = scenes[shotIndex++];
-            const outPath = path.join(__dirname, `v023_${sc.space}_${sc.avatar}.png`);
-            fs.writeFileSync(outPath, buffer);
-            console.log(`Saved screenshot: ${outPath} (${buffer.length} bytes)`);
-
-            if (shotIndex === scenes.length) {
-              console.log('All 4 visual screenshots captured successfully!');
-              ws.close();
-              chrome.kill();
-              server.close();
-              process.exit(0);
+            const screenshot = await sendCommand('Page.captureScreenshot', { format: 'png' });
+            if (screenshot && screenshot.data) {
+              const buffer = Buffer.from(screenshot.data, 'base64');
+              const outPath = path.join(__dirname, `avatar_${sc.avatar}.png`);
+              fs.writeFileSync(outPath, buffer);
+              console.log(`Saved screenshot: ${outPath} (${buffer.length} bytes)`);
             }
           }
+
+          console.log('All avatar screenshots captured!');
+          ws.close();
+          chrome.kill();
+          server.close();
+          process.exit(0);
         };
       });
     });

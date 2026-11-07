@@ -5,12 +5,13 @@ import { unlockAudio } from '../audio/index.js';
 
 let latestDetectedVersion = null;
 
-export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, appVersion }) {
+export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAvatar, appVersion }) {
   const dom = {
     promptInput: document.getElementById('prompt-input'),
     btnSend: document.getElementById('btn-send'),
     btnMic: document.getElementById('btn-mic'),
     btnLiveMode: document.getElementById('btn-live-mode'),
+    btnTurnAvatar: document.getElementById('btn-turn-avatar'),
     btnXr: document.getElementById('btn-xr'),
     xrLabel: document.getElementById('xr-label'),
     engineBadge: document.getElementById('engine-badge'),
@@ -58,6 +59,14 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, appVersi
     dom.btnLiveMode.onclick = () => {
       unlockAudio();
       if (onToggleLiveMode) onToggleLiveMode();
+    };
+  }
+
+  // Turn Avatar 180° Button
+  if (dom.btnTurnAvatar) {
+    dom.btnTurnAvatar.onclick = () => {
+      unlockAudio();
+      if (onTurnAvatar) onTurnAvatar();
     };
   }
 

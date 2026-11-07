@@ -68,9 +68,10 @@ export function initScene(container, hud) {
 
 export function applyAvatarTransform() {
   if (!avatarGroup) return;
-  // Apply Quest 3 / user scale and distance
+  // Apply Quest 3 / user scale, distance, and orientation
   avatarGroup.scale.setScalar(AppState.avatarScale);
   avatarGroup.position.z = AppState.avatarDistance;
+  avatarGroup.rotation.y = AppState.avatarRotationY;
 
   if (hudElement) {
     const scaleVal = hudElement.querySelector('#hud-scale-val');
@@ -78,6 +79,18 @@ export function applyAvatarTransform() {
     if (scaleVal) scaleVal.textContent = `${AppState.avatarScale.toFixed(2)}x`;
     if (distVal) distVal.textContent = `${(1.5 + AppState.avatarDistance).toFixed(2)}m`;
   }
+}
+
+export function flipAvatarOrientation() {
+  if (!avatarGroup) return 0;
+  AppState.avatarRotationY = (AppState.avatarRotationY + Math.PI) % (Math.PI * 2);
+  AppState.save();
+  applyAvatarTransform();
+  return AppState.avatarRotationY;
+}
+
+export function resetCameraView() {
+  applyCameraFraming(camera, controls, renderer);
 }
 
 export function applyResponsiveFraming() {

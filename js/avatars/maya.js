@@ -73,10 +73,10 @@ function buildProceduralMaya() {
   const headMesh = new THREE.Mesh(headGeo, matSkin);
   head.add(headMesh);
 
-  const hairGeo = new THREE.SphereGeometry(0.165, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.6);
+  const hairGeo = new THREE.SphereGeometry(0.165, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.48);
   hairGeo.scale(0.92, 1.15, 0.98);
   const hair = new THREE.Mesh(hairGeo, matHair);
-  hair.position.y = 0.02;
+  hair.position.y = 0.03;
   head.add(hair);
 
   const hairBun = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), matHair);
@@ -86,7 +86,7 @@ function buildProceduralMaya() {
   // Eyes
   const eyeGeo = new THREE.SphereGeometry(0.026, 16, 16);
   const eyeL = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  eyeL.position.set(-0.048, 0.02, 0.125);
+  eyeL.position.set(-0.048, 0.02, 0.14);
   eyeL.scale.set(1.0, 0.75, 0.5);
   head.add(eyeL);
   rig.eyeLeft = eyeL;
@@ -96,7 +96,7 @@ function buildProceduralMaya() {
   eyeL.add(rig.pupilLeft);
 
   const eyeR = new THREE.Mesh(eyeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  eyeR.position.set(0.048, 0.02, 0.125);
+  eyeR.position.set(0.048, 0.02, 0.14);
   eyeR.scale.set(1.0, 0.75, 0.5);
   head.add(eyeR);
   rig.eyeRight = eyeR;
@@ -108,20 +108,20 @@ function buildProceduralMaya() {
   // Eyebrows
   const browGeo = new THREE.BoxGeometry(0.045, 0.008, 0.005);
   const browL = new THREE.Mesh(browGeo, matHair);
-  browL.position.set(-0.05, 0.065, 0.135);
+  browL.position.set(-0.05, 0.065, 0.148);
   browL.rotation.z = -0.05;
   head.add(browL);
   rig.browLeft = browL;
 
   const browR = new THREE.Mesh(browGeo, matHair);
-  browR.position.set(0.05, 0.065, 0.135);
+  browR.position.set(0.05, 0.065, 0.148);
   browR.rotation.z = 0.05;
   head.add(browR);
   rig.browRight = browR;
 
   // Chin & Jaw
   const jaw = new THREE.Group();
-  jaw.position.set(0, -0.06, 0.06);
+  jaw.position.set(0, -0.06, 0.08);
   const chin = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), matSkin);
   chin.scale.set(0.9, 0.6, 0.9);
   jaw.add(chin);
@@ -130,7 +130,7 @@ function buildProceduralMaya() {
 
   const lipGeo = new THREE.BoxGeometry(0.055, 0.016, 0.02);
   const lips = new THREE.Mesh(lipGeo, matLips);
-  lips.position.set(0, -0.045, 0.14);
+  lips.position.set(0, -0.045, 0.15);
   head.add(lips);
   rig.mouth = lips;
 

@@ -90,6 +90,7 @@ async function runTestSuite() {
                     function assert(name, condition, extra = '') {
                       results.push({ name, pass: !!condition, extra });
                     }
+                    try {
 
                     // Test 1: DOM Elements exist
                     assert('Top Bar exists', document.querySelector('.top-bar'));
@@ -265,6 +266,24 @@ async function runTestSuite() {
                     sceneCamera.applyResponsiveFraming(dummyCam, dummyControls, dummyRenderer);
                     assert('Landscape camera framing sets z ~ 2.2m', Math.abs(dummyCam.position.z - 2.2) < 0.05);
 
+                    // Test 8: Avatar Orientation & Flip 180° Controls
+                    const btnTurn = document.getElementById('btn-turn-avatar');
+                    const btnModalTurn = document.getElementById('btn-modal-turn-avatar');
+                    const btnModalRecenter = document.getElementById('btn-modal-recenter-cam');
+                    assert('Turn Avatar 180° button exists in top bar', !!btnTurn);
+                    assert('Turn Avatar 180° button exists in Avatars Modal', !!btnModalTurn);
+                    assert('Re-center Camera button exists in Avatars Modal', !!btnModalRecenter);
+
+                    const { flipAvatarOrientation } = await import('./js/scene/index.js');
+                    const initialRot = avatarGroup.rotation.y;
+                    flipAvatarOrientation();
+                    assert('flipAvatarOrientation adds PI (180 deg) rotation', Math.abs(Math.abs(avatarGroup.rotation.y - initialRot) - Math.PI) < 0.01);
+                    flipAvatarOrientation();
+                    assert('flipAvatarOrientation rotates back to original', Math.abs(avatarGroup.rotation.y - initialRot) < 0.01);
+
+                    } catch (err) {
+                      assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
+                    }
                     return results;
                   })()
                 `,

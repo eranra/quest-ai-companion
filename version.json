@@ -1,6 +1,6 @@
 {
-  "version": "v0.2.7",
-  "build": 18,
-  "released_at": "2026-11-07T12:45:00Z",
-  "changelog": "v0.2.7: Refactored and modularized AI and Scene subsystems into dedicated functional modules (js/ai/local.js, js/ai/gemini.js, js/ai/index.js, js/scene/camera.js, js/scene/xr.js, js/scene/index.js) with backwards-compatible forwarders and 52 comprehensive automated regression tests."
+  "version": "v0.2.8",
+  "build": 19,
+  "released_at": "2026-11-07T16:00:00Z",
+  "changelog": "v0.2.8: Fixed avatar forward-facing orientation for Maya procedural placeholder and humanoid models; added 🔄 180° avatar flip toggle and camera re-centering controls with persistence; expanded automated test suite (57 tests passing)."
 }

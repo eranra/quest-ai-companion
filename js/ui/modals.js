@@ -1,7 +1,7 @@
 // UI Controllers for Settings, Space Selection, and Avatar Selection Modals
 import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
-import { avatarGroup, applyAvatarTransform } from '../scene.js';
+import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
 import { unlockAudio, speakReply } from '../audio/index.js';
 import { checkGeminiResponsiveness } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
@@ -110,6 +110,22 @@ export function initModals({ onEngineChange }) {
       applyAvatarTransform();
       dom.modalAvatars.classList.remove('open');
       speakReply(`Hello! I am now ready as your companion.`);
+    };
+  }
+
+  const btnModalTurn = document.getElementById('btn-modal-turn-avatar');
+  if (btnModalTurn) {
+    btnModalTurn.onclick = () => {
+      unlockAudio();
+      flipAvatarOrientation();
+    };
+  }
+
+  const btnModalRecenter = document.getElementById('btn-modal-recenter-cam');
+  if (btnModalRecenter) {
+    btnModalRecenter.onclick = () => {
+      unlockAudio();
+      resetCameraView();
     };
   }
 

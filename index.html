@@ -14,7 +14,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.2.7">
+  <link rel="stylesheet" href="css/styles.css?v=0.2.8">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -57,7 +57,7 @@
       <div class="brand">
         <div class="brand-logo"></div>
         <div class="brand-title">Quest AI Companion</div>
-        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.7</div>
+        <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.2.8</div>
         <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
       </div>
 
@@ -74,6 +74,10 @@
 
         <button id="btn-spaces" class="icon-btn" title="Choose 3D Space / Environment">
           <span style="font-size: 16px;">🏛️</span>
+        </button>
+
+        <button id="btn-turn-avatar" class="icon-btn" title="Turn Avatar 180° (Face Front / Back)">
+          <span style="font-size: 15px;">🔄</span>
         </button>
 
         <button id="btn-xr" class="icon-btn" title="Enter WebXR / AR Passthrough">
@@ -232,6 +236,16 @@
             <div class="avatar-desc">Human proportions, denim, conversational gestures</div>
           </div>
         </div>
+      </div>
+
+      <!-- Avatar Facing Orientation & Framing Controls -->
+      <div style="display: flex; gap: 8px; margin-top: 12px;">
+        <button id="btn-modal-turn-avatar" class="action-btn" style="flex: 1; justify-content: center; padding: 10px; font-size: 12px; background: rgba(30, 41, 59, 0.9);">
+          🔄 Turn 180° (Face Front)
+        </button>
+        <button id="btn-modal-recenter-cam" class="action-btn" style="flex: 1; justify-content: center; padding: 10px; font-size: 12px; background: rgba(30, 41, 59, 0.9);">
+          📷 Re-Center Camera
+        </button>
       </div>
 
       <button id="btn-confirm-avatar" class="action-btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 10px;">Save & Switch Avatar</button>
@@ -408,7 +422,7 @@
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.2.7"></script>
+  <script type="module" src="js/app.js?v=0.2.8"></script>
 
 </body>
 </html>

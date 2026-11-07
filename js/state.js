@@ -21,6 +21,7 @@ export const AppState = {
   // Avatar Transform (Controlled by Quest 3 thumbstick / UI)
   avatarDistance: parseFloat(localStorage.getItem('quest_avatar_dist') || '0.0'),
   avatarScale: parseFloat(localStorage.getItem('quest_avatar_scale') || '1.0'),
+  avatarRotationY: parseFloat(localStorage.getItem('quest_avatar_roty') || '0.0'),
   
   // Live Mode Sensitivity / Noise Threshold ('high_filter', 'normal', 'sensitive')
   liveSensitivity: localStorage.getItem('quest_live_sensitivity') || 'normal',
@@ -37,6 +38,7 @@ export const AppState = {
     localStorage.setItem('quest_live_mode', this.isLiveMode ? 'true' : 'false');
     localStorage.setItem('quest_avatar_dist', this.avatarDistance.toFixed(2));
     localStorage.setItem('quest_avatar_scale', this.avatarScale.toFixed(2));
+    localStorage.setItem('quest_avatar_roty', this.avatarRotationY.toFixed(4));
     localStorage.setItem('quest_live_sensitivity', this.liveSensitivity);
     localStorage.setItem('quest_echo_guard', this.echoGuardMode);
   }
