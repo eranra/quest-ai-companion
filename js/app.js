@@ -37,7 +37,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.6';
+export const APP_VERSION = 'v0.3.7';
 
 // DOM References
 const dom = {
@@ -70,8 +70,8 @@ async function handleUserSpeech(userText) {
     return;
   }
 
-  // If in regular mode (Live Mode OFF): ensure mic is stopped and closed
-  if (!AppState.isLiveMode) {
+  // In Half-Duplex mode or Regular mode: ensure mic is stopped and closed while AI is analyzing & speaking!
+  if (!AppState.isLiveMode || AppState.echoGuardMode === 'half_duplex') {
     stopListening();
     stopMicAnalyser();
   }
@@ -100,14 +100,18 @@ async function handleUserSpeech(userText) {
     speakReply(reply, () => {
       // Completed speaking reply:
       if (AppState.isLiveMode) {
-        // In Live Mode: automatically resume continuous listening!
-        setPipelineState('listening', 'Live Mode: Listening...');
-        updateVRHUDState({ status: 'Live Mode: Listening...' });
-        initMicAnalyser((level) => {
-          updateMicLevel(level);
-          updateVRHUDState({ volume: level });
-        });
-        startListening();
+        // Small acoustic cooldown (350ms) to ensure speaker audio is completely silent
+        setTimeout(() => {
+          if (AppState.isLiveMode) {
+            setPipelineState('listening', 'Live Mode: Listening...');
+            updateVRHUDState({ status: 'Live Mode: Listening...' });
+            initMicAnalyser((level) => {
+              updateMicLevel(level);
+              updateVRHUDState({ volume: level });
+            });
+            startListening();
+          }
+        }, 350);
       } else {
         // In Regular Mode (Live Mode OFF): return to idle and KEEP MIC CLOSED!
         setPipelineState('idle');

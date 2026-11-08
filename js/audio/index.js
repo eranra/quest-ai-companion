@@ -86,7 +86,13 @@ export function stopListening(finalize = false) {
  * Updates Live Mode state across active engines
  */
 export function setLiveMode(enabled) {
-  nativeSetLiveMode(enabled);
+  AppState.isLiveMode = enabled;
+  if (AppState.sttEngine === 'whisper') {
+    // When using Whisper STT, ensure Native SpeechRecognition is completely stopped
+    nativeStopListening();
+  } else {
+    nativeSetLiveMode(enabled);
+  }
 }
 
 /**

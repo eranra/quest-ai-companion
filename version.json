@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.6",
-  "build": 27,
-  "released_at": "2026-11-08T10:00:00Z",
-  "changelog": "v0.3.6: Fixed on-device Whisper STT: 1) Replaced audio looping with silent zero-gain mute node to prevent feedback loops; 2) Adjusted voice detection threshold from 0.02 to 0.007 with adaptive sensitivity; 3) Added 350ms pre-speech rolling audio ring buffer to preserve leading phonemes; 4) Fixed acoustic echo guard false rejections when assistant is silent; 5) Push-to-talk auto-finalize when tapping mic button; 6) Added clear transcription progress status."
+  "version": "v0.3.7",
+  "build": 28,
+  "released_at": "2026-11-08T10:15:00Z",
+  "changelog": "v0.3.7: Fixed Live Mode click-click issue and perfected Half-Duplex pipeline: 1) Eliminated Android system click-click sound by completely preventing native SpeechRecognition from restarting when Whisper STT is selected; 2) Enforced strict Half-Duplex lifecycle where microphone is strictly CLOSED while Whisper is transcribing, AI is analyzing, and avatar is speaking; 3) Re-opens listening automatically after speech finishes in Live Mode; 4) Zero regressions in Regular mode."
 }

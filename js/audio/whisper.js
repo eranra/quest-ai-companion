@@ -329,8 +329,8 @@ async function finalizeWhisperTranscription() {
   let totalLength = 0;
   for (const c of currentChunks) totalLength += c.length;
 
-  // In Regular Mode: immediately release microphone hardware!
-  if (!AppState.isLiveMode) {
+  // In Half-Duplex mode or Regular mode: immediately release microphone hardware while Whisper transcribes!
+  if (!AppState.isLiveMode || AppState.echoGuardMode === 'half_duplex') {
     stopListeningWhisper(false);
   }
 
@@ -395,7 +395,16 @@ async function finalizeWhisperTranscription() {
     if (!transcript) {
       console.log('No speech detected in audio stream.');
       if (AppState.isLiveMode) {
-        if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
+        if (AppState.echoGuardMode === 'half_duplex') {
+          setTimeout(() => {
+            if (AppState.isLiveMode && !AppState.isSpeaking && !AppState.isGenerating) {
+              startListeningWhisper();
+              if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
+            }
+          }, 350);
+        } else {
+          if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
+        }
       } else {
         if (onStatusChangeCallback) onStatusChangeCallback('idle', 'No speech recognized. Tap to try again.');
       }

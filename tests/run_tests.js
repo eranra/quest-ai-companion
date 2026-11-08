@@ -274,6 +274,12 @@ async function runTestSuite() {
                     assert('Voice Input (STT) select exists in settings', !!cfgSttEl);
                     assert('Voice Output (TTS) select exists in settings', !!cfgTtsEl);
 
+                    // Verify whisper engine prevents native speech recognition from starting
+                    const nativeSpeechModule = await import('./js/audio/speech.js');
+                    AppState.sttEngine = 'whisper';
+                    nativeSpeechModule.startListening();
+                    assert('Native SpeechRecognition does not start when Whisper STT is active', AppState.isListening === false);
+
                     AppState.sttEngine = 'whisper';
                     AppState.ttsEngine = 'neural';
                     AppState.save();

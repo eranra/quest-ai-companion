@@ -250,12 +250,12 @@ export function initSpeechRecognition(handlers) {
       }
     }
 
-    // Live Mode: automatically maintain continuous listening session
-    if (AppState.isLiveMode && !isExplicitlyStopped) {
+    // Live Mode: automatically maintain continuous listening session ONLY for native STT engine
+    if (AppState.isLiveMode && !isExplicitlyStopped && AppState.sttEngine === 'native') {
       if (restartBackoffTimer) clearTimeout(restartBackoffTimer);
       const delay = AppState.isSpeaking ? 500 : 200;
       restartBackoffTimer = setTimeout(() => {
-        if (AppState.isLiveMode && !isExplicitlyStopped) {
+        if (AppState.isLiveMode && !isExplicitlyStopped && AppState.sttEngine === 'native') {
           try {
             recognition.continuous = true;
             recognition.start();
@@ -276,6 +276,7 @@ export function initSpeechRecognition(handlers) {
 }
 
 export function startListening() {
+  if (AppState.sttEngine !== 'native') return;
   isExplicitlyStopped = false;
   currentTranscript = '';
   if (silenceTimer) clearTimeout(silenceTimer);
@@ -323,6 +324,11 @@ export function stopListening() {
 export function setLiveMode(enabled) {
   AppState.isLiveMode = enabled;
   AppState.save();
+
+  if (AppState.sttEngine !== 'native') {
+    stopListening();
+    return;
+  }
 
   if (enabled) {
     isExplicitlyStopped = false;
