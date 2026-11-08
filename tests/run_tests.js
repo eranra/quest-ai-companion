@@ -382,6 +382,23 @@ async function runTestSuite() {
                     assert('pipeline.js exports isSpeechBubbleCollapsed', typeof isSpeechBubbleCollapsed === 'function');
                     assert('pipeline.js exports setBubbleCollapsed', typeof setBubbleCollapsed === 'function');
 
+                    // Test 5H: Sentence-by-Sentence Streaming & Character Voice Alignment
+                    assert('neural_tts exports splitIntoSentences', typeof neuralTtsModule.splitIntoSentences === 'function');
+                    assert('neural_tts exports getActiveVoiceId', typeof neuralTtsModule.getActiveVoiceId === 'function');
+                    assert('neural_tts exports setActiveVoiceId', typeof neuralTtsModule.setActiveVoiceId === 'function');
+                    assert('neural_tts exports PIPER_VOICE_CONFIGS', typeof neuralTtsModule.PIPER_VOICE_CONFIGS === 'object');
+                    assert('neural_tts exports AVATAR_DEFAULT_VOICES', typeof neuralTtsModule.AVATAR_DEFAULT_VOICES === 'object');
+
+                    const sentenceParts = neuralTtsModule.splitIntoSentences('Hello Eran! This is sentence two. And here is sentence three?');
+                    assert('splitIntoSentences splits into 3 parts', sentenceParts.length === 3, 'Length: ' + sentenceParts.length);
+
+                    const { getDefaultVoiceForAvatar } = await import('./js/avatars/index.js');
+                    assert('Maya default voice is Amy Female', getDefaultVoiceForAvatar('maya') === 'en_US-amy-low');
+                    assert('Alex default voice is Ryan Male', getDefaultVoiceForAvatar('alex') === 'en_US-ryan-low');
+                    assert('Ollie default voice is Ryan Male', getDefaultVoiceForAvatar('ollie') === 'en_US-ryan-low');
+                    assert('Pip default voice is Kathleen Female', getDefaultVoiceForAvatar('pip') === 'en_US-kathleen-low');
+                    assert('Echo default voice is Lessac Neutral', getDefaultVoiceForAvatar('echo') === 'en_US-lessac-low');
+
                     // Test 6: Refactored AI Subsystem Modularization
                     const aiSubsystem = await import('./js/ai/index.js');
                     const aiForwarder = await import('./js/ai.js');

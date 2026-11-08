@@ -27,7 +27,13 @@ import {
   stopNeuralTTS,
   setNeuralLipSyncCallback,
   isNeuralTTSReady,
-  isNeuralTTSLoading
+  isNeuralTTSLoading,
+  splitIntoSentences,
+  getActiveVoiceId,
+  setActiveVoiceId,
+  PIPER_VOICE_CONFIGS,
+  AVATAR_DEFAULT_VOICES,
+  getDefaultVoiceForAvatar
 } from './neural_tts.js';
 
 let audioUnlocked = false;
@@ -145,5 +151,11 @@ export {
   isWhisperReady,
   initNeuralTTS,
   isNeuralTTSReady,
-  isNeuralTTSLoading
+  isNeuralTTSLoading,
+  splitIntoSentences,
+  getActiveVoiceId,
+  setActiveVoiceId,
+  PIPER_VOICE_CONFIGS,
+  AVATAR_DEFAULT_VOICES,
+  getDefaultVoiceForAvatar
 };

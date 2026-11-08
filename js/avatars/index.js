@@ -6,6 +6,21 @@ import { buildOllieBot } from './ollie.js';
 import { buildMayaHumanoid } from './maya.js';
 import { buildAlexHumanoid } from './alex.js';
 
+export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
+
+export const AVATAR_DEFAULT_VOICES = {
+  echo: 'en_US-lessac-low',
+  spark: 'en_US-danny-low',
+  pip: 'en_US-kathleen-low',
+  ollie: 'en_US-ryan-low',
+  maya: 'en_US-amy-low',
+  alex: 'en_US-ryan-low'
+};
+
+export function getDefaultVoiceForAvatar(avatarId) {
+  return AVATAR_DEFAULT_VOICES[avatarId] || 'en_US-lessac-low';
+}
+
 export function buildAvatar(avatarId, avatarGroup) {
   // Clear previous meshes
   while (avatarGroup.children.length > 0) {
@@ -39,14 +54,18 @@ export function buildAvatar(avatarId, avatarGroup) {
   groundAvatar(avatarGroup);
 }
 
-export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
-
-export function cycleAvatar(direction = 1, avatarGroup) {
+export function cycleAvatar(direction = 1, avatarGroup, onAvatarChange) {
   const currentId = localStorage.getItem('quest_avatar_id') || 'echo';
   const index = AVATAR_IDS.indexOf(currentId);
   const nextIndex = (index + direction + AVATAR_IDS.length) % AVATAR_IDS.length;
   const nextId = AVATAR_IDS[nextIndex];
   localStorage.setItem('quest_avatar_id', nextId);
   buildAvatar(nextId, avatarGroup);
+
+  // Automatically align default voice to avatar gender/personality
+  const defaultVoice = getDefaultVoiceForAvatar(nextId);
+  localStorage.setItem('quest_voice_name', defaultVoice);
+
+  if (onAvatarChange) onAvatarChange(nextId, defaultVoice);
   return nextId;
 }

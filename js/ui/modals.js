@@ -2,7 +2,7 @@
 import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
-import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady } from '../audio/index.js';
+import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady, PIPER_VOICE_CONFIGS, getActiveVoiceId, getDefaultVoiceForAvatar } from '../audio/index.js';
 import { checkGeminiResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
@@ -66,36 +66,58 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     });
   }
 
-  // Populate voice dropdown
+  // Populate voice dropdown with character-aligned Piper voices & optional OS voices
   function populateVoiceList() {
     if (!dom.cfgVoiceSelect) return;
     dom.cfgVoiceSelect.innerHTML = '';
-    const voices = ('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : [];
+    const currentActiveVoice = getActiveVoiceId();
+    const currentAvatarId = localStorage.getItem('quest_avatar_id') || AppState.avatarId || 'echo';
+    const avatarDefaultVoice = getDefaultVoiceForAvatar(currentAvatarId);
 
-    if (!voices || voices.length === 0) {
-      const option = document.createElement('option');
-      option.textContent = '🤖 Local Neural Voice (WASM) - Active (No OS voices on Meta Quest)';
-      option.value = 'neural';
-      option.selected = true;
-      dom.cfgVoiceSelect.appendChild(option);
-      return;
-    }
+    // Group 1: Fast Lightweight Neural Piper Voices (Offline, non-robotic, sub-second streaming)
+    const neuralGroup = document.createElement('optgroup');
+    neuralGroup.label = '⚡ Fast Neural Voices (Offline Piper WASM)';
 
-    const savedVoice = localStorage.getItem('quest_voice_name');
-    voices.forEach(voice => {
+    Object.values(PIPER_VOICE_CONFIGS).forEach(pv => {
       const option = document.createElement('option');
-      option.textContent = `${voice.name} (${voice.lang})${voice.default ? ' [Default]' : ''}`;
-      option.value = voice.name;
-      if (savedVoice ? voice.name === savedVoice : (voice.lang.startsWith('en') && voice.name.includes('Natural'))) {
+      option.value = pv.id;
+      const isDefault = pv.id === avatarDefaultVoice;
+      option.textContent = `${pv.name}${isDefault ? ' ⭐ (Default for Avatar)' : ''}`;
+      if (pv.id === currentActiveVoice) {
         option.selected = true;
       }
-      dom.cfgVoiceSelect.appendChild(option);
+      neuralGroup.appendChild(option);
     });
+    dom.cfgVoiceSelect.appendChild(neuralGroup);
+
+    // Group 2: Native OS voices (if available in browser/Android)
+    const osVoices = ('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : [];
+    if (osVoices && osVoices.length > 0) {
+      const osGroup = document.createElement('optgroup');
+      osGroup.label = '📱 Device OS Voices';
+      osVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.textContent = `${voice.name} (${voice.lang})`;
+        option.value = voice.name;
+        if (voice.name === currentActiveVoice) {
+          option.selected = true;
+        }
+        osGroup.appendChild(option);
+      });
+      dom.cfgVoiceSelect.appendChild(osGroup);
+    }
   }
 
   populateVoiceList();
   if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = populateVoiceList;
+  }
+
+  // Allow manual voice override anytime user changes voice dropdown
+  if (dom.cfgVoiceSelect) {
+    dom.cfgVoiceSelect.onchange = () => {
+      localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
+    };
   }
 
   // Avatar Modal Handlers
@@ -129,8 +151,15 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
       buildAvatar(selectedId, avatarGroup);
       applyAvatarTransform();
+
+      // Automatically align default voice to chosen character (e.g. Maya -> Amy Female, Alex/Ollie -> Ryan Male)
+      const defaultVoice = getDefaultVoiceForAvatar(selectedId);
+      localStorage.setItem('quest_voice_name', defaultVoice);
+      populateVoiceList();
+
       dom.modalAvatars.classList.remove('open');
-      speakReply(`Hello! I am now ready as your companion.`);
+      const avatarName = selectedId.charAt(0).toUpperCase() + selectedId.slice(1);
+      speakReply(`Hello! I am now ready as ${avatarName}.`);
     };
   }
 
@@ -204,6 +233,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         dom.ttsLoaderBox.style.display = dom.cfgTtsEngine.value === 'neural' ? 'block' : 'none';
         dom.ttsStatusLabel.textContent = isNeuralTTSReady() ? '✅ Neural TTS Ready' : 'Ready to download';
       }
+      populateVoiceList();
       dom.sliderScale.value = AppState.avatarScale;
       dom.sliderDist.value = AppState.avatarDistance;
       dom.valScale.textContent = `${AppState.avatarScale.toFixed(2)}x`;

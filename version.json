@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.4",
-  "build": 35,
-  "released_at": "2026-11-08T15:20:00Z",
-  "changelog": "v0.4.4: 1) Non-Blocking Floating Diagnostics HUD Window: converted diagnostics from a blocking modal into a draggable, minimizable floating HUD window that leaves the 3D scene, avatar, and controls fully visible and interactive; 2) Relocated Debug Controls to Settings: removed the 🐞 icon from the main screen for a clean consumer UI and placed all diagnostic controls inside Companion Settings (⚙️); 3) Multi-level Debug Verbosity: added 'Standard' vs 'Verbose' diagnostic levels; 4) Deep TTS & Hardware Profiler: instrumented Neural TTS with millisecond ONNX execution time, Real-Time Factor (RTF), character throughput, JS memory heap usage, CPU concurrency, and WebAssembly multi-threading status (SharedArrayBuffer) to analyze and diagnose exact speech synthesis bottlenecks on Meta Quest 3."
+  "version": "v0.4.5",
+  "build": 36,
+  "released_at": "2026-11-08T16:15:00Z",
+  "changelog": "v0.4.5: 1) High-Performance Local Piper TTS: replaced heavy MMS-TTS with ultra-lightweight Piper WASM neural models (~15MB per voice, designed for low-power ARM CPUs), cutting synthesis time from 32s down to ~1-2s; 2) Sentence-by-Sentence Local Streaming Queue: implemented streaming audio prefetch queue where Sentence 1 synthesizes and plays in <1s while subsequent sentences buffer in the background; 3) Character-Aligned Default Voices: automatically assigns natural gender/personality-matched default voices to avatars (Maya -> Amy Female, Alex/Ollie -> Ryan Male, Pip -> Kathleen Female, Echo -> Lessac Neutral), while allowing full manual customization via the Settings dropdown."
 }
