@@ -1,6 +1,6 @@
 {
-  "version": "v0.5.1",
-  "build": 42,
-  "released_at": "2026-11-08T22:20:00Z",
-  "changelog": "v0.5.1: 1) Agent Tool & Skill Execution Engine with browser sensing and 3D scene control; 2) Real-time live context grounding (time, date, battery, system specs, memory heap); 3) Scene & avatar voice commands ('change space to garden/cafe/penthouse/passthrough', 'switch avatar to maya/alex/ollie'); 4) Full dual support for Local LLM (zero-latency deterministic execution & action tag parsing) and Cloud Gemini (native function declarations & tool calling); 5) In-HUD diagnostic logging for all tool executions."
+  "version": "v0.5.2",
+  "build": 43,
+  "released_at": "2026-11-08T22:35:00Z",
+  "changelog": "v0.5.2: 1) Fixed Neural TTS hang on Quest 3 by adding serialized ONNX inference mutex, in-flight warmup deduplication, 10s per-sentence timeouts, and graceful Web Speech fallback; 2) Fixed SmolLM2 repetition loops and high latency by adding temperature sampling (0.6), repetition penalty (1.12), and max_new_tokens (28); 3) Added automatic speech clause deduplication; 4) Added instant 0ms responses for 'what can you do' and 'can you repeat'."
 }

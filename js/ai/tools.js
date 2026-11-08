@@ -338,7 +338,25 @@ export async function detectAndExecuteTool(userPrompt) {
     return await executeTool('recenter_view');
   }
 
-  // 7. Companion status
+  // 7. Capabilities & Help queries
+  if (/\b(what (kind of things )?(can you|you can) do|what are your (features|capabilities|tools|skills)|how can you help|what do you do)\b/i.test(p)) {
+    return {
+      success: true,
+      tool: 'get_capabilities',
+      result: "I can change our 3D space, transform into different avatars, check device battery and time, or chat with you in VR!"
+    };
+  }
+
+  // 8. Repeat queries
+  if (/\b(repeat|say that again|what did you say|didn'?t (hear|understand) (you|what you said)|pardon|come again)\b/i.test(p)) {
+    return {
+      success: true,
+      tool: 'repeat_last_turn',
+      result: "repeat"
+    };
+  }
+
+  // 9. Companion status
   if (/\b(who are you now|where are we|what space is this|what room is this)\b/i.test(p)) {
     return await executeTool('get_companion_status');
   }

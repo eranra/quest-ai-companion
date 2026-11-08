@@ -298,11 +298,13 @@ export async function callLocalWebLLM(prompt, onProgress, signal, context = {}) 
   ];
 
   try {
-    // Greedy decoding without artificial repetition penalties prevents 135M models from generating nonsense words
+    // Temperature sampling + mild repetition penalty prevents 135M models from falling into degenerate repetition loops
     const output = await generator(messages, {
-      max_new_tokens: 42,
-      do_sample: false,
-      repetition_penalty: 1.0
+      max_new_tokens: 28,
+      do_sample: true,
+      temperature: 0.6,
+      top_p: 0.9,
+      repetition_penalty: 1.12
     });
 
     let reply = '';

@@ -49,12 +49,21 @@ export function getActiveVoiceId() {
 }
 
 const warmedVoices = new Set();
+const warmingPromises = new Map();
+
+// Serialized ONNX Inference Chain: Prevents concurrent WebAssembly session collisions
+let inferenceChain = Promise.resolve();
+function runSerializedInference(fn) {
+  const next = inferenceChain.then(fn, fn);
+  inferenceChain = next.catch(() => {});
+  return next;
+}
 
 export function setActiveVoiceId(voiceId) {
   if (voiceId && PIPER_VOICE_CONFIGS[voiceId]) {
     localStorage.setItem('quest_voice_name', voiceId);
     logDebug('TTS', `Active voice set to: ${PIPER_VOICE_CONFIGS[voiceId].name}`);
-    if (piperModule && !warmedVoices.has(voiceId)) {
+    if (piperModule && !warmedVoices.has(voiceId) && !warmingPromises.has(voiceId)) {
       warmVoice(voiceId).catch(err => {
         console.warn(`Background warmup notice for ${voiceId}:`, err);
       });
@@ -69,32 +78,42 @@ export function setActiveVoiceId(voiceId) {
 export async function warmVoice(voiceId, onProgress) {
   const targetVoice = voiceId || getActiveVoiceId();
   if (warmedVoices.has(targetVoice)) return;
+  if (warmingPromises.has(targetVoice)) {
+    return await warmingPromises.get(targetVoice);
+  }
 
-  const piper = await getPiper();
+  const warmupTask = (async () => {
+    const piper = await getPiper();
 
-  if (piper.download) {
-    if (onProgress) onProgress({ progress: 40, text: `Caching voice model (${targetVoice})...` });
-    try {
-      await piper.download(targetVoice, (progress) => {
-        if (onProgress && progress && progress.loaded && progress.total) {
-          const pct = Math.round((progress.loaded / progress.total) * 100);
-          onProgress({ progress: pct, text: `Downloading ${targetVoice}: ${pct}%` });
-        }
-      });
-    } catch (cacheErr) {
-      console.warn(`Voice download notice for ${targetVoice}:`, cacheErr);
+    if (piper.download) {
+      if (onProgress) onProgress({ progress: 40, text: `Caching voice model (${targetVoice})...` });
+      try {
+        await piper.download(targetVoice, (progress) => {
+          if (onProgress && progress && progress.loaded && progress.total) {
+            const pct = Math.round((progress.loaded / progress.total) * 100);
+            onProgress({ progress: pct, text: `Downloading ${targetVoice}: ${pct}%` });
+          }
+        });
+      } catch (cacheErr) {
+        console.warn(`Voice download notice for ${targetVoice}:`, cacheErr);
+      }
     }
-  }
 
-  try {
-    if (onProgress) onProgress({ progress: 85, text: `Pre-warming inference session...` });
-    logDebug('TTS', `Pre-warming ONNX session for voice: ${targetVoice}...`);
-    await piper.predict({ text: 'Ready', voiceId: targetVoice });
-    warmedVoices.add(targetVoice);
-    logDebug('TTS', `Voice ${targetVoice} warmed and session cached in memory.`);
-  } catch (warmupErr) {
-    console.warn(`Voice pre-warm notice for ${targetVoice}:`, warmupErr);
-  }
+    try {
+      if (onProgress) onProgress({ progress: 85, text: `Pre-warming inference session...` });
+      logDebug('TTS', `Pre-warming ONNX session for voice: ${targetVoice}...`);
+      await runSerializedInference(() => piper.predict({ text: 'Ready', voiceId: targetVoice }));
+      warmedVoices.add(targetVoice);
+      logDebug('TTS', `Voice ${targetVoice} warmed and session cached in memory.`);
+    } catch (warmupErr) {
+      console.warn(`Voice pre-warm notice for ${targetVoice}:`, warmupErr);
+    }
+  })().finally(() => {
+    warmingPromises.delete(targetVoice);
+  });
+
+  warmingPromises.set(targetVoice, warmupTask);
+  return await warmupTask;
 }
 
 /**
@@ -222,10 +241,17 @@ export function splitIntoSentences(text) {
 async function synthesizeSentenceChunk(sentence, voiceId) {
   const piper = await getPiper();
   const t0 = performance.now();
-  const wavBlob = await piper.predict({
+
+  const predictTask = runSerializedInference(() => piper.predict({
     text: sentence.trim(),
     voiceId: voiceId
+  }));
+
+  const timeoutTask = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Piper synthesis timed out (10s)')), 10000);
   });
+
+  const wavBlob = await Promise.race([predictTask, timeoutTask]);
   const elapsedMs = Math.round(performance.now() - t0);
   return { wavBlob, elapsedMs };
 }
@@ -346,60 +372,77 @@ export async function speakNeuralTTS(text, onComplete) {
   let totalAudioDurationSec = 0;
   let totalSynthMs = 0;
 
-  // Stream each sentence through audio playback sequentially
-  for (let i = 0; i < sentences.length; i++) {
-    if (sessionId !== activeStreamingSession) break;
+  try {
+    // Stream each sentence through audio playback sequentially
+    for (let i = 0; i < sentences.length; i++) {
+      if (sessionId !== activeStreamingSession) break;
 
-    const tWaitStart = performance.now();
-    const chunkResult = await prefetchSentence(i);
-    if (sessionId !== activeStreamingSession) break;
+      const chunkResult = await prefetchSentence(i);
+      if (sessionId !== activeStreamingSession) break;
 
-    if (!chunkResult || !chunkResult.wavBlob) {
-      continue;
+      if (!chunkResult || !chunkResult.wavBlob) {
+        continue;
+      }
+
+      // Now that chunk i is ready and about to play over speakers, prefetch chunk i+1 in parallel during playback!
+      if (i + 1 < sentences.length) {
+        prefetchSentence(i + 1);
+      }
+
+      const { wavBlob, elapsedMs } = chunkResult;
+      totalSynthMs += elapsedMs;
+
+      // Report time to first spoken word!
+      if (i === 0) {
+        const timeToFirstSound = Math.round(performance.now() - tTurnStart);
+        setStageTiming('tts', timeToFirstSound);
+        logDebug('TTS', `▶️ First sentence ready in ${timeToFirstSound}ms (${sentences[0].length} chars)! Speech playback started.`);
+      }
+
+      setActiveStage('speaking', `Avatar Speaking (Sentence ${i + 1}/${sentences.length})...`);
+
+      // Estimate audio duration from blob size (WAV 16-bit mono 16000Hz is ~32KB/sec)
+      const estimatedDurationSec = Math.max(0.5, (wavBlob.size - 44) / 32000);
+      totalAudioDurationSec += estimatedDurationSec;
+
+      if (isVerbose()) {
+        const rtf = (elapsedMs / 1000) / estimatedDurationSec;
+        logDebug('TTS', `[PROFILER] Sentence ${i + 1}/${sentences.length}: ${elapsedMs}ms for ~${estimatedDurationSec.toFixed(1)}s audio (RTF: ${rtf.toFixed(2)}x)`);
+      }
+
+      // Play WAV audio chunk and wait until current sentence finishes playing
+      await playSentenceAudio(wavBlob, sessionId);
     }
 
-    // Now that chunk i is ready and about to play over speakers, prefetch chunk i+1 in parallel during playback!
-    if (i + 1 < sentences.length) {
-      prefetchSentence(i + 1);
+    if (totalAudioDurationSec === 0 && sessionId === activeStreamingSession) {
+      logDebug('TTS', 'Neural TTS chunks failed or timed out; falling back to Web Speech/Native TTS', 'warn');
+      AppState.isSpeaking = false;
+      stopVisemeAnimation();
+      nativeSpeakReply(text, onComplete);
+      return;
     }
 
-    const { wavBlob, elapsedMs } = chunkResult;
-    totalSynthMs += elapsedMs;
+    if (sessionId === activeStreamingSession) {
+      const totalTurnMs = Math.round(performance.now() - tTurnStart);
+      const overallRTF = totalAudioDurationSec > 0 ? (totalSynthMs / 1000) / totalAudioDurationSec : 1.0;
+      setStageTiming('rtf', overallRTF);
 
-    // Report time to first spoken word!
-    if (i === 0) {
-      const timeToFirstSound = Math.round(performance.now() - tTurnStart);
-      setStageTiming('tts', timeToFirstSound);
-      logDebug('TTS', `▶️ First sentence ready in ${timeToFirstSound}ms (${sentences[0].length} chars)! Speech playback started.`);
+      logDebug('TTS', `Speech completed! Total audio: ~${totalAudioDurationSec.toFixed(1)}s across ${sentences.length} sentences. Overall RTF: ${overallRTF.toFixed(2)}x.`);
+      if (onComplete) onComplete();
     }
-
-    setActiveStage('speaking', `Avatar Speaking (Sentence ${i + 1}/${sentences.length})...`);
-
-    // Estimate audio duration from blob size (WAV 16-bit mono 16000Hz is ~32KB/sec)
-    const estimatedDurationSec = Math.max(0.5, (wavBlob.size - 44) / 32000);
-    totalAudioDurationSec += estimatedDurationSec;
-
-    if (isVerbose()) {
-      const rtf = (elapsedMs / 1000) / estimatedDurationSec;
-      logDebug('TTS', `[PROFILER] Sentence ${i + 1}/${sentences.length}: ${elapsedMs}ms for ~${estimatedDurationSec.toFixed(1)}s audio (RTF: ${rtf.toFixed(2)}x)`);
+  } catch (err) {
+    logDebug('TTS', `Speech playback error: ${err.message}`, 'error');
+    if (totalAudioDurationSec === 0 && sessionId === activeStreamingSession) {
+      nativeSpeakReply(text, onComplete);
+      return;
     }
-
-    // Play WAV audio chunk and wait until current sentence finishes playing
-    await playSentenceAudio(wavBlob, sessionId);
-  }
-
-  if (sessionId === activeStreamingSession) {
-    AppState.isSpeaking = false;
-    stopVisemeAnimation();
-    setActiveStage('idle', 'Idle / Ready');
-    setStageTiming('turn_end');
-
-    const totalTurnMs = Math.round(performance.now() - tTurnStart);
-    const overallRTF = totalAudioDurationSec > 0 ? (totalSynthMs / 1000) / totalAudioDurationSec : 1.0;
-    setStageTiming('rtf', overallRTF);
-
-    logDebug('TTS', `Speech completed! Total audio: ~${totalAudioDurationSec.toFixed(1)}s across ${sentences.length} sentences. Overall RTF: ${overallRTF.toFixed(2)}x.`);
-    if (onComplete) onComplete();
+  } finally {
+    if (sessionId === activeStreamingSession) {
+      AppState.isSpeaking = false;
+      stopVisemeAnimation();
+      setActiveStage('idle', 'Idle / Ready');
+      setStageTiming('turn_end');
+    }
   }
 }
 

@@ -151,7 +151,24 @@ export function cleanAndValidateSpeech(rawText, userPrompt, persona) {
              .replace(/\s+/g, ' ')
              .trim();
 
-  // 4. Handle abrupt cutoff (e.g. generated text cut off mid-word or mid-sentence at max_tokens)
+  // 4. Deduplicate runaway repetitive clauses/phrases (e.g. "I can change space, I can change space...")
+  const rawClauses = text.split(/([,.;!?]+)/);
+  const uniqueClauses = [];
+  const seenNorms = new Set();
+  for (let i = 0; i < rawClauses.length; i += 2) {
+    const clause = (rawClauses[i] || '').trim();
+    const punct = rawClauses[i + 1] || '';
+    if (!clause) continue;
+    const norm = clause.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (seenNorms.has(norm)) continue;
+    seenNorms.add(norm);
+    uniqueClauses.push(clause + punct);
+  }
+  if (uniqueClauses.length > 0) {
+    text = uniqueClauses.join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // 5. Handle abrupt cutoff (e.g. generated text cut off mid-word or mid-sentence at max_tokens)
   if (text.length > 25 && !/[.!?]$/.test(text)) {
     const lastPunctuation = Math.max(text.lastIndexOf('.'), text.lastIndexOf('!'), text.lastIndexOf('?'));
     if (lastPunctuation > 15) {
@@ -162,7 +179,7 @@ export function cleanAndValidateSpeech(rawText, userPrompt, persona) {
     }
   }
 
-  // 5. Coherence and length check
+  // 6. Coherence and length check
   if (text.length < 3 || text.split(/\s+/).length < 2) {
     return getFallbackResponse(userPrompt, persona);
   }

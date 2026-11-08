@@ -664,6 +664,20 @@ async function runTestSuite() {
                     assert('generateAIResponse switches avatar to ollie', AppState.avatarId === 'ollie');
                     assert('generateAIResponse confirms Ollie persona introduction', avatarResponse.includes('Ollie'));
 
+                    // Test capabilities fast-path response
+                    const capResponse = await genWithTools('What kind of things you can do?');
+                    assert('generateAIResponse answers capabilities query instantly', capResponse.includes('3D space') || capResponse.includes('avatar'));
+
+                    // Test repetition loop deduplication in speech validation
+                    const repetitiveSpeech = 'I can do a lot. I can change the space to a hall, I can change the space to a hall, I can change the space to a hall, I can change the space to a hall,';
+                    const deduplicated = agentModule.cleanAndValidateSpeech(repetitiveSpeech, 'What can you do?', mayaPersona);
+                    const matchCount = (deduplicated.match(/I can change the space to a hall/g) || []).length;
+                    assert('cleanAndValidateSpeech collapses degenerate repetitive clauses to single instance', matchCount === 1);
+
+                    // Test repeat query returns prior conversation turn
+                    const repeatResponse = await genWithTools('Can you repeat that?');
+                    assert('generateAIResponse repeats previous answer', typeof repeatResponse === 'string' && repeatResponse.length > 5);
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }

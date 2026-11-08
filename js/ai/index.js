@@ -113,6 +113,9 @@ export async function generateAIResponse(prompt, onProgress) {
         toolSpokenReply = `It is currently ${liveContext.time} on ${liveContext.date}.`;
       } else if (executedTool.tool === 'recenter_view') {
         toolSpokenReply = "I have re-centered our 3D view and squared our alignment.";
+      } else if (executedTool.tool === 'repeat_last_turn') {
+        const lastAssistantTurn = [...history].reverse().find(t => t.role === 'assistant');
+        toolSpokenReply = lastAssistantTurn ? lastAssistantTurn.content : "I am right here with you! What would you like to explore?";
       }
 
       const finalReply = cleanAndValidateSpeech(toolSpokenReply, cleanPrompt, persona);
