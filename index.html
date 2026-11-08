@@ -59,7 +59,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.3</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.4</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -67,11 +67,6 @@
           <!-- Fullscreen Window Button -->
           <button id="btn-fullscreen" class="icon-btn" title="Expand Fullscreen Window">
             <span style="font-size: 14px;">⛶</span>
-          </button>
-
-          <!-- Live Debug & Diagnostic Drawer Toggle -->
-          <button id="btn-debug" class="icon-btn" title="Diagnostics & Live Pipeline Debug Logs">
-            <span style="font-size: 15px;">🐞</span>
           </button>
 
           <!-- Settings Cog Wheel: Pinned to top-right corner to never get pushed off screen -->
@@ -487,6 +482,30 @@
         <select id="cfg-voice-select" class="form-input"></select>
       </div>
 
+      <!-- Developer & Diagnostics (Moved from main screen) -->
+      <div class="form-group" style="background: rgba(30, 41, 59, 0.6); padding: 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.2); margin-top: 8px;">
+        <label class="form-label" style="color: #cbd5e1; font-size: 13px; font-weight: 700; margin-bottom: 2px;">
+          🛠️ Developer & Pipeline Diagnostics
+        </label>
+        <p class="help-hint" style="margin-bottom: 8px;">
+          Open the floating profiler window to monitor real-time CPU, memory, TTS latency, and pipeline execution without blocking the scene.
+        </p>
+
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <button id="btn-toggle-floating-debug" type="button" class="action-btn" style="flex: 1; justify-content: center; padding: 8px 12px; font-size: 12px; background: #4f46e5;">
+            🪟 Open Floating Diagnostics Window
+          </button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+          <label class="form-label" style="font-size: 11px; margin-bottom: 0;">Profiler Verbosity:</label>
+          <select id="cfg-debug-level" class="form-input" style="padding: 4px 8px; font-size: 11px; width: auto;">
+            <option value="standard" selected>Standard (Key latencies & stages)</option>
+            <option value="verbose">Verbose (Deep CPU, Memory, RTF & ONNX profiling)</option>
+          </select>
+        </div>
+      </div>
+
       <button id="btn-save-settings" class="action-btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 8px;">Save Settings</button>
     </div>
   </div>
@@ -540,19 +559,31 @@
     </div>
   </div>
 
-  <!-- Live Pipeline Diagnostics & Debug Drawer Modal -->
-  <div id="modal-debug" class="modal-backdrop">
-    <div class="modal debug-modal" style="max-width: 620px; width: 94%; max-height: 88vh;">
-      <div class="modal-header">
-        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
-          <span>🐞 Live Pipeline Diagnostics</span>
-        </h3>
-        <button id="btn-close-debug" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
+  <!-- Floating Pipeline Diagnostics & Profiler HUD Window (Non-blocking) -->
+  <div id="debug-floating-window" class="debug-floating-window" style="display: none;">
+    <!-- Draggable Header -->
+    <div id="debug-drag-handle" class="debug-window-header">
+      <div style="display: flex; align-items: center; gap: 7px;">
+        <span style="font-size: 14px;">🐞</span>
+        <span class="debug-window-title">Pipeline Diagnostics & Profiler</span>
+        <span class="live-pulse-dot" style="width: 7px; height: 7px;"></span>
       </div>
+      <div style="display: flex; align-items: center; gap: 4px;">
+        <button id="btn-debug-minimize" class="debug-win-btn" title="Minimize / Expand Window">−</button>
+        <button id="btn-close-debug" class="debug-win-btn" title="Close Diagnostics Window">✕</button>
+      </div>
+    </div>
 
-      <!-- Active Stage Indicator Card -->
+    <div id="debug-window-body" class="debug-window-body">
+      <!-- System Specs & Hardware Profile Banner -->
+      <div id="debug-system-banner" class="debug-system-banner"></div>
+
+      <!-- Active Stage Card -->
       <div class="debug-stage-card">
-        <span class="debug-card-title">ACTIVE PIPELINE STAGE:</span>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="debug-card-title">ACTIVE PIPELINE STAGE:</span>
+          <span id="debug-stage-timer" style="font-size: 10px; font-weight: 700; color: #94a3b8;">0s</span>
+        </div>
         <div id="debug-active-stage-pill" class="stage-pill-live">
           <span class="stage-dot"></span>
           <span class="stage-name">Idle / Ready</span>
@@ -561,38 +592,38 @@
 
       <!-- Live Latency Badges -->
       <div class="debug-metrics-wrapper">
-        <span class="debug-card-title">PIPELINE LATENCIES:</span>
+        <span class="debug-card-title">PIPELINE LATENCIES & FACTORS:</span>
         <div id="debug-metrics-grid" class="debug-metrics-grid">
           <div class="metric-chip"><span class="chip-label">🎙️ STT:</span> <span class="chip-val">--</span></div>
           <div class="metric-chip"><span class="chip-label">⚡ AI:</span> <span class="chip-val">--</span></div>
           <div class="metric-chip"><span class="chip-label">🗣️ TTS:</span> <span class="chip-val">--</span></div>
+          <div class="metric-chip"><span class="chip-label">📊 RTF:</span> <span class="chip-val">--</span></div>
           <div class="metric-chip"><span class="chip-label">⏱️ Total:</span> <span class="chip-val">--</span></div>
-          <div class="metric-chip"><span class="chip-label">🎤 Audio:</span> <span class="chip-val">--</span></div>
         </div>
       </div>
 
       <!-- Timestamped Event Log Console -->
       <div class="debug-console-wrapper">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <span class="debug-card-title">TIMESTAMPE DIAGNOSTIC LOG:</span>
+          <span class="debug-card-title">LIVE PROFILER TRACE:</span>
           <button id="btn-clear-debug" type="button" style="background: transparent; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer;">🗑️ Clear</button>
         </div>
         <div id="debug-log-entries" class="debug-console">
-          <div class="debug-empty">No events logged yet. Speak or type to observe pipeline stages.</div>
+          <div class="debug-empty">No events logged yet. Speak, type, or test voice to profile.</div>
         </div>
       </div>
 
       <!-- Action Footer with 1-Tap Copy Button -->
-      <div style="display: flex; gap: 8px; margin-top: 4px;">
-        <button id="btn-copy-debug" class="action-btn" style="flex: 1; justify-content: center; padding: 10px; background: #6366f1;">
-          📋 Copy Diagnostics
+      <div style="display: flex; gap: 8px; margin-top: 6px;">
+        <button id="btn-copy-debug" class="action-btn" style="flex: 1; justify-content: center; padding: 9px 12px; font-size: 12px; background: #6366f1;">
+          📋 Copy Full Diagnostic Report
         </button>
       </div>
     </div>
   </div>
 
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.4.3"></script>
+  <script type="module" src="js/app.js?v=0.4.4"></script>
 
 </body>
 </html>

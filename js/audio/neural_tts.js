@@ -4,7 +4,7 @@
 import { AppState } from '../state.js';
 import { recordSpokenText, speakReply as nativeSpeakReply } from './tts.js';
 import { encodeWAV } from './wav.js';
-import { logDebug, setStageTiming, setActiveStage } from '../ui/debug_logger.js';
+import { logDebug, setStageTiming, setActiveStage, getSystemProfile, isVerbose } from '../ui/debug_logger.js';
 
 let ttsSynthesizer = null;
 let isTTSLoading = false;
@@ -140,9 +140,15 @@ export async function speakNeuralTTS(text, onComplete) {
 
   if (!ttsSynthesizer) {
     try {
+      setActiveStage('tts_model_load', 'Downloading/Compiling Neural Voice (~36MB)...');
+      logDebug('TTS', 'Initial model load required: downloading & compiling Xenova/mms-tts-eng...', 'warn');
+      const tInitStart = performance.now();
       await initNeuralTTS();
+      const initMs = Math.round(performance.now() - tInitStart);
+      logDebug('TTS', `Initial Neural Voice weights loaded and ONNX graph compiled in ${initMs}ms.`);
     } catch (loadErr) {
       console.warn('Neural TTS load failed; attempting device native voice:', loadErr);
+      logDebug('TTS', `Neural TTS load failed (${loadErr.message}); falling back to device native voice`, 'warn');
       const hasNativeVoices = ('speechSynthesis' in window) && window.speechSynthesis.getVoices().length > 0;
       if (hasNativeVoices) {
         nativeSpeakReply(cleanText, onComplete);
@@ -156,15 +162,19 @@ export async function speakNeuralTTS(text, onComplete) {
   try {
     AppState.isSpeaking = true;
     recordSpokenText(cleanText);
-    setActiveStage('tts_synthesizing', `Neural TTS (${cleanText.length} chars)...`);
-    logDebug('TTS', `Neural TTS synthesizing: "${cleanText.substring(0, 45)}..."`);
+
+    const charCount = cleanText.length;
+    const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
+    setActiveStage('tts_synthesizing', `Neural TTS: ${charCount} chars (${wordCount} words)...`);
+    logDebug('TTS', `Neural TTS synthesizing: "${cleanText.substring(0, 45)}${charCount > 45 ? '...' : ''}" (${charCount} chars, ${wordCount} words)`);
+
+    const sysProfileBefore = getSystemProfile();
+    const memBefore = sysProfileBefore.memoryMB ? sysProfileBefore.memoryMB.used : null;
 
     // VITS generates direct Float32Array waveform audio at 16000Hz
     const tStart = performance.now();
     const output = await ttsSynthesizer(cleanText);
     const ttsMs = Math.round(performance.now() - tStart);
-    setStageTiming('tts', ttsMs);
-    setStageTiming('turn_end');
 
     if (!output || !output.audio || output.audio.length === 0) {
       throw new Error('Neural TTS produced empty audio buffer');
@@ -174,11 +184,39 @@ export async function speakNeuralTTS(text, onComplete) {
       ? output.audio 
       : new Float32Array(output.audio);
     const sampleRate = output.sampling_rate || 16000;
-    logDebug('TTS', `Synthesized ${audioData.length} samples in ${ttsMs}ms (~${(audioData.length / sampleRate).toFixed(1)}s audio). Playing...`);
-    setActiveStage('speaking', 'Avatar Speaking Reply');
+    const audioDurationSec = audioData.length / sampleRate;
+    const rtf = (ttsMs / 1000) / audioDurationSec;
+
+    setStageTiming('tts', ttsMs);
+    setStageTiming('rtf', rtf);
+    setStageTiming('turn_end');
+
+    const sysProfileAfter = getSystemProfile();
+    const memAfter = sysProfileAfter.memoryMB ? sysProfileAfter.memoryMB.used : null;
+    const memDelta = (memBefore !== null && memAfter !== null) ? (memAfter - memBefore) : null;
+
+    // Deep Diagnostic Profiler Output
+    logDebug('TTS', `[PROFILER] Output: ${audioData.length} samples (~${audioDurationSec.toFixed(2)}s audio) in ${ttsMs}ms (RTF: ${rtf.toFixed(2)}x)`);
+    if (rtf > 1.0) {
+      logDebug('TTS', `[PROFILER ANALYSIS] ⚠️ Slower than real-time (RTF: ${rtf.toFixed(2)}x). Generating 1s audio took ${(rtf).toFixed(2)}s. Reason: VITS flow-matching model on CPU WebAssembly without multi-threading (crossOriginIsolated: ${sysProfileAfter.crossOriginIsolated}). Hardware: ${sysProfileAfter.cores} CPU cores | Memory Heap: ${memAfter !== null ? memAfter + 'MB' : 'N/A'}${memDelta !== null ? ` (Delta: ${memDelta >= 0 ? '+' : ''}${memDelta}MB)` : ''}.`, 'warn');
+    } else {
+      logDebug('TTS', `[PROFILER ANALYSIS] ✅ Real-time or faster: RTF ${rtf.toFixed(2)}x.`);
+    }
+
+    if (isVerbose()) {
+      const throughput = (charCount / (ttsMs / 1000)).toFixed(1);
+      logDebug('TTS', `[PROFILER VERBOSE] Model: Xenova/mms-tts-eng | Sample Rate: ${sampleRate}Hz | Throughput: ${throughput} chars/sec | Device RAM: ${sysProfileAfter.deviceMemoryGB || 'N/A'}GB`);
+    }
+
+    setActiveStage('speaking', `Avatar Speaking (${audioDurationSec.toFixed(1)}s audio)...`);
 
     // Encode to WAV Blob for reliable HTML5 audio playback on Meta Quest Browser
+    const tWavStart = performance.now();
     const wavBlob = encodeWAV(audioData, sampleRate);
+    const wavMs = Math.round(performance.now() - tWavStart);
+    if (isVerbose()) {
+      logDebug('TTS', `[PROFILER VERBOSE] WAV Encoding took ${wavMs}ms (Blob size: ${(wavBlob.size / 1024).toFixed(1)} KB)`);
+    }
     const audioUrl = URL.createObjectURL(wavBlob);
     const audioEl = new Audio(audioUrl);
     activeAudioSource = audioEl;

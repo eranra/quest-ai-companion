@@ -151,23 +151,42 @@ async function runTestSuite() {
                     btnCloseSpaces.click();
                     assert('Spaces Modal closes', !modalSpaces.classList.contains('open'));
 
-                    // Test 2C: Live Debug Diagnostics Modal & Controls
-                    const btnDebug = document.getElementById('btn-debug');
-                    const modalDebug = document.getElementById('modal-debug');
-                    assert('Debug button exists in top actions', !!btnDebug);
-                    assert('Debug modal exists in DOM', !!modalDebug);
-                    assert('Active Stage pill exists in Debug modal', !!document.getElementById('debug-active-stage-pill'));
-                    assert('Metrics grid exists in Debug modal', !!document.getElementById('debug-metrics-grid'));
+                    // Test 2C: Live Debug Diagnostics Floating Window & Settings Controls
+                    const floatingDebugWindow = document.getElementById('debug-floating-window');
+                    const btnToggleFloating = document.getElementById('btn-toggle-floating-debug');
+                    const cfgDebugLevelEl = document.getElementById('cfg-debug-level');
+
+                    assert('Main top actions does not have debug button (clean for regular users)', !document.getElementById('btn-debug'));
+                    assert('Floating diagnostics window exists in DOM', !!floatingDebugWindow);
+                    assert('Open floating diagnostics button exists in settings', !!btnToggleFloating);
+                    assert('Diagnostics verbosity select exists in settings', !!cfgDebugLevelEl);
+                    assert('Active Stage pill exists in Debug window', !!document.getElementById('debug-active-stage-pill'));
+                    assert('Stage timer exists in Debug window', !!document.getElementById('debug-stage-timer'));
+                    assert('System specs banner exists in Debug window', !!document.getElementById('debug-system-banner'));
+                    assert('Metrics grid exists in Debug window', !!document.getElementById('debug-metrics-grid'));
                     assert('Debug log entries container exists', !!document.getElementById('debug-log-entries'));
                     assert('Copy Debug button exists', !!document.getElementById('btn-copy-debug'));
                     assert('Clear Debug button exists', !!document.getElementById('btn-clear-debug'));
+                    assert('Minimize button exists', !!document.getElementById('btn-debug-minimize'));
 
-                    btnDebug.click();
-                    assert('Debug modal opens on click', modalDebug.classList.contains('open'));
+                    // Test opening floating window from settings
+                    btnToggleFloating.click();
+                    assert('Floating debug window opens (display !== none)', floatingDebugWindow.style.display !== 'none');
+                    assert('Floating window has .open class', floatingDebugWindow.classList.contains('open'));
 
+                    // Test closing floating window
                     const btnCloseDebug = document.getElementById('btn-close-debug');
                     btnCloseDebug.click();
-                    assert('Debug modal closes on close button click', !modalDebug.classList.contains('open'));
+                    assert('Floating debug window closes (display === none)', floatingDebugWindow.style.display === 'none');
+
+                    // Test minimizing
+                    btnToggleFloating.click(); // Re-open
+                    const btnMin = document.getElementById('btn-debug-minimize');
+                    btnMin.click();
+                    assert('Floating window minimizes with .minimized class', floatingDebugWindow.classList.contains('minimized'));
+                    btnMin.click();
+                    assert('Floating window restores from minimize', !floatingDebugWindow.classList.contains('minimized'));
+                    btnCloseDebug.click();
 
                     // Test 2D: Subtitle / Speech Bubble & Stepper Minimizer
                     const bubbleContainerEl = document.getElementById('speech-bubble-container');
@@ -340,6 +359,11 @@ async function runTestSuite() {
                     assert('debug_logger exports clearDebugLogs', typeof debugLogger.clearDebugLogs === 'function');
                     assert('debug_logger exports generateDebugReport', typeof debugLogger.generateDebugReport === 'function');
                     assert('debug_logger exports copyDebugLogsToClipboard', typeof debugLogger.copyDebugLogsToClipboard === 'function');
+                    assert('debug_logger exports getSystemProfile', typeof debugLogger.getSystemProfile === 'function');
+                    assert('debug_logger exports setDebugLevel', typeof debugLogger.setDebugLevel === 'function');
+
+                    const sysProfile = debugLogger.getSystemProfile();
+                    assert('getSystemProfile returns cores count', typeof sysProfile.cores === 'number' && sysProfile.cores >= 1);
 
                     debugLogger.logDebug('TEST', 'Sample diagnostic event', 'info');
                     const logs = debugLogger.getDebugLogs();

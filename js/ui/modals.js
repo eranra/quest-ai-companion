@@ -361,8 +361,18 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
   if (dom.btnTestVoice) {
     dom.btnTestVoice.onclick = () => {
       unlockAudio();
-      localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
-      speakReply("Hello Eran! This is a test of my speech synthesis voice and speaking body language.");
+      if (dom.cfgVoiceSelect) {
+        localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
+      }
+      dom.btnTestVoice.innerHTML = '<span>⏳ Synthesizing Voice...</span>';
+      dom.btnTestVoice.style.background = '#6366f1';
+      dom.btnTestVoice.disabled = true;
+
+      speakReply("Hello Eran! Testing voice synthesis and body language.", () => {
+        dom.btnTestVoice.innerHTML = '<span>▶️ Test Speech & Motion</span>';
+        dom.btnTestVoice.style.background = '#10b981';
+        dom.btnTestVoice.disabled = false;
+      });
     };
   }
 

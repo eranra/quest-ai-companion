@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.3",
-  "build": 34,
-  "released_at": "2026-11-08T15:05:00Z",
-  "changelog": "v0.4.3: 1) Whisper STT CPU WASM Performance Fix: eliminated WebGPU pipeline timeout on Meta Quest Browser by locking execution strictly to CPU WebAssembly (device: 'wasm') and passing explicit English transcribe parameters ({ chunk_length_s: 30, stride_length_s: 5, language: 'en', task: 'transcribe' }) to eliminate language identification overhead; 2) Subtitles & Pipeline Minimizer: added one-tap collapse/expand button on speech bubble container to minimize subtitles into a sleek floating pill for an unobstructed 360° VR view, persisting preference in localStorage; 3) Live Diagnostics & Debug Drawer: added debug toggle (🐞) with real-time timestamped event logs, active pipeline stage tracker with hang detection (>15s), latency metrics badges (STT, AI, TTS, Total roundtrip), and 1-tap clipboard export."
+  "version": "v0.4.4",
+  "build": 35,
+  "released_at": "2026-11-08T15:20:00Z",
+  "changelog": "v0.4.4: 1) Non-Blocking Floating Diagnostics HUD Window: converted diagnostics from a blocking modal into a draggable, minimizable floating HUD window that leaves the 3D scene, avatar, and controls fully visible and interactive; 2) Relocated Debug Controls to Settings: removed the 🐞 icon from the main screen for a clean consumer UI and placed all diagnostic controls inside Companion Settings (⚙️); 3) Multi-level Debug Verbosity: added 'Standard' vs 'Verbose' diagnostic levels; 4) Deep TTS & Hardware Profiler: instrumented Neural TTS with millisecond ONNX execution time, Real-Time Factor (RTF), character throughput, JS memory heap usage, CPU concurrency, and WebAssembly multi-threading status (SharedArrayBuffer) to analyze and diagnose exact speech synthesis bottlenecks on Meta Quest 3."
 }
