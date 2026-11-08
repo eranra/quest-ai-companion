@@ -320,6 +320,7 @@ async function runTestSuite() {
                     assert('audio/whisper.js exports startListeningWhisper', typeof whisperModule.startListeningWhisper === 'function');
                     assert('audio/whisper.js exports stopListeningWhisper', typeof whisperModule.stopListeningWhisper === 'function');
                     assert('audio/neural_tts.js exports initNeuralTTS', typeof neuralTtsModule.initNeuralTTS === 'function');
+                    assert('audio/neural_tts.js exports warmVoice', typeof neuralTtsModule.warmVoice === 'function');
                     assert('audio/neural_tts.js exports speakNeuralTTS', typeof neuralTtsModule.speakNeuralTTS === 'function');
                     assert('audio/neural_tts.js exports stopNeuralTTS', typeof neuralTtsModule.stopNeuralTTS === 'function');
                     assert('audio/neural_tts.js exports isNeuralTTSReady', typeof neuralTtsModule.isNeuralTTSReady === 'function');
@@ -328,6 +329,7 @@ async function runTestSuite() {
                     assert('audio/tts.js exports recordSpokenText', typeof ttsModule.recordSpokenText === 'function');
                     assert('audio/index.js exports initWhisper', typeof audioSubsystem.initWhisper === 'function');
                     assert('audio/index.js exports initNeuralTTS', typeof audioSubsystem.initNeuralTTS === 'function');
+                    assert('audio/index.js exports warmVoice', typeof audioSubsystem.warmVoice === 'function');
 
                     const cfgSttEl = document.getElementById('cfg-stt-engine');
                     const cfgTtsEl = document.getElementById('cfg-tts-engine');
@@ -427,7 +429,7 @@ async function runTestSuite() {
                     assert('checkQuestWebGPUFlagStatus returns flagDisabled boolean', typeof questFlag === 'object' && 'flagDisabled' in questFlag && 'supported' in questFlag);
 
                     const testReply = await aiSubsystem.callLocalWebLLM('what is your name');
-                    assert('callLocalWebLLM returns non-empty reply without hanging', typeof testReply === 'string' && testReply.length > 5);
+                    assert('callLocalWebLLM returns non-empty reply without hanging', typeof testReply === 'string' && testReply.length > 5, 'got: ' + JSON.stringify(testReply));
 
                     // Test 7: Refactored Scene Subsystem Modularization & Camera Framing
                     const sceneCamera = await import('./js/scene/camera.js');

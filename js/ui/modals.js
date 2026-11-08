@@ -2,7 +2,7 @@
 import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
-import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady, PIPER_VOICE_CONFIGS, getActiveVoiceId, getDefaultVoiceForAvatar } from '../audio/index.js';
+import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady, PIPER_VOICE_CONFIGS, getActiveVoiceId, setActiveVoiceId, getDefaultVoiceForAvatar } from '../audio/index.js';
 import { checkGeminiResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
@@ -116,7 +116,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
   // Allow manual voice override anytime user changes voice dropdown
   if (dom.cfgVoiceSelect) {
     dom.cfgVoiceSelect.onchange = () => {
-      localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
+      setActiveVoiceId(dom.cfgVoiceSelect.value);
     };
   }
 
@@ -154,7 +154,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
       // Automatically align default voice to chosen character (e.g. Maya -> Amy Female, Alex/Ollie -> Ryan Male)
       const defaultVoice = getDefaultVoiceForAvatar(selectedId);
-      localStorage.setItem('quest_voice_name', defaultVoice);
+      setActiveVoiceId(defaultVoice);
       populateVoiceList();
 
       dom.modalAvatars.classList.remove('open');
@@ -392,7 +392,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     dom.btnTestVoice.onclick = () => {
       unlockAudio();
       if (dom.cfgVoiceSelect) {
-        localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
+        setActiveVoiceId(dom.cfgVoiceSelect.value);
       }
       dom.btnTestVoice.innerHTML = '<span>⏳ Synthesizing Voice...</span>';
       dom.btnTestVoice.style.background = '#6366f1';
@@ -478,7 +478,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         AppState.ttsEngine = dom.cfgTtsEngine.value;
       }
       if (dom.cfgVoiceSelect) {
-        localStorage.setItem('quest_voice_name', dom.cfgVoiceSelect.value);
+        setActiveVoiceId(dom.cfgVoiceSelect.value);
       }
       AppState.save();
 

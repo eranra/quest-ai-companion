@@ -23,6 +23,7 @@ import {
 } from './whisper.js';
 import {
   initNeuralTTS,
+  warmVoice,
   speakNeuralTTS,
   stopNeuralTTS,
   setNeuralLipSyncCallback,
@@ -150,6 +151,7 @@ export {
   initWhisper,
   isWhisperReady,
   initNeuralTTS,
+  warmVoice,
   isNeuralTTSReady,
   isNeuralTTSLoading,
   splitIntoSentences,

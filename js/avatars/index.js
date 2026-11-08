@@ -5,6 +5,7 @@ import { buildPipCartoon } from './pip.js';
 import { buildOllieBot } from './ollie.js';
 import { buildMayaHumanoid } from './maya.js';
 import { buildAlexHumanoid } from './alex.js';
+import { setActiveVoiceId } from '../audio/neural_tts.js';
 
 export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
 
@@ -64,7 +65,7 @@ export function cycleAvatar(direction = 1, avatarGroup, onAvatarChange) {
 
   // Automatically align default voice to avatar gender/personality
   const defaultVoice = getDefaultVoiceForAvatar(nextId);
-  localStorage.setItem('quest_voice_name', defaultVoice);
+  setActiveVoiceId(defaultVoice);
 
   if (onAvatarChange) onAvatarChange(nextId, defaultVoice);
   return nextId;

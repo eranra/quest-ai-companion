@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.5",
-  "build": 36,
-  "released_at": "2026-11-08T16:15:00Z",
-  "changelog": "v0.4.5: 1) High-Performance Local Piper TTS: replaced heavy MMS-TTS with ultra-lightweight Piper WASM neural models (~15MB per voice, designed for low-power ARM CPUs), cutting synthesis time from 32s down to ~1-2s; 2) Sentence-by-Sentence Local Streaming Queue: implemented streaming audio prefetch queue where Sentence 1 synthesizes and plays in <1s while subsequent sentences buffer in the background; 3) Character-Aligned Default Voices: automatically assigns natural gender/personality-matched default voices to avatars (Maya -> Amy Female, Alex/Ollie -> Ryan Male, Pip -> Kathleen Female, Echo -> Lessac Neutral), while allowing full manual customization via the Settings dropdown."
+  "version": "v0.4.6",
+  "build": 37,
+  "released_at": "2026-11-08T16:30:00Z",
+  "changelog": "v0.4.6: 1) Whisper STT English-Only Model Parameter Fix: removed task and language arguments from Xenova/whisper-tiny.en invocation, resolving the Quest 3 transcription exception; 2) Active Stage Reset on STT Error/Silence: guaranteed setActiveStage('idle') transition in Whisper catch blocks and no-speech flows to eliminate prolonged 'Whisper Transcribing' hung warnings; 3) Neural Voice Session Pre-Warming: added warmVoice() during background init and avatar switching to eliminate the 14s first-sentence ONNX graph compilation lag, achieving instant ~1.4s speech synthesis."
 }

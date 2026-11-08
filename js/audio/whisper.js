@@ -368,8 +368,6 @@ async function finalizeWhisperTranscription() {
       const output = await whisperTranscriber(resampled, {
         chunk_length_s: 30,
         stride_length_s: 5,
-        language: 'en',
-        task: 'transcribe',
         return_timestamps: false
       });
       const sttMs = Math.round(performance.now() - t0);
@@ -409,6 +407,7 @@ async function finalizeWhisperTranscription() {
 
     if (!transcript) {
       console.log('No speech detected in audio stream.');
+      setActiveStage('idle', 'Idle / Ready');
       if (AppState.isLiveMode) {
         if (AppState.echoGuardMode === 'half_duplex') {
           setTimeout(() => {
@@ -429,6 +428,7 @@ async function finalizeWhisperTranscription() {
     // Acoustic Echo Guard Check
     if (isSelfEcho(transcript)) {
       console.warn(`[STT] Discarded self-echo: "${transcript}"`);
+      setActiveStage('idle', 'Idle / Ready');
       if (!AppState.isLiveMode) {
         if (onStatusChangeCallback) onStatusChangeCallback('idle');
       }
@@ -443,10 +443,12 @@ async function finalizeWhisperTranscription() {
         abortActiveGeneration();
 
         if (interruption.isStopCommand) {
+          setActiveStage('idle', 'Idle / Ready');
           if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Stopped by user. Listening...');
           return;
         }
       } else {
+        setActiveStage('idle', 'Idle / Ready');
         if (!AppState.isLiveMode) {
           if (onStatusChangeCallback) onStatusChangeCallback('idle');
         }
@@ -460,6 +462,7 @@ async function finalizeWhisperTranscription() {
       onSpeechFinishedCallback(transcript);
     }
   } catch (err) {
+    setActiveStage('idle', 'Idle / Ready');
     logDebug('STT', `Speech transcription error: ${err.message}`, 'error');
     console.error('Speech transcription error:', err);
     if (!AppState.isLiveMode) {
