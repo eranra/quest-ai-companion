@@ -494,6 +494,10 @@ export function closeFloatingDebug() {
   }
 }
 
+export function getActiveStage() {
+  return ActiveStage.label || ActiveStage.name;
+}
+
 export function toggleFloatingDebug() {
   if (isWindowOpen) {
     closeFloatingDebug();

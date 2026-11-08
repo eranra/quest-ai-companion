@@ -343,7 +343,7 @@ export async function detectAndExecuteTool(userPrompt) {
     return {
       success: true,
       tool: 'get_capabilities',
-      result: "I can change our 3D space, transform into different avatars, check device battery and time, or chat with you in VR!"
+      result: "I can change our 3D space, transform avatars, check device battery and time, or chat with you in VR!"
     };
   }
 
