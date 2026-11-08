@@ -113,13 +113,15 @@ export function buildAgentSystemPrompt(options = {}) {
   const spaceId = options.spaceId || AppState.spaceId || 'hall';
   const spaceName = spaceId === 'passthrough' ? 'the user\'s real physical room in Mixed Reality Passthrough' : `${spaceId} 360° virtual space`;
   const userName = options.userName || 'Eran';
+  const liveContext = options.liveContext ? `\nLive Facts: ${options.liveContext.formatted || options.liveContext}` : '';
 
-  return `You are ${persona.name}, a warm 3D companion speaking directly to ${userName} in ${spaceName}.
+  return `You are ${persona.name}, a warm 3D companion speaking directly to ${userName} in ${spaceName}.${liveContext}
 Personality: ${persona.description}
 Guidelines:
 1. Answer the user's question directly and concisely in 1 or 2 conversational sentences.
 2. Speak naturally as a friend in spoken dialogue; do not use markdown, emojis, asterisks, bullet points, or role prefixes like "Assistant:".
-3. Maintain continuity with the prior conversation turns.`;
+3. Maintain continuity with the prior conversation turns.
+4. You have tool capabilities to control the 3D world (changing spaces to hall, garden, penthouse, cafe, passthrough, and transforming into avatars maya, alex, ollie, echo, spark, pip).`;
 }
 
 /**
@@ -141,8 +143,9 @@ export function cleanAndValidateSpeech(rawText, userPrompt, persona) {
   // 2. Strip hallucinated dialogue prefixes (e.g. "Assistant:", "Maya:", "Eran:")
   text = text.replace(/^(assistant|model|companion|[a-z]+):\s*/i, '');
 
-  // 3. Strip stage directions, markdown, asterisks (*smiles*, *waves*) and emojis
-  text = text.replace(/\*[^*]*\*/g, '')
+  // 3. Strip stage directions, action tags, markdown, asterisks (*smiles*, *waves*) and emojis
+  text = text.replace(/\[ACTION:[^\]]*\]/gi, '')
+             .replace(/\*[^*]*\*/g, '')
              .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
              .replace(/[#`_~]/g, '')
              .replace(/\s+/g, ' ')

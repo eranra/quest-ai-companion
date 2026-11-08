@@ -594,6 +594,76 @@ async function runTestSuite() {
                     assert('ai/index.js re-exports classifyUserIntent', typeof exportedClassify === 'function');
                     assert('ai/index.js re-exports getConversationHistory', typeof exportedHistory === 'function');
 
+                    // Test 12: Agent Tool & Skill Registry (Browser Sensing & 3D Scene Control)
+                    const toolsModule = await import('./js/ai/tools.js');
+                    assert('ai/tools.js exports TOOL_DEFINITIONS', Array.isArray(toolsModule.TOOL_DEFINITIONS) && toolsModule.TOOL_DEFINITIONS.length >= 7);
+                    assert('ai/tools.js exports executeTool', typeof toolsModule.executeTool === 'function');
+                    assert('ai/tools.js exports detectAndExecuteTool', typeof toolsModule.detectAndExecuteTool === 'function');
+                    assert('ai/tools.js exports getLiveEnvironmentContext', typeof toolsModule.getLiveEnvironmentContext === 'function');
+                    assert('ai/tools.js exports getGeminiToolDeclarations', typeof toolsModule.getGeminiToolDeclarations === 'function');
+                    assert('ai/tools.js exports processActionTagsInModelOutput', typeof toolsModule.processActionTagsInModelOutput === 'function');
+
+                    // Test live context retrieval
+                    const liveCtx = await toolsModule.getLiveEnvironmentContext();
+                    assert('getLiveEnvironmentContext returns current time string', typeof liveCtx.time === 'string' && liveCtx.time.length > 0);
+                    assert('getLiveEnvironmentContext returns formatted summary', typeof liveCtx.formatted === 'string' && liveCtx.formatted.includes('Current Time'));
+
+                    // Test get_time execution
+                    const timeRes = await toolsModule.executeTool('get_time');
+                    assert('get_time tool succeeds', timeRes.success && typeof timeRes.result === 'string' && timeRes.result.includes(':'));
+
+                    // Test get_battery execution
+                    const battRes = await toolsModule.executeTool('get_battery');
+                    assert('get_battery tool succeeds', battRes.success && typeof battRes.result === 'string');
+
+                    // Test get_system_info execution
+                    const sysRes = await toolsModule.executeTool('get_system_info');
+                    assert('get_system_info tool succeeds', sysRes.success && sysRes.result.includes('CPU cores'));
+
+                    // Test change_space execution
+                    const spaceRes = await toolsModule.executeTool('change_space', { space: 'garden' });
+                    assert('change_space tool succeeds', spaceRes.success && spaceRes.spaceId === 'garden');
+                    assert('AppState spaceId is now garden', AppState.spaceId === 'garden');
+
+                    // Test change_avatar execution
+                    const avatarRes = await toolsModule.executeTool('change_avatar', { avatar: 'ollie' });
+                    assert('change_avatar tool succeeds', avatarRes.success && avatarRes.avatarId === 'ollie');
+                    assert('AppState avatarId is now ollie', AppState.avatarId === 'ollie');
+
+                    // Test detectAndExecuteTool pattern matching
+                    const timeMatch = await toolsModule.detectAndExecuteTool('What time is it right now?');
+                    assert('detectAndExecuteTool detects time query', timeMatch && timeMatch.tool === 'get_time');
+
+                    const battMatch = await toolsModule.detectAndExecuteTool('check my battery level');
+                    assert('detectAndExecuteTool detects battery query', battMatch && battMatch.tool === 'get_battery');
+
+                    const spaceMatch = await toolsModule.detectAndExecuteTool('let us go to the cafe');
+                    assert('detectAndExecuteTool detects space change to cafe', spaceMatch && spaceMatch.tool === 'change_space' && spaceMatch.spaceId === 'cafe');
+                    assert('AppState spaceId is now cafe', AppState.spaceId === 'cafe');
+
+                    const avatarMatch = await toolsModule.detectAndExecuteTool('switch avatar to maya');
+                    assert('detectAndExecuteTool detects avatar change to maya', avatarMatch && avatarMatch.tool === 'change_avatar' && avatarMatch.avatarId === 'maya');
+                    assert('AppState avatarId is now maya', AppState.avatarId === 'maya');
+
+                    // Test action tag parsing and stripping
+                    const rawActionTag = 'Let us head over right now! [ACTION: change_space(penthouse)]';
+                    const processedAction = await toolsModule.processActionTagsInModelOutput(rawActionTag);
+                    assert('processActionTagsInModelOutput strips ACTION tag', !processedAction.cleanText.includes('[ACTION:'));
+                    assert('processActionTagsInModelOutput executes space change', AppState.spaceId === 'penthouse');
+
+                    // Test end-to-end generateAIResponse with tool invocation
+                    const { generateAIResponse: genWithTools } = await import('./js/ai/index.js');
+                    const timeResponse = await genWithTools('What time is it?');
+                    assert('generateAIResponse answers time query', typeof timeResponse === 'string' && timeResponse.length > 5);
+
+                    const spaceResponse = await genWithTools('Change space to garden');
+                    assert('generateAIResponse switches space to garden', AppState.spaceId === 'garden');
+                    assert('generateAIResponse confirms garden space arrival', spaceResponse.includes('Garden'));
+
+                    const avatarResponse = await genWithTools('Change avatar to Ollie');
+                    assert('generateAIResponse switches avatar to ollie', AppState.avatarId === 'ollie');
+                    assert('generateAIResponse confirms Ollie persona introduction', avatarResponse.includes('Ollie'));
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }

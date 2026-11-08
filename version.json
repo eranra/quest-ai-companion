@@ -1,6 +1,6 @@
 {
-  "version": "v0.5.0",
-  "build": 41,
-  "released_at": "2026-11-08T22:10:00Z",
-  "changelog": "v0.5.0: 1) Agentic Conversational Memory Framework with multi-turn sliding window dialogue tracking; 2) Fixed prompt-response disconnect on SmolLM2 by eliminating destructive repetition penalty (1.0) and expanding max token limit; 3) Persona alignment and spatial grounding for all avatars; 4) Output validation, ChatML token stripping, and sentence healing before speech synthesis; 5) Detailed diagnostic logging of raw LLM outputs, intent classification, and conversation memory."
+  "version": "v0.5.1",
+  "build": 42,
+  "released_at": "2026-11-08T22:20:00Z",
+  "changelog": "v0.5.1: 1) Agent Tool & Skill Execution Engine with browser sensing and 3D scene control; 2) Real-time live context grounding (time, date, battery, system specs, memory heap); 3) Scene & avatar voice commands ('change space to garden/cafe/penthouse/passthrough', 'switch avatar to maya/alex/ollie'); 4) Full dual support for Local LLM (zero-latency deterministic execution & action tag parsing) and Cloud Gemini (native function declarations & tool calling); 5) In-HUD diagnostic logging for all tool executions."
 }

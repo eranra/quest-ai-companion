@@ -47,7 +47,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.5.0';
+export const APP_VERSION = 'v0.5.1';
 
 // DOM References
 const dom = {

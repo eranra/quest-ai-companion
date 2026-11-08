@@ -1,5 +1,7 @@
 // Cloud AI Engine: Google Gemini 2.5 Flash API
 import { AppState } from '../state.js';
+import { logDebug } from '../ui/debug_logger.js';
+import { getGeminiToolDeclarations, executeTool } from './tools.js';
 
 // Google Gemini API Responsiveness Verification
 export async function checkGeminiResponsiveness() {
@@ -67,6 +69,7 @@ export async function callGeminiAPI(prompt, signal, context = {}) {
         text: systemPrompt
       }]
     },
+    tools: getGeminiToolDeclarations(),
     contents
   };
 
@@ -83,7 +86,55 @@ export async function callGeminiAPI(prompt, signal, context = {}) {
   }
 
   const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm listening and ready.";
+  const candidate = data.candidates?.[0];
+  const parts = candidate?.content?.parts || [];
+
+  // Check for Gemini function call
+  const funcCallPart = parts.find(p => p.functionCall);
+  if (funcCallPart) {
+    const { name, args } = funcCallPart.functionCall;
+    logDebug('GEMINI', `Gemini requested tool call: ${name}(${JSON.stringify(args || {})})`);
+    const toolExec = await executeTool(name, args || {});
+
+    // Follow-up request with tool output
+    const followUpContents = [
+      ...contents,
+      {
+        role: "model",
+        parts: [{ functionCall: funcCallPart.functionCall }]
+      },
+      {
+        role: "user",
+        parts: [{
+          text: `[System Observation: Tool "${name}" executed successfully. Result: ${toolExec.result}. Please respond warmly to Eran as the companion in 1-2 spoken sentences acknowledging this.]`
+        }]
+      }
+    ];
+
+    try {
+      const res2 = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: followUpContents
+        }),
+        signal
+      });
+
+      if (res2.ok) {
+        const data2 = await res2.json();
+        const text2 = data2.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text2 && text2.trim()) return text2.trim();
+      }
+    } catch {
+      // Fallback cleanly to direct tool result
+    }
+
+    return toolExec.result;
+  }
+
+  return parts[0]?.text || "I'm listening and ready.";
 }
 
 /**
