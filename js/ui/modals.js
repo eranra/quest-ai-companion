@@ -3,7 +3,7 @@ import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
 import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady } from '../audio/index.js';
-import { checkGeminiResponsiveness } from '../ai.js';
+import { checkGeminiResponsiveness, isQuestBrowser } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
 export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
@@ -204,6 +204,11 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         dom.groupGemini.style.display = 'none';
         dom.groupLocalModel.style.display = 'block';
         dom.engineSummaryHint.textContent = 'Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.';
+      }
+
+      const questNotice = document.getElementById('quest-engine-notice');
+      if (questNotice) {
+        questNotice.style.display = isQuestBrowser() ? 'block' : 'none';
       }
 
       dom.modalSettings.classList.add('open');

@@ -296,8 +296,24 @@ async function runTestSuite() {
                     assert('ai/index.js exports abortActiveGeneration', typeof aiSubsystem.abortActiveGeneration === 'function');
                     assert('ai/index.js exports initLocalWebLLM', typeof aiSubsystem.initLocalWebLLM === 'function');
                     assert('ai/index.js exports checkGeminiResponsiveness', typeof aiSubsystem.checkGeminiResponsiveness === 'function');
+                    assert('ai/index.js exports checkWebGPUSupport', typeof aiSubsystem.checkWebGPUSupport === 'function');
+                    assert('ai/index.js exports isQuestBrowser', typeof aiSubsystem.isQuestBrowser === 'function');
+                    assert('ai/index.js exports getOfflineCompanionAnswer', typeof aiSubsystem.getOfflineCompanionAnswer === 'function');
                     assert('ai.js forwarder exports generateAIResponse', typeof aiForwarder.generateAIResponse === 'function');
                     assert('ai.js forwarder exports checkGeminiResponsiveness', typeof aiForwarder.checkGeminiResponsiveness === 'function');
+                    assert('ai.js forwarder exports checkWebGPUSupport', typeof aiForwarder.checkWebGPUSupport === 'function');
+
+                    // Test 6b: Quest 3 & Offline Fallback Answers
+                    const nameAns = aiSubsystem.getOfflineCompanionAnswer('what is your name');
+                    assert('getOfflineCompanionAnswer handles name query', typeof nameAns === 'string' && nameAns.includes('companion'));
+                    const helloAns = aiSubsystem.getOfflineCompanionAnswer('hello');
+                    assert('getOfflineCompanionAnswer handles greeting', typeof helloAns === 'string' && helloAns.includes('Hello'));
+                    
+                    const gpuCheck = await aiSubsystem.checkWebGPUSupport();
+                    assert('checkWebGPUSupport returns support status object without throwing', typeof gpuCheck === 'object' && gpuCheck !== null && 'supported' in gpuCheck);
+
+                    const testReply = await aiSubsystem.callLocalWebLLM('what is your name');
+                    assert('callLocalWebLLM returns non-empty reply without hanging', typeof testReply === 'string' && testReply.length > 5);
 
                     // Test 7: Refactored Scene Subsystem Modularization & Camera Framing
                     const sceneCamera = await import('./js/scene/camera.js');

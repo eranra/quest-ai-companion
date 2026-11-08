@@ -11,7 +11,13 @@ import {
 } from './scene.js';
 import { buildAvatar, cycleAvatar } from './avatars/index.js';
 import { cycleSpace } from './spaces/index.js';
-import { generateAIResponse, initLocalWebLLM, checkGeminiResponsiveness } from './ai.js';
+import { 
+  generateAIResponse, 
+  initLocalWebLLM, 
+  checkGeminiResponsiveness,
+  checkWebGPUSupport,
+  isQuestBrowser
+} from './ai.js';
 import {
   unlockAudio,
   speakReply,
@@ -37,7 +43,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.8';
+export const APP_VERSION = 'v0.3.9';
 
 // DOM References
 const dom = {
@@ -170,25 +176,43 @@ function showMainProgress(visible, text = '', pct = 0) {
 // -------------------------------------------------------------
 // Local WebGPU Model Loader & Progress Tracking
 // -------------------------------------------------------------
-function startLocalModelLoading() {
+async function startLocalModelLoading() {
+  const gpuCheck = await checkWebGPUSupport();
+  if (!gpuCheck.supported) {
+    showMainProgress(false);
+    setPipelineState('idle');
+    AppState.isModelLoading = false;
+    AppState.isModelReady = false;
+    AppState.modelStatusText = 'WebGPU unavailable';
+    if (dockController) dockController.updateEngineBadge();
+    const isQuest = isQuestBrowser();
+    const hintMsg = isQuest
+      ? '🥽 Meta Quest 3 detected: WebGPU is experimental on Quest Browser. Google Gemini Cloud mode is recommended for instant responses in VR.'
+      : 'WebGPU is not enabled on this browser.';
+    dom.speechText.textContent = `${hintMsg} You can enter a Google Gemini API key in Settings (⚙️) to start chatting!`;
+    return;
+  }
+
   showMainProgress(true, 'Downloading Qwen 2.5 Model...', 0);
   setPipelineState('analyzing', 'Loading Qwen 2.5...');
   dom.speechText.textContent = `Loading ${AppState.localModel} into browser WebGPU memory... First time downloads weights into local cache.`;
 
-  initLocalWebLLM((report) => {
-    showMainProgress(true, report.text || `Loading LLM: ${report.progress}%`, report.progress);
-    setPipelineState('analyzing', `Loading: ${report.progress}%`);
-  }).then(() => {
+  try {
+    await initLocalWebLLM((report) => {
+      showMainProgress(true, report.text || `Loading LLM: ${report.progress}%`, report.progress);
+      setPipelineState('analyzing', `Loading: ${report.progress}%`);
+    });
     showMainProgress(false);
     setPipelineState('idle');
     if (dockController) dockController.updateEngineBadge();
     dom.speechText.textContent = `Hello Eran! I am running 100% locally on your device with Qwen 2.5 via WebGPU. Speak or type below to talk to me!`;
     speakReply(`Hello Eran! I am now ready as your companion running locally on your device.`);
-  }).catch((err) => {
+  } catch (err) {
     showMainProgress(false);
     setPipelineState('idle');
+    if (dockController) dockController.updateEngineBadge();
     dom.speechText.textContent = `WebGPU Error: ${err.message}. If your device doesn't support WebGPU, switch to Google Gemini mode in Settings (⚙️).`;
-  });
+  }
 }
 
 // -------------------------------------------------------------
@@ -297,6 +321,14 @@ function initApp() {
     console.log('Quest/Browser has no native speech recognition. Auto-enabling on-device Whisper STT.');
     AppState.sttEngine = 'whisper';
     AppState.save();
+  }
+
+  // If running on Meta Quest Browser with Gemini key configured, prefer Gemini Cloud to prevent VR GPU stall
+  if (isQuestBrowser() && AppState.geminiKey && AppState.geminiKey.trim() && AppState.engine === 'local') {
+    console.log('Quest 3 detected with Gemini key. Auto-routing to Cloud Gemini mode for smooth VR performance.');
+    AppState.engine = 'cloud';
+    AppState.save();
+    if (dockController) dockController.updateEngineBadge();
   }
 
   // Preload configured voice models in background

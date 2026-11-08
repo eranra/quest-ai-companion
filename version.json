@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.8",
-  "build": 29,
-  "released_at": "2026-11-08T10:30:00Z",
-  "changelog": "v0.3.8: Fixed WebLLM Qwen 2.5 getting stuck in Analyzing on Meta Quest 3: 1) Added 25s timeout and automatic fallback so analyzing never hangs; 2) Real-time progress updates for weights download and shader compilation in subtitle and VR HUD; 3) Automatic failover to Google Gemini API when key is available; 4) Graceful spoken error recovery if WebGPU memory is exhausted on Quest 3."
+  "version": "v0.3.9",
+  "build": 30,
+  "released_at": "2026-11-08T12:15:00Z",
+  "changelog": "v0.3.9: Meta Quest 3 zero-hang architecture & smart AI engine routing: 1) Added checkWebGPUSupport() with 2.5s adapter probe to detect disabled WebGPU on Quest Browser before invoking WebLLM; 2) Meta Quest 3 detection with proactive Gemini Cloud recommendations in Settings and VR HUD; 3) Shared initialization Promise and listener broadcasting in local.js to eliminate concurrency deadlocks; 4) Built-in conversational fallback for companion queries ('what is your name', 'who are you', etc.) ensuring instant spoken response even when WebGPU is unavailable; 5) Strict 10-12s watchdog with seamless Gemini cloud failover guaranteeing pipeline never hangs on Analyzing."
 }

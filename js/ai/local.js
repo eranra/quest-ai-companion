@@ -5,8 +5,67 @@ import { callGeminiAPI } from './gemini.js';
 let webllm = null;
 let webllmEngine = null;
 let currentLoadedModel = null;
+let pendingInitPromise = null;
+const progressListeners = new Set();
 
-// Dynamically import WebLLM from CDN
+/**
+ * Detect if running inside Meta Quest Browser / Horizon OS
+ */
+export function isQuestBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  return /OculusBrowser|Quest/i.test(navigator.userAgent || '');
+}
+
+/**
+ * Verify WebGPU availability and adapter acquisition with safety timeout
+ */
+export async function checkWebGPUSupport() {
+  if (typeof navigator === 'undefined' || !navigator.gpu) {
+    return { 
+      supported: false, 
+      reason: 'WebGPU is not supported by this browser.' 
+    };
+  }
+  try {
+    const adapterPromise = navigator.gpu.requestAdapter();
+    const timeoutPromise = new Promise(r => setTimeout(() => r(null), 2500));
+    const adapter = await Promise.race([adapterPromise, timeoutPromise]);
+    if (!adapter) {
+      return { 
+        supported: false, 
+        reason: 'WebGPU adapter is disabled or unavailable. (On Meta Quest Browser, WebGPU requires experimental flags in chrome://flags).' 
+      };
+    }
+    return { supported: true, adapter };
+  } catch (err) {
+    return { supported: false, reason: err.message };
+  }
+}
+
+/**
+ * Offline companion responses for common introductory queries when
+ * WebGPU is unavailable on mobile/Quest and no Gemini key is yet configured.
+ */
+export function getOfflineCompanionAnswer(prompt) {
+  const clean = (prompt || '').toLowerCase().trim();
+  if (/what('?s| is) your name|who are you/i.test(clean)) {
+    return "I am your 3D VR companion! On Meta Quest 3, connecting a Google Gemini key in Settings (⚙️) unlocks full conversational intelligence.";
+  }
+  if (/^(hello|hi|hey|good morning|good afternoon|good evening)/i.test(clean)) {
+    return "Hello! Wonderful to see you here in VR. To have full conversations on Meta Quest 3, you can add a free Google Gemini key in Settings (⚙️)!";
+  }
+  if (/how are you/i.test(clean)) {
+    return "I am doing great, standing right here with you! Connect a Google Gemini API key in Settings for open-ended voice conversation.";
+  }
+  if (/what can you do|help me|what is this/i.test(clean)) {
+    return "I can listen to your voice, step into 360° virtual spaces, and speak with full-body gestures! Enter a Google Gemini key in Settings (⚙️) to chat about anything.";
+  }
+  return null;
+}
+
+/**
+ * Dynamically import WebLLM from CDN
+ */
 export async function getWebLLM() {
   if (webllm) return webllm;
   try {
@@ -19,87 +78,123 @@ export async function getWebLLM() {
   }
 }
 
-// Initialize Local WebGPU Model (Qwen 2.5 0.5B default)
+/**
+ * Reset local engine instance (useful for model switching or error recovery)
+ */
+export function resetLocalWebLLM() {
+  webllmEngine = null;
+  currentLoadedModel = null;
+  pendingInitPromise = null;
+  AppState.isModelReady = false;
+  AppState.isModelLoading = false;
+}
+
+/**
+ * Initialize Local WebGPU Model (Qwen 2.5 0.5B default)
+ * Uses shared Promise and broadcast listener to avoid concurrency freezes.
+ */
 export async function initLocalWebLLM(onProgress) {
   if (webllmEngine && currentLoadedModel === AppState.localModel) {
     AppState.isModelReady = true;
+    if (onProgress) {
+      onProgress({ progress: 100, text: `${AppState.localModel} Ready (WebGPU)`, ready: true });
+    }
     return webllmEngine;
   }
 
-  if (AppState.isModelLoading) {
-    // Wait for in-flight load with safety timeout
-    let waitCount = 0;
-    while (AppState.isModelLoading && waitCount < 150) {
-      await new Promise(r => setTimeout(r, 200));
-      waitCount++;
+  if (onProgress) {
+    progressListeners.add(onProgress);
+  }
+
+  if (pendingInitPromise) {
+    return pendingInitPromise;
+  }
+
+  pendingInitPromise = (async () => {
+    // 1. Verify WebGPU hardware adapter first
+    const gpuCheck = await checkWebGPUSupport();
+    if (!gpuCheck.supported) {
+      throw new Error(gpuCheck.reason);
     }
-    if (webllmEngine) return webllmEngine;
-  }
 
-  // Check WebGPU availability
-  if (!navigator.gpu) {
-    throw new Error('WebGPU is not supported on this browser. On Meta Quest Browser, WebGPU requires experimental flags or Gemini mode in Settings.');
-  }
+    AppState.isModelLoading = true;
+    AppState.isModelReady = false;
+    AppState.modelLoadProgress = 0;
+    AppState.modelStatusText = `Initializing ${AppState.localModel}...`;
 
-  AppState.isModelLoading = true;
-  AppState.isModelReady = false;
-  AppState.modelLoadProgress = 0;
-  AppState.modelStatusText = `Initializing ${AppState.localModel}...`;
+    try {
+      const mlc = await getWebLLM();
 
-  try {
-    const mlc = await getWebLLM();
-    
-    const initProgressCallback = (report) => {
-      AppState.modelStatusText = report.text || 'Loading weights into WebGPU...';
-      if (report.progress !== undefined) {
-        AppState.modelLoadProgress = Math.round(report.progress * 100);
-      }
-      if (onProgress) {
-        onProgress({
+      const initProgressCallback = (report) => {
+        AppState.modelStatusText = report.text || 'Loading weights into WebGPU...';
+        if (report.progress !== undefined) {
+          AppState.modelLoadProgress = Math.round(report.progress * 100);
+        }
+        const data = {
           progress: AppState.modelLoadProgress,
           text: AppState.modelStatusText
+        };
+        progressListeners.forEach(listener => {
+          try { listener(data); } catch (e) {}
         });
-      }
-    };
+      };
 
-    const engine = await mlc.CreateMLCEngine(AppState.localModel, { initProgressCallback });
-    webllmEngine = engine;
-    currentLoadedModel = AppState.localModel;
-    AppState.isModelReady = true;
-    AppState.isModelLoading = false;
-    AppState.modelStatusText = `${AppState.localModel} Ready (WebGPU)`;
-    
-    if (onProgress) {
-      onProgress({
+      const engine = await mlc.CreateMLCEngine(AppState.localModel, { initProgressCallback });
+      webllmEngine = engine;
+      currentLoadedModel = AppState.localModel;
+      AppState.isModelReady = true;
+      AppState.isModelLoading = false;
+      AppState.modelStatusText = `${AppState.localModel} Ready (WebGPU)`;
+
+      const readyData = {
         progress: 100,
         text: AppState.modelStatusText,
         ready: true
+      };
+      progressListeners.forEach(listener => {
+        try { listener(readyData); } catch (e) {}
       });
-    }
 
-    return engine;
-  } catch (err) {
-    AppState.isModelLoading = false;
-    AppState.isModelReady = false;
-    AppState.modelStatusText = `Failed: ${err.message}`;
-    console.error('Local model initialization error:', err);
-    if (onProgress) {
-      onProgress({
+      return engine;
+    } catch (err) {
+      AppState.isModelLoading = false;
+      AppState.isModelReady = false;
+      AppState.modelStatusText = `Failed: ${err.message}`;
+      console.error('Local model initialization error:', err);
+
+      const errorData = {
         progress: 0,
         text: AppState.modelStatusText,
         error: err.message
+      };
+      progressListeners.forEach(listener => {
+        try { listener(errorData); } catch (e) {}
       });
+
+      throw err;
+    } finally {
+      progressListeners.clear();
+      pendingInitPromise = null;
     }
-    throw err;
-  }
+  })();
+
+  return pendingInitPromise;
 }
 
+/**
+ * Generate AI Response using Local WebLLM with zero-hang watchdog & Gemini failover
+ */
 export async function callLocalWebLLM(prompt, onProgress, signal) {
-  if (!navigator.gpu) {
+  // 1. Check WebGPU adapter support
+  const gpuCheck = await checkWebGPUSupport();
+  if (!gpuCheck.supported) {
     if (AppState.geminiKey && AppState.geminiKey.trim()) {
+      console.log('WebGPU unavailable on this device; seamlessly routing to Google Gemini Cloud API');
       return await callGeminiAPI(prompt, signal);
     }
-    return `I heard your message: "${prompt}". WebGPU is not enabled for local weights on this browser. You can enter a Google Gemini key in Settings (⚙️) to enable AI responses on Meta Quest 3!`;
+    const companionAns = getOfflineCompanionAnswer(prompt);
+    if (companionAns) return companionAns;
+    return `I heard your message: "${prompt}". Meta Quest Browser does not have WebGPU enabled by default. Please enter a free Google Gemini key in Settings (⚙️) for instant cloud responses!`;
   }
 
   let engine = webllmEngine;
@@ -108,15 +203,18 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
       if (onProgress) {
         onProgress({ progress: 10, text: `Downloading ${AppState.localModel} weights...` });
       }
+      // Strict 12-second watchdog for mobile/Quest VR
       const initTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('WebGPU Qwen 2.5 initialization timed out on Quest hardware')), 45000)
+        setTimeout(() => reject(new Error('WebGPU model initialization timed out on mobile hardware')), 12000)
       );
       engine = await Promise.race([initLocalWebLLM(onProgress), initTimeoutPromise]);
     } catch (initErr) {
-      console.warn("WebLLM initialization error/timeout on Quest 3:", initErr);
+      console.warn("WebLLM initialization error/timeout:", initErr);
       if (AppState.geminiKey && AppState.geminiKey.trim()) {
         return await callGeminiAPI(prompt, signal);
       }
+      const companionAns = getOfflineCompanionAnswer(prompt);
+      if (companionAns) return companionAns;
       return `I heard you say: "${prompt}". My local Qwen 2.5 WebGPU model is still loading or reached a mobile memory limit on Quest 3. You can connect a Google Gemini API key in Settings (⚙️) for instant cloud responses!`;
     }
   }
@@ -132,8 +230,9 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
   ];
 
   try {
+    // Strict 10-second watchdog for generation
     const genTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('WebGPU generation timed out after 25s')), 25000)
+      setTimeout(() => reject(new Error('WebGPU generation timed out after 10s')), 10000)
     );
 
     const completion = await Promise.race([
@@ -147,10 +246,12 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
 
     return completion.choices[0]?.message?.content || "Hello! I am here with you.";
   } catch (genErr) {
-    console.warn("Local WebLLM generation error/timeout on Quest 3:", genErr);
+    console.warn("Local WebLLM generation error/timeout:", genErr);
     if (AppState.geminiKey && AppState.geminiKey.trim()) {
       return await callGeminiAPI(prompt, signal);
     }
+    const companionAns = getOfflineCompanionAnswer(prompt);
+    if (companionAns) return companionAns;
     return `I heard: "${prompt}". Local Qwen generation took too long or reached a mobile GPU shader limit on Quest 3. Connecting a Google Gemini key in Settings (⚙️) provides fast, reliable cloud responses.`;
   }
 }

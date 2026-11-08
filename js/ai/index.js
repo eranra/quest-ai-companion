@@ -1,6 +1,14 @@
 // AI Subsystem Facade
 import { AppState } from '../state.js';
-import { initLocalWebLLM, getWebLLM, callLocalWebLLM } from './local.js';
+import { 
+  initLocalWebLLM, 
+  getWebLLM, 
+  callLocalWebLLM, 
+  checkWebGPUSupport, 
+  isQuestBrowser, 
+  getOfflineCompanionAnswer, 
+  resetLocalWebLLM 
+} from './local.js';
 import { checkGeminiResponsiveness, callGeminiAPI, transcribeAudioWithGemini } from './gemini.js';
 
 let activeAbortController = null;
@@ -37,6 +45,10 @@ export {
   initLocalWebLLM,
   getWebLLM,
   callLocalWebLLM,
+  checkWebGPUSupport,
+  isQuestBrowser,
+  getOfflineCompanionAnswer,
+  resetLocalWebLLM,
   checkGeminiResponsiveness,
   callGeminiAPI,
   transcribeAudioWithGemini

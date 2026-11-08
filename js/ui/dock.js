@@ -181,13 +181,19 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
         }
       } else {
         const isReady = AppState.isModelReady;
-        if (isSmallScreen) {
+        if (AppState.modelStatusText === 'WebGPU unavailable') {
+          dom.engineBadge.textContent = isSmallScreen ? '⚠️ WebGPU' : '⚠️ WebGPU Off (Use Gemini)';
+          dom.engineBadge.style.color = '#f59e0b';
+          dom.engineBadge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        } else if (isSmallScreen) {
           dom.engineBadge.textContent = isReady ? '🏠 Qwen' : '🏠 Loading...';
+          dom.engineBadge.style.color = isReady ? '#34d399' : '#f59e0b';
+          dom.engineBadge.style.borderColor = isReady ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.4)';
         } else {
           dom.engineBadge.textContent = isReady ? '🏠 Qwen 2.5 (Ready)' : '🏠 Qwen 2.5 (Loading...)';
+          dom.engineBadge.style.color = isReady ? '#34d399' : '#f59e0b';
+          dom.engineBadge.style.borderColor = isReady ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.4)';
         }
-        dom.engineBadge.style.color = isReady ? '#34d399' : '#f59e0b';
-        dom.engineBadge.style.borderColor = isReady ? 'rgba(52, 211, 153, 0.4)' : 'rgba(245, 158, 11, 0.4)';
       }
     },
 
