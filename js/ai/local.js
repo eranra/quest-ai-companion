@@ -252,8 +252,10 @@ export async function initLocalWebLLM(onProgress) {
 /**
  * Execute Local CPU WASM Text Generation
  */
-export async function callLocalWebLLM(prompt, onProgress, signal) {
+export async function callLocalWebLLM(prompt, onProgress, signal, context = {}) {
   const cleanPrompt = (prompt || '').trim();
+  const systemPrompt = context.systemPrompt || "You are a warm, intelligent 3D VR companion. Reply in 1 or 2 concise conversational sentences directly answering the user.";
+  const history = context.history || [];
 
   // Fast-Path 1: Instant Companion Mode (0ms latency, zero memory overhead)
   if (AppState.localModel === 'instant-companion') {
@@ -278,7 +280,7 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
     } catch (initErr) {
       console.warn("WASM model initialization error:", initErr);
       if (AppState.geminiKey && AppState.geminiKey.trim()) {
-        return await callGeminiAPI(prompt, signal);
+        return await callGeminiAPI(prompt, signal, context);
       }
       const companionAns = getOfflineCompanionAnswer(prompt);
       if (companionAns) return companionAns;
@@ -288,22 +290,19 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
 
   if (signal && signal.aborted) throw new Error('Aborted');
 
-  // Snappy companion prompt - strictly 1 short sentence (under 12 words)
+  // Multi-turn context messages grounded in avatar persona & dialogue history
   const messages = [
-    {
-      role: "system",
-      content: "You are a warm, intelligent 3D VR companion. Reply in exactly ONE brief, crisp sentence (maximum 12 words). Never write lists or multiple sentences."
-    },
+    { role: "system", content: systemPrompt },
+    ...history.map(turn => ({ role: turn.role, content: turn.content })),
     { role: "user", content: cleanPrompt }
   ];
 
   try {
-    // Greedy decoding (do_sample: false) is 3x faster than sampling on mobile CPU!
-    // max_new_tokens: 24 prevents long verbose paragraph generation (which took 24s in the log)
+    // Greedy decoding without artificial repetition penalties prevents 135M models from generating nonsense words
     const output = await generator(messages, {
-      max_new_tokens: 24,
+      max_new_tokens: 42,
       do_sample: false,
-      repetition_penalty: 1.15
+      repetition_penalty: 1.0
     });
 
     let reply = '';
@@ -328,7 +327,7 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
   } catch (genErr) {
     console.warn("WASM text generation error:", genErr);
     if (AppState.geminiKey && AppState.geminiKey.trim()) {
-      return await callGeminiAPI(prompt, signal);
+      return await callGeminiAPI(prompt, signal, context);
     }
     const companionAns = getOfflineCompanionAnswer(prompt);
     if (companionAns) return companionAns;

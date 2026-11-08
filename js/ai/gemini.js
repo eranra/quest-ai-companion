@@ -42,22 +42,32 @@ export async function checkGeminiResponsiveness() {
   }
 }
 
-export async function callGeminiAPI(prompt, signal) {
+export async function callGeminiAPI(prompt, signal, context = {}) {
   if (!AppState.geminiKey) {
     throw new Error('Google Gemini API key required. Tap ⚙️ Settings to enter your key or switch back to Local Qwen mode.');
   }
 
+  const systemPrompt = context.systemPrompt || "You are a friendly 3D virtual companion speaking directly with the user. Reply concisely, naturally, and warmly in spoken style (1-2 sentences). Avoid markdown formatting, asterisks, or unpronounceable symbols as your reply will be read aloud.";
+  const history = context.history || [];
+
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(AppState.geminiKey)}`;
+
+  // Convert conversation history to Gemini multi-turn format
+  const contents = [
+    ...history.map(turn => ({
+      role: turn.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: turn.content }]
+    })),
+    { role: "user", parts: [{ text: prompt }] }
+  ];
 
   const payload = {
     systemInstruction: {
       parts: [{
-        text: "You are a friendly 3D virtual companion speaking directly with the user. Reply concisely, naturally, and warmly in spoken style (1-2 sentences). Avoid markdown formatting, asterisks, or unpronounceable symbols as your reply will be read aloud."
+        text: systemPrompt
       }]
     },
-    contents: [
-      { role: "user", parts: [{ text: prompt }] }
-    ]
+    contents
   };
 
   const res = await fetch(url, {

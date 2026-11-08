@@ -526,6 +526,74 @@ async function runTestSuite() {
                     const nextSpace = cycleSpace(1);
                     assert('cycleSpace switches to a valid space definition', nextSpace && typeof nextSpace.name === 'string');
 
+                    // Test 11: Agentic Conversational Memory Framework & Persona Alignment
+                    const agentModule = await import('./js/ai/agent.js');
+                    assert('ai/agent.js exports classifyUserIntent', typeof agentModule.classifyUserIntent === 'function');
+                    assert('ai/agent.js exports getConversationHistory', typeof agentModule.getConversationHistory === 'function');
+                    assert('ai/agent.js exports recordDialogueTurn', typeof agentModule.recordDialogueTurn === 'function');
+                    assert('ai/agent.js exports clearConversationHistory', typeof agentModule.clearConversationHistory === 'function');
+                    assert('ai/agent.js exports getActiveAvatarPersona', typeof agentModule.getActiveAvatarPersona === 'function');
+                    assert('ai/agent.js exports buildAgentSystemPrompt', typeof agentModule.buildAgentSystemPrompt === 'function');
+                    assert('ai/agent.js exports cleanAndValidateSpeech', typeof agentModule.cleanAndValidateSpeech === 'function');
+                    assert('ai/agent.js exports AVATAR_PERSONAS', typeof agentModule.AVATAR_PERSONAS === 'object');
+
+                    // Intent Classification Tests
+                    assert('classifyUserIntent detects reset', agentModule.classifyUserIntent('reset memory') === 'reset');
+                    assert('classifyUserIntent detects clear history', agentModule.classifyUserIntent('clear history') === 'reset');
+                    assert('classifyUserIntent detects identity question', agentModule.classifyUserIntent('Who are you?') === 'identity');
+                    assert('classifyUserIntent detects name question', agentModule.classifyUserIntent("what is your name") === 'identity');
+                    assert('classifyUserIntent detects greeting', agentModule.classifyUserIntent('Hello there!') === 'greeting');
+                    assert('classifyUserIntent detects status query', agentModule.classifyUserIntent('How are you feeling today?') === 'status');
+                    assert('classifyUserIntent detects spatial query', agentModule.classifyUserIntent('Where are we?') === 'spatial');
+                    assert('classifyUserIntent defaults to general', agentModule.classifyUserIntent('Tell me about the stars') === 'general');
+
+                    // Conversational History Tracking and Sliding Window
+                    agentModule.clearConversationHistory();
+                    assert('clearConversationHistory leaves history empty', agentModule.getConversationHistory().length === 0);
+
+                    agentModule.recordDialogueTurn('user', 'What is your favorite planet?');
+                    agentModule.recordDialogueTurn('assistant', 'I love Mars for its red dunes!');
+                    const hist = agentModule.getConversationHistory();
+                    assert('recordDialogueTurn saves 2 turns', hist.length === 2);
+                    assert('First turn is user role', hist[0].role === 'user' && hist[0].content === 'What is your favorite planet?');
+                    assert('Second turn is assistant role', hist[1].role === 'assistant' && hist[1].content === 'I love Mars for its red dunes!');
+
+                    // Test sliding window pruning (MAX_HISTORY_TURNS = 6)
+                    for (let i = 0; i < 8; i++) {
+                      agentModule.recordDialogueTurn('user', 'Message ' + i);
+                    }
+                    assert('Conversation history respects sliding window limit (<= 6)', agentModule.getConversationHistory().length <= 6);
+
+                    // Persona & System Prompt Construction
+                    const mayaPersona = agentModule.getActiveAvatarPersona('maya');
+                    assert('Maya persona has correct name', mayaPersona && mayaPersona.name === 'Maya');
+                    const alexPersona = agentModule.getActiveAvatarPersona('alex');
+                    assert('Alex persona has correct name', alexPersona && alexPersona.name === 'Alex');
+
+                    const promptString = agentModule.buildAgentSystemPrompt({ persona: mayaPersona, spaceId: 'penthouse', userName: 'Eran' });
+                    assert('System prompt includes persona name', promptString.includes('Maya'));
+                    assert('System prompt includes user name Eran', promptString.includes('Eran'));
+                    assert('System prompt includes space name', promptString.includes('penthouse'));
+
+                    // Output Validation and Healing
+                    const rawWithTokens = '<|im_start|>assistant\\n*smiles* Hello Eran! 😊 How can I help? <|im_end|>';
+                    const cleanedTokens = agentModule.cleanAndValidateSpeech(rawWithTokens, 'Hi', mayaPersona);
+                    assert('cleanAndValidateSpeech strips ChatML tokens', !cleanedTokens.includes('<|im_start|>') && !cleanedTokens.includes('<|im_end|>'));
+                    assert('cleanAndValidateSpeech strips asterisks/emojis', !cleanedTokens.includes('*') && !cleanedTokens.includes('😊'));
+                    assert('cleanAndValidateSpeech retains spoken content', cleanedTokens.includes('Hello Eran'));
+
+                    const truncatedSentence = 'I am glad to show you around the virtual room and explore';
+                    const healedSentence = agentModule.cleanAndValidateSpeech(truncatedSentence, 'Hello', mayaPersona);
+                    assert('cleanAndValidateSpeech heals missing end punctuation', healedSentence.endsWith('.'));
+
+                    const emptyFallback = agentModule.cleanAndValidateSpeech('', 'hello', mayaPersona);
+                    assert('cleanAndValidateSpeech provides valid fallback on empty text', typeof emptyFallback === 'string' && emptyFallback.length > 5);
+
+                    // Re-export validation in ai/index.js
+                    const { classifyUserIntent: exportedClassify, getConversationHistory: exportedHistory } = await import('./js/ai/index.js');
+                    assert('ai/index.js re-exports classifyUserIntent', typeof exportedClassify === 'function');
+                    assert('ai/index.js re-exports getConversationHistory', typeof exportedHistory === 'function');
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }
@@ -546,9 +614,13 @@ async function runTestSuite() {
             }
 
             if (msg.id === 100) {
-              const testResults = msg.result.result.value || [];
-              let passed = 0;
               let failed = 0;
+              if (msg.result.exceptionDetails) {
+                console.error('❌ CDP Runtime Evaluation Exception:', JSON.stringify(msg.result.exceptionDetails, null, 2));
+                failed++;
+              }
+              const testResults = (msg.result.result && msg.result.result.value) || [];
+              let passed = 0;
 
               console.log('📋 Test Execution Results:\n');
               testResults.forEach(t => {
