@@ -5,6 +5,7 @@ import { isSelfEcho, detectUserInterruption, stopSpeaking } from './tts.js';
 import { abortActiveGeneration } from '../ai.js';
 import { encodeWAV, blobToBase64 } from './wav.js';
 import { transcribeAudioWithGemini } from '../ai/index.js';
+import { logDebug, setStageTiming, setActiveStage } from '../ui/debug_logger.js';
 
 let whisperTranscriber = null;
 let isWhisperLoading = false;
@@ -92,31 +93,23 @@ export async function initWhisper(onProgress) {
       }
     };
 
-    let transcriber;
-    try {
-      const device = navigator.gpu ? 'webgpu' : 'wasm';
-      transcriber = await tf.pipeline('automatic-speech-recognition', modelId, {
-        quantized: true,
-        device,
-        progress_callback: progressCallback
-      });
-    } catch (gpuErr) {
-      console.warn('WebGPU Whisper initialization failed, falling back to WASM:', gpuErr);
-      transcriber = await tf.pipeline('automatic-speech-recognition', modelId, {
-        quantized: true,
-        device: 'wasm',
-        progress_callback: progressCallback
-      });
-    }
+    logDebug('STT', 'Loading Whisper-tiny model on CPU WASM (quantized)...');
+    const transcriber = await tf.pipeline('automatic-speech-recognition', modelId, {
+      quantized: true,
+      device: 'wasm',
+      progress_callback: progressCallback
+    });
 
     whisperTranscriber = transcriber;
     isWhisperLoading = false;
+    logDebug('STT', 'Whisper STT Ready on CPU WASM');
     if (onProgress) {
       onProgress({ progress: 100, text: 'Whisper STT Ready!' });
     }
     return whisperTranscriber;
   } catch (err) {
     isWhisperLoading = false;
+    logDebug('STT', `Whisper initialization error: ${err.message}`, 'error');
     console.error('Whisper initialization error:', err);
     throw err;
   }
@@ -335,9 +328,12 @@ async function finalizeWhisperTranscription() {
   }
 
   const sampleRate = audioContext ? audioContext.sampleRate : 16000;
+  const audioDurationSec = totalLength / sampleRate;
+  setStageTiming('audio_duration', audioDurationSec);
 
   // Minimum ~0.35s audio to avoid clicks
   if (totalLength < sampleRate * 0.35) {
+    logDebug('STT', `Audio too short (${(audioDurationSec * 1000).toFixed(0)}ms), discarding.`);
     if (!AppState.isLiveMode) {
       if (onStatusChangeCallback) onStatusChangeCallback('idle', 'Audio too short. Tap mic to speak.');
     }
@@ -352,6 +348,8 @@ async function finalizeWhisperTranscription() {
   }
 
   const resampled = downsampleTo16k(merged, sampleRate);
+  setActiveStage('transcribing_whisper', `Whisper Transcribing (${audioDurationSec.toFixed(1)}s)...`);
+  logDebug('STT', `Captured ${totalLength} samples (~${audioDurationSec.toFixed(2)}s). Resampled to 16kHz (${resampled.length} samples). Transcribing with Whisper...`);
 
   if (onStatusChangeCallback) {
     onStatusChangeCallback('analyzing', 'Transcribing speech with Whisper...');
@@ -366,7 +364,17 @@ async function finalizeWhisperTranscription() {
     }
 
     if (whisperTranscriber) {
-      const output = await whisperTranscriber(resampled);
+      const t0 = performance.now();
+      const output = await whisperTranscriber(resampled, {
+        chunk_length_s: 30,
+        stride_length_s: 5,
+        language: 'en',
+        task: 'transcribe',
+        return_timestamps: false
+      });
+      const sttMs = Math.round(performance.now() - t0);
+      setStageTiming('stt', sttMs);
+
       if (Array.isArray(output)) {
         transcript = (output[0]?.text || '').trim();
       } else if (typeof output === 'string') {
@@ -374,15 +382,22 @@ async function finalizeWhisperTranscription() {
       } else {
         transcript = (output?.text || '').trim();
       }
+      logDebug('STT', `Whisper completed in ${sttMs}ms: "${transcript}"`);
     }
 
     // Route 2 Fallback: Cloud Gemini Multimodal Audio if local transcription was empty and key is present
     if (!transcript && AppState.geminiKey && AppState.geminiKey.trim()) {
       try {
+        logDebug('STT', 'Whisper produced empty text, falling back to Cloud Gemini multimodal...');
+        const tGeminiStart = performance.now();
         const wavBlob = encodeWAV(resampled, 16000);
         const base64Wav = await blobToBase64(wavBlob);
         transcript = await transcribeAudioWithGemini(base64Wav);
+        const geminiMs = Math.round(performance.now() - tGeminiStart);
+        setStageTiming('stt', geminiMs);
+        logDebug('STT', `Cloud Gemini audio fallback completed in ${geminiMs}ms: "${transcript}"`);
       } catch (geminiErr) {
+        logDebug('STT', `Gemini audio transcription fallback error: ${geminiErr.message}`, 'warn');
         console.warn('Gemini audio transcription fallback error:', geminiErr);
       }
     }
@@ -440,10 +455,12 @@ async function finalizeWhisperTranscription() {
     }
 
     console.log(`[Whisper STT] Recognized: "${transcript}"`);
+    logDebug('STT', `Speech finalized -> "${transcript}"`);
     if (onSpeechFinishedCallback) {
       onSpeechFinishedCallback(transcript);
     }
   } catch (err) {
+    logDebug('STT', `Speech transcription error: ${err.message}`, 'error');
     console.error('Speech transcription error:', err);
     if (!AppState.isLiveMode) {
       stopListeningWhisper(false);

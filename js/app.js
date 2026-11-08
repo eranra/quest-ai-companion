@@ -40,10 +40,14 @@ import {
   setPipelineState,
   updateMicLevel,
   initModals,
-  initDock
+  initDock,
+  initDebugDrawer,
+  logDebug,
+  setStageTiming,
+  setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.4.2';
+export const APP_VERSION = 'v0.4.3';
 
 // DOM References
 const dom = {
@@ -87,18 +91,27 @@ async function handleUserSpeech(userText) {
     dom.promptInput.blur();
   }
 
+  setStageTiming('turn_start');
+  logDebug('CONV', `User speech input: "${userText}"`);
+
   // Step 2: Sent to AI & Analyzing
   setPipelineState('analyzing');
+  const engineDesc = AppState.engine === 'cloud' ? 'Gemini Cloud' : AppState.localModel;
+  setActiveStage('analyzing_ai', `AI Query (${engineDesc})...`);
   dom.speechText.textContent = `You: "${userText}"\n\n⚡ Analyzing with AI...`;
   updateVRHUDState({ status: '⚡ Analyzing...', text: `You: "${userText}"` });
 
   try {
+    const tAIStart = performance.now();
     const reply = await generateAIResponse(userText, (report) => {
       const statusText = report.text || `Loading LLM: ${report.progress}%`;
       setPipelineState('analyzing', statusText);
       dom.speechText.textContent = `You: "${userText}"\n\n⚡ ${statusText}`;
       updateVRHUDState({ status: '⚡ Analyzing...', text: statusText });
     });
+    const aiLatency = Math.round(performance.now() - tAIStart);
+    setStageTiming('llm', aiLatency);
+    logDebug('AI', `AI response ready in ${aiLatency}ms (${reply.length} chars)`);
 
     // Step 3: Answer Ready
     setPipelineState('ready');
@@ -108,6 +121,8 @@ async function handleUserSpeech(userText) {
     // Step 4: Speaking Reply
     setPipelineState('speaking', '🗣️ Speaking (Tap to stop)...');
     updateVRHUDState({ status: '🗣️ Speaking', text: reply });
+    setActiveStage('speaking', `Speaking Reply (${AppState.ttsEngine})...`);
+    logDebug('TTS', `Speaking reply via ${AppState.ttsEngine}...`);
     speakReply(reply, () => {
       // Completed speaking reply:
       if (AppState.isLiveMode) {
@@ -273,8 +288,9 @@ async function checkCloudGemini() {
 // Initialize App & UI Event Binding
 // -------------------------------------------------------------
 function initApp() {
-  // 1. Initialize Pipeline UI & Mic Visualizer
+  // 1. Initialize Pipeline UI, Mic Visualizer & Live Debug Logger
   initPipelineUI();
+  initDebugDrawer();
 
   // 2. Initialize Modals with progress reporting
   modalController = initModals({
@@ -336,13 +352,15 @@ function initApp() {
     if (dockController) dockController.updateEngineBadge();
   }
 
-  // Preload configured voice models in background
-  if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
-    ensureSTTReady();
-  }
-  if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
-    ensureTTSReady();
-  }
+  // Preload configured voice models in background sequentially to avoid CPU lockup
+  (async () => {
+    if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
+      await ensureSTTReady();
+    }
+    if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+      await ensureTTSReady();
+    }
+  })();
 
   async function handleToggleLiveMode() {
     const nextMode = !AppState.isLiveMode;

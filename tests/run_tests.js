@@ -151,6 +151,44 @@ async function runTestSuite() {
                     btnCloseSpaces.click();
                     assert('Spaces Modal closes', !modalSpaces.classList.contains('open'));
 
+                    // Test 2C: Live Debug Diagnostics Modal & Controls
+                    const btnDebug = document.getElementById('btn-debug');
+                    const modalDebug = document.getElementById('modal-debug');
+                    assert('Debug button exists in top actions', !!btnDebug);
+                    assert('Debug modal exists in DOM', !!modalDebug);
+                    assert('Active Stage pill exists in Debug modal', !!document.getElementById('debug-active-stage-pill'));
+                    assert('Metrics grid exists in Debug modal', !!document.getElementById('debug-metrics-grid'));
+                    assert('Debug log entries container exists', !!document.getElementById('debug-log-entries'));
+                    assert('Copy Debug button exists', !!document.getElementById('btn-copy-debug'));
+                    assert('Clear Debug button exists', !!document.getElementById('btn-clear-debug'));
+
+                    btnDebug.click();
+                    assert('Debug modal opens on click', modalDebug.classList.contains('open'));
+
+                    const btnCloseDebug = document.getElementById('btn-close-debug');
+                    btnCloseDebug.click();
+                    assert('Debug modal closes on close button click', !modalDebug.classList.contains('open'));
+
+                    // Test 2D: Subtitle / Speech Bubble & Stepper Minimizer
+                    const bubbleContainerEl = document.getElementById('speech-bubble-container');
+                    const btnToggleBubble = document.getElementById('btn-toggle-bubble');
+                    const bubbleIcon = document.getElementById('bubble-toggle-icon');
+                    assert('Speech bubble container has ID', !!bubbleContainerEl);
+                    assert('Bubble minimize toggle button exists', !!btnToggleBubble);
+                    assert('Bubble toggle icon exists', !!bubbleIcon);
+
+                    // Test collapsing
+                    btnToggleBubble.click();
+                    assert('Speech bubble collapses with .collapsed class', bubbleContainerEl.classList.contains('collapsed'));
+                    assert('Bubble icon changes to + when collapsed', bubbleIcon.textContent.trim() === '+');
+                    assert('Collapsed preference persisted to localStorage', localStorage.getItem('quest_bubble_collapsed') === 'true');
+
+                    // Test expanding
+                    btnToggleBubble.click();
+                    assert('Speech bubble expands (removes .collapsed)', !bubbleContainerEl.classList.contains('collapsed'));
+                    assert('Bubble icon changes to − when expanded', bubbleIcon.textContent.trim() === '−');
+                    assert('Expanded preference persisted to localStorage', localStorage.getItem('quest_bubble_collapsed') === 'false');
+
                     // Test 3: Avatar Switching without crash
                     const avatarIds = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
                     const { buildAvatar } = await import('./js/avatars/index.js');
@@ -292,6 +330,33 @@ async function runTestSuite() {
                     AppState.sttEngine = 'native';
                     AppState.ttsEngine = 'native';
                     AppState.save();
+
+                    // Test 5G: Live Debug Logger Subsystem
+                    const debugLogger = await import('./js/ui/debug_logger.js');
+                    assert('debug_logger exports logDebug', typeof debugLogger.logDebug === 'function');
+                    assert('debug_logger exports setActiveStage', typeof debugLogger.setActiveStage === 'function');
+                    assert('debug_logger exports setStageTiming', typeof debugLogger.setStageTiming === 'function');
+                    assert('debug_logger exports getDebugLogs', typeof debugLogger.getDebugLogs === 'function');
+                    assert('debug_logger exports clearDebugLogs', typeof debugLogger.clearDebugLogs === 'function');
+                    assert('debug_logger exports generateDebugReport', typeof debugLogger.generateDebugReport === 'function');
+                    assert('debug_logger exports copyDebugLogsToClipboard', typeof debugLogger.copyDebugLogsToClipboard === 'function');
+
+                    debugLogger.logDebug('TEST', 'Sample diagnostic event', 'info');
+                    const logs = debugLogger.getDebugLogs();
+                    assert('logDebug stores event in logs', logs.some(l => l.category === 'TEST' && l.message === 'Sample diagnostic event'));
+
+                    debugLogger.setStageTiming('stt', 450);
+                    debugLogger.setStageTiming('llm', 1200);
+                    debugLogger.setStageTiming('tts', 320);
+                    const report = debugLogger.generateDebugReport();
+                    assert('generateDebugReport contains STT metric', report.includes('STT (Whisper): 450ms'));
+                    assert('generateDebugReport contains AI metric', report.includes('AI / LLM: 1200ms'));
+                    assert('generateDebugReport contains TTS metric', report.includes('TTS (Voice): 320ms'));
+                    assert('generateDebugReport contains sample event', report.includes('[TEST] Sample diagnostic event'));
+
+                    const { isSpeechBubbleCollapsed, setBubbleCollapsed } = await import('./js/ui/pipeline.js');
+                    assert('pipeline.js exports isSpeechBubbleCollapsed', typeof isSpeechBubbleCollapsed === 'function');
+                    assert('pipeline.js exports setBubbleCollapsed', typeof setBubbleCollapsed === 'function');
 
                     // Test 6: Refactored AI Subsystem Modularization
                     const aiSubsystem = await import('./js/ai/index.js');

@@ -4,6 +4,7 @@
 import { AppState } from '../state.js';
 import { recordSpokenText, speakReply as nativeSpeakReply } from './tts.js';
 import { encodeWAV } from './wav.js';
+import { logDebug, setStageTiming, setActiveStage } from '../ui/debug_logger.js';
 
 let ttsSynthesizer = null;
 let isTTSLoading = false;
@@ -155,9 +156,15 @@ export async function speakNeuralTTS(text, onComplete) {
   try {
     AppState.isSpeaking = true;
     recordSpokenText(cleanText);
+    setActiveStage('tts_synthesizing', `Neural TTS (${cleanText.length} chars)...`);
+    logDebug('TTS', `Neural TTS synthesizing: "${cleanText.substring(0, 45)}..."`);
 
     // VITS generates direct Float32Array waveform audio at 16000Hz
+    const tStart = performance.now();
     const output = await ttsSynthesizer(cleanText);
+    const ttsMs = Math.round(performance.now() - tStart);
+    setStageTiming('tts', ttsMs);
+    setStageTiming('turn_end');
 
     if (!output || !output.audio || output.audio.length === 0) {
       throw new Error('Neural TTS produced empty audio buffer');
@@ -167,6 +174,8 @@ export async function speakNeuralTTS(text, onComplete) {
       ? output.audio 
       : new Float32Array(output.audio);
     const sampleRate = output.sampling_rate || 16000;
+    logDebug('TTS', `Synthesized ${audioData.length} samples in ${ttsMs}ms (~${(audioData.length / sampleRate).toFixed(1)}s audio). Playing...`);
+    setActiveStage('speaking', 'Avatar Speaking Reply');
 
     // Encode to WAV Blob for reliable HTML5 audio playback on Meta Quest Browser
     const wavBlob = encodeWAV(audioData, sampleRate);
@@ -208,6 +217,8 @@ export async function speakNeuralTTS(text, onComplete) {
       }
       if (onLipSyncCallback) onLipSyncCallback(0);
       try { URL.revokeObjectURL(audioUrl); } catch (e) {}
+      logDebug('TTS', 'Avatar speech playback finished.');
+      setActiveStage('idle', 'Idle / Ready');
       if (onComplete) onComplete();
     };
 

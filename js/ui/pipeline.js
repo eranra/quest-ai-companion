@@ -1,13 +1,17 @@
 // 4-Phase Conversational Pipeline Stepper & Real-Time Audio Level Indicator
 // States: 'idle' | 'listening' | 'analyzing' | 'ready' | 'speaking' | 'mic-denied'
+// Includes collapsible toggle to minimize bubble and stepper for unobstructed 360° VR viewing
 
 let pipelineElement = null;
 let statusTextElement = null;
 let statusPillElement = null;
 let micMeterElement = null;
 let bubbleContainer = null;
+let btnToggleBubble = null;
+let bubbleToggleIcon = null;
 let meterBars = [];
 let idleDimTimeout = null;
+let isCollapsed = false;
 
 export function initPipelineUI() {
   pipelineElement = document.getElementById('pipeline-stepper');
@@ -15,9 +19,24 @@ export function initPipelineUI() {
   statusPillElement = document.getElementById('status-pill');
   micMeterElement = document.getElementById('mic-level-meter');
   bubbleContainer = document.querySelector('.speech-bubble-container');
+  btnToggleBubble = document.getElementById('btn-toggle-bubble');
+  bubbleToggleIcon = document.getElementById('bubble-toggle-icon');
 
   if (micMeterElement) {
     meterBars = Array.from(micMeterElement.querySelectorAll('.meter-bar'));
+  }
+
+  // Restore collapsed state from localStorage
+  const savedCollapsed = localStorage.getItem('quest_bubble_collapsed');
+  if (savedCollapsed === 'true') {
+    setBubbleCollapsed(true);
+  }
+
+  if (btnToggleBubble) {
+    btnToggleBubble.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setBubbleCollapsed(!isCollapsed);
+    });
   }
 
   // Waking the speech bubble when user interacts with screen or input
@@ -26,6 +45,34 @@ export function initPipelineUI() {
 
   // Initial schedule after start
   scheduleIdleDim(6000);
+}
+
+export function isSpeechBubbleCollapsed() {
+  return isCollapsed;
+}
+
+export function setBubbleCollapsed(collapsed) {
+  isCollapsed = !!collapsed;
+  if (bubbleContainer) {
+    if (isCollapsed) {
+      bubbleContainer.classList.add('collapsed');
+    } else {
+      bubbleContainer.classList.remove('collapsed');
+    }
+  }
+
+  if (bubbleToggleIcon) {
+    bubbleToggleIcon.textContent = isCollapsed ? '+' : '−';
+  }
+  if (btnToggleBubble) {
+    btnToggleBubble.title = isCollapsed 
+      ? 'Expand Subtitles & Pipeline Stepper' 
+      : 'Collapse Subtitles & Stepper (Free up 360° view)';
+  }
+
+  try {
+    localStorage.setItem('quest_bubble_collapsed', isCollapsed ? 'true' : 'false');
+  } catch (e) {}
 }
 
 export function wakeSpeechBubble() {

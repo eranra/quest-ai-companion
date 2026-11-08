@@ -59,7 +59,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.2</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.3</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -67,6 +67,11 @@
           <!-- Fullscreen Window Button -->
           <button id="btn-fullscreen" class="icon-btn" title="Expand Fullscreen Window">
             <span style="font-size: 14px;">⛶</span>
+          </button>
+
+          <!-- Live Debug & Diagnostic Drawer Toggle -->
+          <button id="btn-debug" class="icon-btn" title="Diagnostics & Live Pipeline Debug Logs">
+            <span style="font-size: 15px;">🐞</span>
           </button>
 
           <!-- Settings Cog Wheel: Pinned to top-right corner to never get pushed off screen -->
@@ -112,7 +117,12 @@
     </div>
 
     <!-- Speech Bubble / Subtitles & Conversational Pipeline Stepper -->
-    <div class="speech-bubble-container interactive">
+    <div id="speech-bubble-container" class="speech-bubble-container interactive">
+      <!-- Collapse / Minimize Toggle for 360° view -->
+      <button id="btn-toggle-bubble" class="bubble-toggle-btn" title="Collapse Subtitles & Stepper (Free up 360° view)">
+        <span id="bubble-toggle-icon">−</span>
+      </button>
+
       <!-- 4-Phase Conversational Pipeline Stepper -->
       <div id="pipeline-stepper" class="pipeline-stepper">
         <div id="step-listening" class="pipeline-step">
@@ -530,8 +540,59 @@
     </div>
   </div>
 
+  <!-- Live Pipeline Diagnostics & Debug Drawer Modal -->
+  <div id="modal-debug" class="modal-backdrop">
+    <div class="modal debug-modal" style="max-width: 620px; width: 94%; max-height: 88vh;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <span>🐞 Live Pipeline Diagnostics</span>
+        </h3>
+        <button id="btn-close-debug" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
+      </div>
+
+      <!-- Active Stage Indicator Card -->
+      <div class="debug-stage-card">
+        <span class="debug-card-title">ACTIVE PIPELINE STAGE:</span>
+        <div id="debug-active-stage-pill" class="stage-pill-live">
+          <span class="stage-dot"></span>
+          <span class="stage-name">Idle / Ready</span>
+        </div>
+      </div>
+
+      <!-- Live Latency Badges -->
+      <div class="debug-metrics-wrapper">
+        <span class="debug-card-title">PIPELINE LATENCIES:</span>
+        <div id="debug-metrics-grid" class="debug-metrics-grid">
+          <div class="metric-chip"><span class="chip-label">🎙️ STT:</span> <span class="chip-val">--</span></div>
+          <div class="metric-chip"><span class="chip-label">⚡ AI:</span> <span class="chip-val">--</span></div>
+          <div class="metric-chip"><span class="chip-label">🗣️ TTS:</span> <span class="chip-val">--</span></div>
+          <div class="metric-chip"><span class="chip-label">⏱️ Total:</span> <span class="chip-val">--</span></div>
+          <div class="metric-chip"><span class="chip-label">🎤 Audio:</span> <span class="chip-val">--</span></div>
+        </div>
+      </div>
+
+      <!-- Timestamped Event Log Console -->
+      <div class="debug-console-wrapper">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <span class="debug-card-title">TIMESTAMPE DIAGNOSTIC LOG:</span>
+          <button id="btn-clear-debug" type="button" style="background: transparent; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer;">🗑️ Clear</button>
+        </div>
+        <div id="debug-log-entries" class="debug-console">
+          <div class="debug-empty">No events logged yet. Speak or type to observe pipeline stages.</div>
+        </div>
+      </div>
+
+      <!-- Action Footer with 1-Tap Copy Button -->
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <button id="btn-copy-debug" class="action-btn" style="flex: 1; justify-content: center; padding: 10px; background: #6366f1;">
+          📋 Copy Diagnostics
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.3.1"></script>
+  <script type="module" src="js/app.js?v=0.4.3"></script>
 
 </body>
 </html>

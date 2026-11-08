@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.2",
-  "build": 33,
-  "released_at": "2026-11-08T14:35:00Z",
-  "changelog": "v0.4.2: Fixed speech synthesis audio on Meta Quest 3: 1) Auto-detected that Meta Quest Browser contains 0 native speech synthesis voices and auto-routed to on-device Neural TTS (WASM); 2) Populated Voice dropdown with clear active Neural Voice option instead of blank box; 3) Replaced WebGPU requirement in Neural TTS with pure CPU WebAssembly (WASM) to match Whisper; 4) Switched audio playback to dual HTML5 WAV audio + Web Audio for reliable Quest 3 headset speaker output; 5) Multi-tiered voice fallback ensuring audio is always audible."
+  "version": "v0.4.3",
+  "build": 34,
+  "released_at": "2026-11-08T15:05:00Z",
+  "changelog": "v0.4.3: 1) Whisper STT CPU WASM Performance Fix: eliminated WebGPU pipeline timeout on Meta Quest Browser by locking execution strictly to CPU WebAssembly (device: 'wasm') and passing explicit English transcribe parameters ({ chunk_length_s: 30, stride_length_s: 5, language: 'en', task: 'transcribe' }) to eliminate language identification overhead; 2) Subtitles & Pipeline Minimizer: added one-tap collapse/expand button on speech bubble container to minimize subtitles into a sleek floating pill for an unobstructed 360° VR view, persisting preference in localStorage; 3) Live Diagnostics & Debug Drawer: added debug toggle (🐞) with real-time timestamped event logs, active pipeline stage tracker with hang detection (>15s), latency metrics badges (STT, AI, TTS, Total roundtrip), and 1-tap clipboard export."
 }
