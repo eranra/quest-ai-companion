@@ -193,7 +193,9 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
         }
       } else {
         const isReady = AppState.isModelReady;
-        const modelLabel = AppState.localModel.includes('Qwen') ? 'Qwen 2.5' : 'SmolLM2';
+        const modelLabel = AppState.localModel === 'instant-companion'
+          ? 'Instant AI'
+          : (AppState.localModel.includes('Qwen') ? 'Qwen 2.5' : 'SmolLM2');
         if (isSmallScreen) {
           dom.engineBadge.textContent = isReady ? `🏠 ${modelLabel}` : '🏠 Loading...';
         } else {

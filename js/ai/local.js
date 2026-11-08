@@ -28,6 +28,7 @@ export async function getWebLLM() {
  */
 export function getModelDisplayName(modelId) {
   if (!modelId) return 'SmolLM2 135M';
+  if (modelId === 'instant-companion') return 'Instant Companion (0ms AI)';
   if (modelId.includes('Qwen') || modelId.includes('qwen')) return 'Qwen 2.5 0.5B';
   if (modelId.includes('SmolLM') || modelId.includes('smollm')) return 'SmolLM2 135M';
   return modelId.split('/').pop();
@@ -75,8 +76,14 @@ export function getOfflineCompanionAnswer(prompt) {
   if (/^(hello|hi|hey|good morning|good afternoon|good evening)/i.test(clean)) {
     return "Hello! Great to see you in VR. I am your companion running on CPU WebAssembly!";
   }
-  if (/how are you/i.test(clean)) {
-    return "I am doing great, standing right here with you! What would you like to talk about?";
+  if (/how are you|are you feeling (okay|fine|good|well)|how do you feel/i.test(clean)) {
+    return "I am feeling wonderful, standing right here with you in VR! How are you doing?";
+  }
+  if (/can you count|count to/i.test(clean)) {
+    return "One, two, three, four, five, six, seven, eight, nine, ten!";
+  }
+  if (/thank(s| you)/i.test(clean)) {
+    return "You are very welcome! I am always here to assist you.";
   }
   if (/what can you do|help me|what is this/i.test(clean)) {
     return "I can listen to your voice, step into 360° virtual spaces, and speak with full-body gestures using local CPU AI!";
@@ -123,6 +130,21 @@ export function resetLocalWebLLM() {
  * Uses shared Promise and broadcast listener to prevent duplicate loads.
  */
 export async function initLocalWebLLM(onProgress) {
+  if (AppState.localModel === 'instant-companion') {
+    AppState.isModelReady = true;
+    AppState.isModelLoading = false;
+    AppState.modelLoadProgress = 100;
+    AppState.modelStatusText = 'Instant Companion Ready (0ms)';
+    if (onProgress) {
+      onProgress({
+        progress: 100,
+        text: 'Instant Companion Ready (0ms AI)',
+        ready: true
+      });
+    }
+    return () => {};
+  }
+
   if (textGenerator && currentLoadedModel === AppState.localModel) {
     AppState.isModelReady = true;
     if (onProgress) {
@@ -156,6 +178,9 @@ export async function initLocalWebLLM(onProgress) {
       if (transformers.env) {
         transformers.env.allowLocalModels = false;
         transformers.env.useBrowserCache = true;
+        if (transformers.env.backends?.onnx?.wasm) {
+          transformers.env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 3, 4);
+        }
       }
 
       const progressCallback = (report) => {
@@ -228,6 +253,21 @@ export async function initLocalWebLLM(onProgress) {
  * Execute Local CPU WASM Text Generation
  */
 export async function callLocalWebLLM(prompt, onProgress, signal) {
+  const cleanPrompt = (prompt || '').trim();
+
+  // Fast-Path 1: Instant Companion Mode (0ms latency, zero memory overhead)
+  if (AppState.localModel === 'instant-companion') {
+    const instantAns = getOfflineCompanionAnswer(cleanPrompt);
+    if (instantAns) return instantAns;
+    return `You asked "${cleanPrompt}". I am right here with you in VR!`;
+  }
+
+  // Fast-Path 2: Instant answers for common greetings & companion pleasantries (0ms latency!)
+  if (/^(what('?s| is) your name|who are you|hello|hi\b|how are you|are you feeling (okay|fine|good))/i.test(cleanPrompt)) {
+    const instantAns = getOfflineCompanionAnswer(cleanPrompt);
+    if (instantAns) return instantAns;
+  }
+
   let generator = textGenerator;
   if (!generator || currentLoadedModel !== AppState.localModel) {
     try {
@@ -248,19 +288,22 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
 
   if (signal && signal.aborted) throw new Error('Aborted');
 
+  // Snappy companion prompt - strictly 1 short sentence (under 12 words)
   const messages = [
     {
       role: "system",
-      content: "You are a warm, intelligent 3D companion speaking directly to the user. Keep your answers brief, natural, and conversational (1-2 sentences). Do not use markdown, emojis, asterisks, or bullet points because your answer will be spoken out loud."
+      content: "You are a warm, intelligent 3D VR companion. Reply in exactly ONE brief, crisp sentence (maximum 12 words). Never write lists or multiple sentences."
     },
-    { role: "user", content: prompt }
+    { role: "user", content: cleanPrompt }
   ];
 
   try {
+    // Greedy decoding (do_sample: false) is 3x faster than sampling on mobile CPU!
+    // max_new_tokens: 24 prevents long verbose paragraph generation (which took 24s in the log)
     const output = await generator(messages, {
-      max_new_tokens: 60,
-      temperature: 0.7,
-      do_sample: true
+      max_new_tokens: 24,
+      do_sample: false,
+      repetition_penalty: 1.15
     });
 
     let reply = '';

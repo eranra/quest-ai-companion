@@ -77,6 +77,9 @@ export async function initWhisper(onProgress) {
     const tf = await getTransformers();
     if (tf.env) {
       tf.env.allowLocalModels = false;
+      if (tf.env.backends?.onnx?.wasm) {
+        tf.env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 3, 4);
+      }
     }
 
     const modelId = 'Xenova/whisper-tiny.en';
@@ -250,8 +253,8 @@ export async function startListeningWhisper() {
         // Collect short tail silence
         audioChunks.push(frameCopy);
 
-        // Silence duration before final transcription
-        const silenceDelay = AppState.isLiveMode ? 950 : 750;
+        // Silence duration before final transcription (snappy 550ms for prompt turnaround)
+        const silenceDelay = AppState.isLiveMode ? 750 : 550;
         if (!silenceTimer) {
           silenceTimer = setTimeout(async () => {
             await finalizeWhisperTranscription();
@@ -365,11 +368,11 @@ async function finalizeWhisperTranscription() {
 
     if (whisperTranscriber) {
       const t0 = performance.now();
-      const output = await whisperTranscriber(resampled, {
-        chunk_length_s: 30,
-        stride_length_s: 5,
-        return_timestamps: false
-      });
+      const isShortClip = resampled.length < 16000 * 30;
+      const whisperOpts = isShortClip
+        ? { return_timestamps: false }
+        : { chunk_length_s: 30, stride_length_s: 5, return_timestamps: false };
+      const output = await whisperTranscriber(resampled, whisperOpts);
       const sttMs = Math.round(performance.now() - t0);
       setStageTiming('stt', sttMs);
 

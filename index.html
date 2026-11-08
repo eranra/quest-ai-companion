@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Quest AI Companion</title>
 
+  <!-- Cross-Origin Isolation for Multi-Threaded WASM (SharedArrayBuffer) -->
+  <script src="coi-serviceworker.js"></script>
+
   <!-- PWA & Mobile Meta -->
   <meta name="theme-color" content="#030712">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -59,7 +62,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.6</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.7</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -363,8 +366,9 @@
       <div id="group-local-model" class="form-group">
         <label class="form-label">Local Model (CPU WASM)</label>
         <select id="cfg-local-model" class="form-input">
-          <option value="onnx-community/SmolLM2-135M-Instruct-ONNX" selected>SmolLM2 135M Instruct (Default - Ultra-Fast, ~80 MB)</option>
-          <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen 2.5 0.5B Instruct (Higher quality, ~350 MB)</option>
+          <option value="onnx-community/SmolLM2-135M-Instruct-ONNX" selected>⚡ SmolLM2 135M Neural (Ultra-Fast 1-Sentence, ~80 MB)</option>
+          <option value="instant-companion">⚡⚡ Instant Companion (0ms AI - Zero Download, Instant Turnaround)</option>
+          <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen 2.5 0.5B Neural (Deeper Quality, ~350 MB)</option>
         </select>
         <p class="help-hint">Cached automatically in browser storage (IndexedDB) for offline use.</p>
       </div>

@@ -338,11 +338,9 @@ export async function speakNeuralTTS(text, onComplete) {
     return promise;
   }
 
-  // Pre-trigger sentence 0 immediately and sentence 1 in parallel
+  // Prioritize sentence 0 exclusively so first-word latency is as fast as possible (<1.5s)
+  // Sentence 1+ will buffer in the background while sentence 0 is playing audio over speakers!
   prefetchSentence(0);
-  if (sentences.length > 1) {
-    prefetchSentence(1);
-  }
 
   const tTurnStart = performance.now();
   let totalAudioDurationSec = 0;
@@ -352,17 +350,17 @@ export async function speakNeuralTTS(text, onComplete) {
   for (let i = 0; i < sentences.length; i++) {
     if (sessionId !== activeStreamingSession) break;
 
-    // Buffer upcoming sentence in the background while current sentence is about to play
-    if (i + 1 < sentences.length) {
-      prefetchSentence(i + 1);
-    }
-
     const tWaitStart = performance.now();
     const chunkResult = await prefetchSentence(i);
     if (sessionId !== activeStreamingSession) break;
 
     if (!chunkResult || !chunkResult.wavBlob) {
       continue;
+    }
+
+    // Now that chunk i is ready and about to play over speakers, prefetch chunk i+1 in parallel during playback!
+    if (i + 1 < sentences.length) {
+      prefetchSentence(i + 1);
     }
 
     const { wavBlob, elapsedMs } = chunkResult;

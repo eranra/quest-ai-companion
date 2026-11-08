@@ -47,7 +47,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.4.6';
+export const APP_VERSION = 'v0.4.7';
 
 // DOM References
 const dom = {
@@ -192,6 +192,15 @@ function showMainProgress(visible, text = '', pct = 0) {
 // Local CPU WASM Model Loader & Progress Tracking
 // -------------------------------------------------------------
 async function startLocalModelLoading() {
+  if (AppState.localModel === 'instant-companion') {
+    showMainProgress(false);
+    setPipelineState('idle');
+    if (dockController) dockController.updateEngineBadge();
+    dom.speechText.textContent = `Hello Eran! I am running locally as your Instant Companion with zero latency. Speak or type below to talk to me!`;
+    speakReply(`Hello Eran! I am now ready as your companion running locally on your device.`);
+    return;
+  }
+
   const modelName = AppState.localModel.includes('Qwen') ? 'Qwen 2.5 (350 MB)' : 'SmolLM2 (80 MB)';
   showMainProgress(true, `Downloading ${modelName}...`, 0);
   setPipelineState('analyzing', `Loading ${modelName}...`);

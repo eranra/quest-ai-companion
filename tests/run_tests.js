@@ -34,7 +34,9 @@ const server = http.createServer((req, res) => {
 
   res.writeHead(200, {
     'Content-Type': mimeTypes[ext] || 'application/octet-stream',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'credentialless'
   });
   fs.createReadStream(filePath).pipe(res);
 });
