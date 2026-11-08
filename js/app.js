@@ -37,7 +37,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.7';
+export const APP_VERSION = 'v0.3.8';
 
 // DOM References
 const dom = {
@@ -87,7 +87,12 @@ async function handleUserSpeech(userText) {
   updateVRHUDState({ status: '⚡ Analyzing...', text: `You: "${userText}"` });
 
   try {
-    const reply = await generateAIResponse(userText);
+    const reply = await generateAIResponse(userText, (report) => {
+      const statusText = report.text || `Loading LLM: ${report.progress}%`;
+      setPipelineState('analyzing', statusText);
+      dom.speechText.textContent = `You: "${userText}"\n\n⚡ ${statusText}`;
+      updateVRHUDState({ status: '⚡ Analyzing...', text: statusText });
+    });
 
     // Step 3: Answer Ready
     setPipelineState('ready');

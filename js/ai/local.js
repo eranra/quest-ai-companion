@@ -27,16 +27,18 @@ export async function initLocalWebLLM(onProgress) {
   }
 
   if (AppState.isModelLoading) {
-    // Wait for in-flight load
-    while (AppState.isModelLoading) {
+    // Wait for in-flight load with safety timeout
+    let waitCount = 0;
+    while (AppState.isModelLoading && waitCount < 150) {
       await new Promise(r => setTimeout(r, 200));
+      waitCount++;
     }
-    return webllmEngine;
+    if (webllmEngine) return webllmEngine;
   }
 
   // Check WebGPU availability
   if (!navigator.gpu) {
-    throw new Error('WebGPU is not supported on this browser/device. Please switch to Google Gemini mode in settings.');
+    throw new Error('WebGPU is not supported on this browser. On Meta Quest Browser, WebGPU requires experimental flags or Gemini mode in Settings.');
   }
 
   AppState.isModelLoading = true;
@@ -97,13 +99,28 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
     if (AppState.geminiKey && AppState.geminiKey.trim()) {
       return await callGeminiAPI(prompt, signal);
     }
-    return `I heard your message: "${prompt}". Your browser does not have WebGPU enabled for local weights. You can enter a Google Gemini key in Settings (⚙️) to enable AI responses on this device!`;
+    return `I heard your message: "${prompt}". WebGPU is not enabled for local weights on this browser. You can enter a Google Gemini key in Settings (⚙️) to enable AI responses on Meta Quest 3!`;
   }
 
   let engine = webllmEngine;
   if (!engine || currentLoadedModel !== AppState.localModel) {
-    engine = await initLocalWebLLM(onProgress);
+    try {
+      if (onProgress) {
+        onProgress({ progress: 10, text: `Downloading ${AppState.localModel} weights...` });
+      }
+      const initTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('WebGPU Qwen 2.5 initialization timed out on Quest hardware')), 45000)
+      );
+      engine = await Promise.race([initLocalWebLLM(onProgress), initTimeoutPromise]);
+    } catch (initErr) {
+      console.warn("WebLLM initialization error/timeout on Quest 3:", initErr);
+      if (AppState.geminiKey && AppState.geminiKey.trim()) {
+        return await callGeminiAPI(prompt, signal);
+      }
+      return `I heard you say: "${prompt}". My local Qwen 2.5 WebGPU model is still loading or reached a mobile memory limit on Quest 3. You can connect a Google Gemini API key in Settings (⚙️) for instant cloud responses!`;
+    }
   }
+
   if (signal && signal.aborted) throw new Error('Aborted');
 
   const messages = [
@@ -114,11 +131,26 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
     { role: "user", content: prompt }
   ];
 
-  const completion = await engine.chat.completions.create({
-    messages,
-    temperature: 0.7,
-    max_tokens: 120
-  });
+  try {
+    const genTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('WebGPU generation timed out after 25s')), 25000)
+    );
 
-  return completion.choices[0].message.content || "Hello! I am here with you.";
+    const completion = await Promise.race([
+      engine.chat.completions.create({
+        messages,
+        temperature: 0.7,
+        max_tokens: 120
+      }),
+      genTimeoutPromise
+    ]);
+
+    return completion.choices[0]?.message?.content || "Hello! I am here with you.";
+  } catch (genErr) {
+    console.warn("Local WebLLM generation error/timeout on Quest 3:", genErr);
+    if (AppState.geminiKey && AppState.geminiKey.trim()) {
+      return await callGeminiAPI(prompt, signal);
+    }
+    return `I heard: "${prompt}". Local Qwen generation took too long or reached a mobile GPU shader limit on Quest 3. Connecting a Google Gemini key in Settings (⚙️) provides fast, reliable cloud responses.`;
+  }
 }

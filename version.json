@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.7",
-  "build": 28,
-  "released_at": "2026-11-08T10:15:00Z",
-  "changelog": "v0.3.7: Fixed Live Mode click-click issue and perfected Half-Duplex pipeline: 1) Eliminated Android system click-click sound by completely preventing native SpeechRecognition from restarting when Whisper STT is selected; 2) Enforced strict Half-Duplex lifecycle where microphone is strictly CLOSED while Whisper is transcribing, AI is analyzing, and avatar is speaking; 3) Re-opens listening automatically after speech finishes in Live Mode; 4) Zero regressions in Regular mode."
+  "version": "v0.3.8",
+  "build": 29,
+  "released_at": "2026-11-08T10:30:00Z",
+  "changelog": "v0.3.8: Fixed WebLLM Qwen 2.5 getting stuck in Analyzing on Meta Quest 3: 1) Added 25s timeout and automatic fallback so analyzing never hangs; 2) Real-time progress updates for weights download and shader compilation in subtitle and VR HUD; 3) Automatic failover to Google Gemini API when key is available; 4) Graceful spoken error recovery if WebGPU memory is exhausted on Quest 3."
 }
