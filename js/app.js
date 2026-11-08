@@ -43,7 +43,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.4.1';
+export const APP_VERSION = 'v0.4.2';
 
 // DOM References
 const dom = {
@@ -307,6 +307,25 @@ function initApp() {
     console.log('Quest/Browser has no native speech recognition. Auto-enabling on-device Whisper STT.');
     AppState.sttEngine = 'whisper';
     AppState.save();
+  }
+
+  // Auto-detect Meta Quest Browser or browsers without native speech synthesis voices:
+  // Quest Browser includes speechSynthesis in window, but getVoices() is empty, causing silence.
+  // Auto-route to on-device Neural TTS (WASM) so the avatar speaks out loud!
+  function checkAndRouteTTS() {
+    const hasNativeVoices = ('speechSynthesis' in window) && window.speechSynthesis.getVoices().length > 0;
+    if ((isQuestBrowser() || !hasNativeVoices) && AppState.ttsEngine === 'native') {
+      console.log('Quest/Browser has no native speech synthesis voices. Auto-enabling Neural TTS (WASM).');
+      AppState.ttsEngine = 'neural';
+      AppState.save();
+      if (!isNeuralTTSReady()) {
+        ensureTTSReady();
+      }
+    }
+  }
+  checkAndRouteTTS();
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => checkAndRouteTTS();
   }
 
   // If running on Meta Quest Browser with Gemini key configured, prefer Gemini Cloud to prevent VR GPU stall

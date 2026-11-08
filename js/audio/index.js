@@ -40,6 +40,11 @@ export function unlockAudio() {
       ctx.resume().catch(() => {});
     }
 
+    // Unlock HTML5 Audio for Meta Quest Browser
+    const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+    silentAudio.volume = 0.01;
+    silentAudio.play().catch(() => {});
+
     if ('speechSynthesis' in window) {
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
@@ -99,7 +104,8 @@ export function setLiveMode(enabled) {
  * Speaks AI reply using active TTS engine with automatic fallback
  */
 export function speakReply(text, onComplete) {
-  if (AppState.ttsEngine === 'neural') {
+  const hasNativeVoices = ('speechSynthesis' in window) && window.speechSynthesis.getVoices().length > 0;
+  if (AppState.ttsEngine === 'neural' || !hasNativeVoices) {
     speakNeuralTTS(text, onComplete);
   } else {
     nativeSpeakReply(text, (err) => {

@@ -68,10 +68,18 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
   // Populate voice dropdown
   function populateVoiceList() {
-    if (!('speechSynthesis' in window) || !dom.cfgVoiceSelect) return;
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) return;
+    if (!dom.cfgVoiceSelect) return;
     dom.cfgVoiceSelect.innerHTML = '';
+    const voices = ('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : [];
+
+    if (!voices || voices.length === 0) {
+      const option = document.createElement('option');
+      option.textContent = '🤖 Local Neural Voice (WASM) - Active (No OS voices on Meta Quest)';
+      option.value = 'neural';
+      option.selected = true;
+      dom.cfgVoiceSelect.appendChild(option);
+      return;
+    }
 
     const savedVoice = localStorage.getItem('quest_voice_name');
     voices.forEach(voice => {
@@ -85,8 +93,8 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     });
   }
 
+  populateVoiceList();
   if ('speechSynthesis' in window) {
-    populateVoiceList();
     window.speechSynthesis.onvoiceschanged = populateVoiceList;
   }
 

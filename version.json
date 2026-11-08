@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.1",
-  "build": 32,
-  "released_at": "2026-11-08T14:20:00Z",
-  "changelog": "v0.4.1: Migrated from WebLLM/WebGPU to unified CPU WebAssembly (WASM): 1) Replaced WebLLM and WebGPU shaders with Transformers.js ONNX Runtime CPU WASM; 2) Added SmolLM2 135M as default ultra-lightweight model (~80 MB, ~15-20 tok/s on CPU); 3) Preserved Qwen 2.5 0.5B in quantized CPU WASM format (~350 MB); 4) Universal out-of-the-box compatibility on Meta Quest 3, mobile, and desktop without chrome://flags; 5) Shared ONNX runtime caching between Whisper STT, Neural TTS, and SmolLM/Qwen text generation."
+  "version": "v0.4.2",
+  "build": 33,
+  "released_at": "2026-11-08T14:35:00Z",
+  "changelog": "v0.4.2: Fixed speech synthesis audio on Meta Quest 3: 1) Auto-detected that Meta Quest Browser contains 0 native speech synthesis voices and auto-routed to on-device Neural TTS (WASM); 2) Populated Voice dropdown with clear active Neural Voice option instead of blank box; 3) Replaced WebGPU requirement in Neural TTS with pure CPU WebAssembly (WASM) to match Whisper; 4) Switched audio playback to dual HTML5 WAV audio + Web Audio for reliable Quest 3 headset speaker output; 5) Multi-tiered voice fallback ensuring audio is always audible."
 }

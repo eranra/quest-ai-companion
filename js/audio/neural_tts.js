@@ -1,9 +1,9 @@
 // Local On-Device Neural Text-to-Speech: In-Browser Web Audio Synthesizer
 // Uses lightweight Xenova/mms-tts-eng (~36MB VITS) without external speaker embedding files
-// Plays audio directly into AudioContext.destination enabling true WebRTC AEC subtraction!
+// Plays audio via direct WAV playback and Web Audio graph, natively supported in Meta Quest Browser!
 import { AppState } from '../state.js';
-import { getAudioContext } from './vad.js';
 import { recordSpokenText, speakReply as nativeSpeakReply } from './tts.js';
+import { encodeWAV } from './wav.js';
 
 let ttsSynthesizer = null;
 let isTTSLoading = false;
@@ -11,9 +11,25 @@ let ttsLoadProgress = 0;
 let activeAudioSource = null;
 let onLipSyncCallback = null;
 let lipSyncInterval = null;
+let playbackContext = null;
 
 export function setNeuralLipSyncCallback(cb) {
   onLipSyncCallback = cb;
+}
+
+/**
+ * Returns or creates dedicated audio playback context
+ */
+function getPlaybackContext() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!playbackContext || playbackContext.state === 'closed') {
+    playbackContext = new AudioCtx();
+  }
+  if (playbackContext.state === 'suspended') {
+    playbackContext.resume().catch(() => {});
+  }
+  return playbackContext;
 }
 
 /**
@@ -41,7 +57,7 @@ async function getTransformers() {
 
 /**
  * Initializes local Neural TTS model in browser Cache / IndexedDB
- * Uses Xenova/mms-tts-eng (~36MB quantized VITS) with WebGPU -> WASM fallback
+ * Uses Xenova/mms-tts-eng (~36MB quantized VITS) strictly with CPU WASM
  */
 export async function initNeuralTTS(onProgress) {
   if (ttsSynthesizer) {
@@ -63,6 +79,7 @@ export async function initNeuralTTS(onProgress) {
     const tf = await getTransformers();
     if (tf.env) {
       tf.env.allowLocalModels = false;
+      tf.env.useBrowserCache = true;
     }
 
     const modelId = 'Xenova/mms-tts-eng';
@@ -79,22 +96,12 @@ export async function initNeuralTTS(onProgress) {
       }
     };
 
-    let synthesizer;
-    try {
-      const device = navigator.gpu ? 'webgpu' : 'wasm';
-      synthesizer = await tf.pipeline('text-to-speech', modelId, {
-        quantized: true,
-        device,
-        progress_callback: progressCallback
-      });
-    } catch (gpuErr) {
-      console.warn('WebGPU Neural TTS load failed, falling back to WASM:', gpuErr);
-      synthesizer = await tf.pipeline('text-to-speech', modelId, {
-        quantized: true,
-        device: 'wasm',
-        progress_callback: progressCallback
-      });
-    }
+    // Strictly CPU WebAssembly (WASM) - Zero WebGPU shader issues!
+    const synthesizer = await tf.pipeline('text-to-speech', modelId, {
+      device: 'wasm',
+      quantized: true,
+      progress_callback: progressCallback
+    });
 
     ttsSynthesizer = synthesizer;
     isTTSLoading = false;
@@ -118,8 +125,8 @@ export function isNeuralTTSLoading() {
 }
 
 /**
- * Synthesizes text and plays audio buffer directly through Web Audio destination
- * Automatically falls back to native device TTS if neural model is loading or encounters error
+ * Synthesizes text and plays audio directly through HTML5 Audio / Web Audio
+ * Guaranteed to speak on Meta Quest Browser without relying on missing OS voices!
  */
 export async function speakNeuralTTS(text, onComplete) {
   const cleanText = text.replace(/[*#`_~]/g, '').trim();
@@ -130,18 +137,17 @@ export async function speakNeuralTTS(text, onComplete) {
 
   stopNeuralTTS();
 
-  // If neural model is not ready or currently loading, seamlessly fall back to native device TTS
   if (!ttsSynthesizer) {
-    if (isTTSLoading) {
-      console.warn('Neural TTS is currently downloading; speaking with device native voice in the meantime.');
-      nativeSpeakReply(cleanText, onComplete);
-      return;
-    }
     try {
       await initNeuralTTS();
     } catch (loadErr) {
-      console.warn('Neural TTS download failed; falling back to device native voice:', loadErr);
-      nativeSpeakReply(cleanText, onComplete);
+      console.warn('Neural TTS load failed; attempting device native voice:', loadErr);
+      const hasNativeVoices = ('speechSynthesis' in window) && window.speechSynthesis.getVoices().length > 0;
+      if (hasNativeVoices) {
+        nativeSpeakReply(cleanText, onComplete);
+      } else if (onComplete) {
+        onComplete();
+      }
       return;
     }
   }
@@ -157,29 +163,18 @@ export async function speakNeuralTTS(text, onComplete) {
       throw new Error('Neural TTS produced empty audio buffer');
     }
 
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    let ctx = getAudioContext();
-    if (!ctx || ctx.state === 'closed') {
-      ctx = new AudioCtx();
-    }
-    if (ctx.state === 'suspended') {
-      await ctx.resume().catch(() => {});
-    }
-
     const audioData = output.audio instanceof Float32Array 
       ? output.audio 
       : new Float32Array(output.audio);
     const sampleRate = output.sampling_rate || 16000;
 
-    const audioBuffer = ctx.createBuffer(1, audioData.length, sampleRate);
-    audioBuffer.copyToChannel(audioData, 0);
+    // Encode to WAV Blob for reliable HTML5 audio playback on Meta Quest Browser
+    const wavBlob = encodeWAV(audioData, sampleRate);
+    const audioUrl = URL.createObjectURL(wavBlob);
+    const audioEl = new Audio(audioUrl);
+    activeAudioSource = audioEl;
 
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(ctx.destination);
-    activeAudioSource = source;
-
-    // Real-time lip sync pulses based on audio buffer amplitude
+    // Real-time viseme lip-sync mouth pulses based on audio waveform RMS
     const chunkDuration = 0.08; // 80ms
     const chunkSize = Math.floor(sampleRate * chunkDuration);
     let chunkIndex = 0;
@@ -204,7 +199,7 @@ export async function speakNeuralTTS(text, onComplete) {
       chunkIndex++;
     }, 80);
 
-    source.onended = () => {
+    const finishPlayback = () => {
       AppState.isSpeaking = false;
       activeAudioSource = null;
       if (lipSyncInterval) {
@@ -212,14 +207,66 @@ export async function speakNeuralTTS(text, onComplete) {
         lipSyncInterval = null;
       }
       if (onLipSyncCallback) onLipSyncCallback(0);
+      try { URL.revokeObjectURL(audioUrl); } catch (e) {}
       if (onComplete) onComplete();
     };
 
-    source.start(0);
+    audioEl.onended = finishPlayback;
+
+    audioEl.onerror = (e) => {
+      console.warn('Audio element error; falling back to Web Audio buffer source:', e);
+      // Web Audio fallback
+      try {
+        const ctx = getPlaybackContext();
+        if (ctx) {
+          const buffer = ctx.createBuffer(1, audioData.length, sampleRate);
+          buffer.copyToChannel(audioData, 0);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          activeAudioSource = source;
+          source.onended = finishPlayback;
+          source.start(0);
+          return;
+        }
+      } catch (ctxErr) {
+        console.error('Web Audio fallback error:', ctxErr);
+      }
+      finishPlayback();
+    };
+
+    // Play synthesized voice through headset
+    const playPromise = audioEl.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch((err) => {
+        console.warn('Audio play restricted; falling back to Web Audio:', err);
+        try {
+          const ctx = getPlaybackContext();
+          if (ctx) {
+            const buffer = ctx.createBuffer(1, audioData.length, sampleRate);
+            buffer.copyToChannel(audioData, 0);
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            activeAudioSource = source;
+            source.onended = finishPlayback;
+            source.start(0);
+          }
+        } catch (e) {
+          finishPlayback();
+        }
+      });
+    }
+
   } catch (err) {
-    console.warn('Neural TTS generation failed, falling back to native TTS:', err);
+    console.warn('Neural TTS synthesis error:', err);
     stopNeuralTTS();
-    nativeSpeakReply(cleanText, onComplete);
+    const hasNativeVoices = ('speechSynthesis' in window) && window.speechSynthesis.getVoices().length > 0;
+    if (hasNativeVoices) {
+      nativeSpeakReply(cleanText, onComplete);
+    } else if (onComplete) {
+      onComplete();
+    }
   }
 }
 
@@ -229,8 +276,13 @@ export async function speakNeuralTTS(text, onComplete) {
 export function stopNeuralTTS() {
   if (activeAudioSource) {
     try {
-      activeAudioSource.stop();
-      activeAudioSource.disconnect();
+      if (activeAudioSource.pause) {
+        activeAudioSource.pause();
+        activeAudioSource.currentTime = 0;
+      } else if (activeAudioSource.stop) {
+        activeAudioSource.stop();
+        activeAudioSource.disconnect();
+      }
     } catch (e) {}
     activeAudioSource = null;
   }

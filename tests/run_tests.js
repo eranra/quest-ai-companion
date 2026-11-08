@@ -276,6 +276,7 @@ async function runTestSuite() {
                     const cfgTtsEl = document.getElementById('cfg-tts-engine');
                     assert('Voice Input (STT) select exists in settings', !!cfgSttEl);
                     assert('Voice Output (TTS) select exists in settings', !!cfgTtsEl);
+                    assert('Voice select has at least 1 option populated', document.getElementById('cfg-voice-select').children.length > 0);
 
                     // Verify whisper engine prevents native speech recognition from starting
                     const nativeSpeechModule = await import('./js/audio/speech.js');
