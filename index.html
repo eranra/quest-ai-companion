@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.3.1">
+  <link rel="stylesheet" href="css/styles.css?v=0.5.3">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -635,8 +635,12 @@
     </div>
   </div>
 
-  <!-- Modular App Bootstrap with Cache-Busting Version Query -->
-  <script type="module" src="js/app.js?v=0.4.5"></script>
+  <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query -->
+  <script type="module">
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('v') || 'v0.5.3';
+    import(`./js/app.js?v=${v}`);
+  </script>
 
 </body>
 </html>

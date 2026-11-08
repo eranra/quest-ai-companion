@@ -120,21 +120,29 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
   }
 
   // Version Check & Live Update (Preserves WebLLM local model weights cache)
-  function forceAppRefresh(targetVersion) {
+  async function forceAppRefresh(targetVersion) {
     if ('caches' in window) {
       try {
-        caches.keys().then(names => {
-          // Explicitly preserve WebLLM / MLC AI model weight caches so users don't redownload models on updates
-          const nonModelCaches = names.filter(n => {
-            const lower = n.toLowerCase();
-            return !lower.includes('webllm') && !lower.includes('mlc') && !lower.includes('model') && !lower.includes('weight');
-          });
-          Promise.all(nonModelCaches.map(name => caches.delete(name))).catch(() => {});
+        const names = await caches.keys();
+        // Explicitly preserve WebLLM / MLC AI model weight caches so users don't redownload models on updates
+        const nonModelCaches = names.filter(n => {
+          const lower = n.toLowerCase();
+          return !lower.includes('webllm') && !lower.includes('mlc') && !lower.includes('model') && !lower.includes('weight');
         });
+        await Promise.all(nonModelCaches.map(name => caches.delete(name)));
       } catch (e) {}
     }
-    const v = targetVersion || appVersion;
-    window.location.href = window.location.origin + window.location.pathname + '?v=' + v;
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      } catch (e) {}
+    }
+    try { sessionStorage.clear(); } catch (e) {}
+    const v = targetVersion || appVersion || 'v0.5.3';
+    window.location.replace(`${window.location.origin}${window.location.pathname}?v=${encodeURIComponent(v)}&_ts=${Date.now()}`);
   }
 
   async function checkAppVersion(manual = false) {
@@ -142,7 +150,10 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
       const res = await fetch(`version.json?_t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
-      if (data.version && data.version !== appVersion) {
+      const normRemote = String(data.version || '').replace(/^v/i, '').trim();
+      const normLocal = String(appVersion || '').replace(/^v/i, '').trim();
+
+      if (normRemote && normLocal && normRemote !== normLocal) {
         latestDetectedVersion = data.version;
         if (dom.updateText) dom.updateText.textContent = `🚀 New update available (${data.version})!`;
         if (dom.updateBanner) dom.updateBanner.style.display = 'flex';
