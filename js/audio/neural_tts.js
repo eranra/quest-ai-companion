@@ -1,7 +1,9 @@
 // Local On-Device Neural Text-to-Speech: In-Browser Web Audio Synthesizer
+// Uses lightweight Xenova/mms-tts-eng (~36MB VITS) without external speaker embedding files
 // Plays audio directly into AudioContext.destination enabling true WebRTC AEC subtraction!
 import { AppState } from '../state.js';
 import { getAudioContext } from './vad.js';
+import { recordSpokenText, speakReply as nativeSpeakReply } from './tts.js';
 
 let ttsSynthesizer = null;
 let isTTSLoading = false;
@@ -39,9 +41,13 @@ async function getTransformers() {
 
 /**
  * Initializes local Neural TTS model in browser Cache / IndexedDB
+ * Uses Xenova/mms-tts-eng (~36MB quantized VITS) with WebGPU -> WASM fallback
  */
 export async function initNeuralTTS(onProgress) {
-  if (ttsSynthesizer) return ttsSynthesizer;
+  if (ttsSynthesizer) {
+    if (onProgress) onProgress({ progress: 100, text: 'Neural Voice Ready' });
+    return ttsSynthesizer;
+  }
 
   if (isTTSLoading) {
     while (isTTSLoading) {
@@ -59,27 +65,41 @@ export async function initNeuralTTS(onProgress) {
       tf.env.allowLocalModels = false;
     }
 
-    const modelId = 'Xenova/speecht5_tts';
-    ttsSynthesizer = await tf.pipeline('text-to-speech', modelId, {
-      dtype: 'q8',
-      device: navigator.gpu ? 'webgpu' : 'wasm',
-      progress_callback: (info) => {
-        if (info && info.progress !== undefined) {
-          ttsLoadProgress = Math.round(info.progress);
-          if (onProgress) {
-            onProgress({
-              progress: ttsLoadProgress,
-              file: info.file || 'weights',
-              text: `Downloading Neural TTS: ${info.file || ''} (${ttsLoadProgress}%)`
-            });
-          }
+    const modelId = 'Xenova/mms-tts-eng';
+    const progressCallback = (info) => {
+      if (info && info.progress !== undefined) {
+        ttsLoadProgress = Math.round(info.progress);
+        if (onProgress) {
+          onProgress({
+            progress: ttsLoadProgress,
+            file: info.file || 'weights',
+            text: `Downloading Neural Voice: ${info.file || ''} (${ttsLoadProgress}%)`
+          });
         }
       }
-    });
+    };
 
+    let synthesizer;
+    try {
+      const device = navigator.gpu ? 'webgpu' : 'wasm';
+      synthesizer = await tf.pipeline('text-to-speech', modelId, {
+        quantized: true,
+        device,
+        progress_callback: progressCallback
+      });
+    } catch (gpuErr) {
+      console.warn('WebGPU Neural TTS load failed, falling back to WASM:', gpuErr);
+      synthesizer = await tf.pipeline('text-to-speech', modelId, {
+        quantized: true,
+        device: 'wasm',
+        progress_callback: progressCallback
+      });
+    }
+
+    ttsSynthesizer = synthesizer;
     isTTSLoading = false;
     if (onProgress) {
-      onProgress({ progress: 100, text: 'Neural TTS Ready!' });
+      onProgress({ progress: 100, text: 'Neural Voice Ready!' });
     }
     return ttsSynthesizer;
   } catch (err) {
@@ -93,8 +113,13 @@ export function isNeuralTTSReady() {
   return !!ttsSynthesizer;
 }
 
+export function isNeuralTTSLoading() {
+  return isTTSLoading;
+}
+
 /**
  * Synthesizes text and plays audio buffer directly through Web Audio destination
+ * Automatically falls back to native device TTS if neural model is loading or encounters error
  */
 export async function speakNeuralTTS(text, onComplete) {
   const cleanText = text.replace(/[*#`_~]/g, '').trim();
@@ -105,32 +130,45 @@ export async function speakNeuralTTS(text, onComplete) {
 
   stopNeuralTTS();
 
-  try {
-    if (!ttsSynthesizer) {
-      await initNeuralTTS();
-    }
-
-    AppState.isSpeaking = true;
-
-    // Standard speaker embedding for natural pitch
-    const speakerEmbeddingUrl = 'https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin';
-    const output = await ttsSynthesizer(cleanText, {
-      speaker_embeddings: speakerEmbeddingUrl
-    });
-
-    if (!output || !output.audio) {
-      AppState.isSpeaking = false;
-      if (onComplete) onComplete();
+  // If neural model is not ready or currently loading, seamlessly fall back to native device TTS
+  if (!ttsSynthesizer) {
+    if (isTTSLoading) {
+      console.warn('Neural TTS is currently downloading; speaking with device native voice in the meantime.');
+      nativeSpeakReply(cleanText, onComplete);
       return;
+    }
+    try {
+      await initNeuralTTS();
+    } catch (loadErr) {
+      console.warn('Neural TTS download failed; falling back to device native voice:', loadErr);
+      nativeSpeakReply(cleanText, onComplete);
+      return;
+    }
+  }
+
+  try {
+    AppState.isSpeaking = true;
+    recordSpokenText(cleanText);
+
+    // VITS generates direct Float32Array waveform audio at 16000Hz
+    const output = await ttsSynthesizer(cleanText);
+
+    if (!output || !output.audio || output.audio.length === 0) {
+      throw new Error('Neural TTS produced empty audio buffer');
     }
 
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    const ctx = getAudioContext() || new AudioCtx();
+    let ctx = getAudioContext();
+    if (!ctx || ctx.state === 'closed') {
+      ctx = new AudioCtx();
+    }
     if (ctx.state === 'suspended') {
       await ctx.resume().catch(() => {});
     }
 
-    const audioData = output.audio;
+    const audioData = output.audio instanceof Float32Array 
+      ? output.audio 
+      : new Float32Array(output.audio);
     const sampleRate = output.sampling_rate || 16000;
 
     const audioBuffer = ctx.createBuffer(1, audioData.length, sampleRate);
@@ -179,11 +217,9 @@ export async function speakNeuralTTS(text, onComplete) {
 
     source.start(0);
   } catch (err) {
-    console.warn('Neural TTS generation failed:', err);
-    AppState.isSpeaking = false;
-    activeAudioSource = null;
-    if (onLipSyncCallback) onLipSyncCallback(0);
-    if (onComplete) onComplete();
+    console.warn('Neural TTS generation failed, falling back to native TTS:', err);
+    stopNeuralTTS();
+    nativeSpeakReply(cleanText, onComplete);
   }
 }
 

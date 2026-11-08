@@ -24,7 +24,10 @@ import {
   initMicAnalyser,
   stopMicAnalyser,
   initWhisper,
-  isWhisperReady
+  isWhisperReady,
+  initNeuralTTS,
+  isNeuralTTSReady,
+  isNeuralTTSLoading
 } from './audio/index.js';
 import {
   initPipelineUI,
@@ -34,7 +37,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.4';
+export const APP_VERSION = 'v0.3.5';
 
 // DOM References
 const dom = {
@@ -133,39 +136,100 @@ async function handleUserSpeech(userText) {
 }
 
 // -------------------------------------------------------------
+// Centralized Main-Screen Model Download & Progress Tracking
+// -------------------------------------------------------------
+function showMainProgress(visible, text = '', pct = 0) {
+  if (dom.modelProgressBar) {
+    dom.modelProgressBar.style.display = visible ? 'block' : 'none';
+  }
+  const cleanPct = Math.min(100, Math.max(0, Math.round(pct)));
+  if (dom.modelProgressFill) {
+    dom.modelProgressFill.style.width = `${cleanPct}%`;
+  }
+  if (dom.modelProgressPct) {
+    dom.modelProgressPct.textContent = `${cleanPct}%`;
+  }
+  if (dom.modelProgressLabel && text) {
+    dom.modelProgressLabel.textContent = text;
+  }
+  // Disable user input controls while downloading to prevent race conditions
+  if (dom.promptInput) dom.promptInput.disabled = visible;
+  if (dom.btnSend) dom.btnSend.disabled = visible;
+  if (dom.btnMic) dom.btnMic.disabled = visible;
+}
+
+// -------------------------------------------------------------
 // Local WebGPU Model Loader & Progress Tracking
 // -------------------------------------------------------------
 function startLocalModelLoading() {
-  if (dom.modelProgressBar) dom.modelProgressBar.style.display = 'block';
-  if (dom.promptInput) dom.promptInput.disabled = true;
-  if (dom.btnSend) dom.btnSend.disabled = true;
-  if (dom.btnMic) dom.btnMic.disabled = true;
-  
+  showMainProgress(true, 'Downloading Qwen 2.5 Model...', 0);
   setPipelineState('analyzing', 'Loading Qwen 2.5...');
   dom.speechText.textContent = `Loading ${AppState.localModel} into browser WebGPU memory... First time downloads weights into local cache.`;
 
   initLocalWebLLM((report) => {
-    if (dom.modelProgressFill) dom.modelProgressFill.style.width = `${report.progress}%`;
-    if (dom.modelProgressPct) dom.modelProgressPct.textContent = `${report.progress}%`;
-    if (dom.modelProgressLabel) dom.modelProgressLabel.textContent = report.text;
+    showMainProgress(true, report.text || `Loading LLM: ${report.progress}%`, report.progress);
     setPipelineState('analyzing', `Loading: ${report.progress}%`);
   }).then(() => {
-    if (dom.modelProgressBar) dom.modelProgressBar.style.display = 'none';
-    if (dom.promptInput) dom.promptInput.disabled = false;
-    if (dom.btnSend) dom.btnSend.disabled = false;
-    if (dom.btnMic) dom.btnMic.disabled = false;
+    showMainProgress(false);
     setPipelineState('idle');
     if (dockController) dockController.updateEngineBadge();
     dom.speechText.textContent = `Hello Eran! I am running 100% locally on your device with Qwen 2.5 via WebGPU. Speak or type below to talk to me!`;
     speakReply(`Hello Eran! I am now ready as your companion running locally on your device.`);
   }).catch((err) => {
-    if (dom.modelProgressBar) dom.modelProgressBar.style.display = 'none';
-    if (dom.promptInput) dom.promptInput.disabled = false;
-    if (dom.btnSend) dom.btnSend.disabled = false;
-    if (dom.btnMic) dom.btnMic.disabled = false;
+    showMainProgress(false);
     setPipelineState('idle');
     dom.speechText.textContent = `WebGPU Error: ${err.message}. If your device doesn't support WebGPU, switch to Google Gemini mode in Settings (⚙️).`;
   });
+}
+
+// -------------------------------------------------------------
+// On-Device Whisper Speech-to-Text Loader & Main Screen Progress
+// -------------------------------------------------------------
+async function ensureSTTReady() {
+  if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
+    showMainProgress(true, 'Downloading Whisper STT (~39 MB)...', 0);
+    setPipelineState('analyzing', 'Loading Whisper STT...');
+    dom.speechText.textContent = 'Downloading on-device Whisper STT (~39 MB)... First time caches model in browser.';
+    try {
+      await initWhisper((report) => {
+        showMainProgress(true, report.text || `Whisper STT: ${report.progress}%`, report.progress);
+        setPipelineState('analyzing', `Whisper: ${report.progress}%`);
+      });
+      showMainProgress(false);
+      setPipelineState('idle');
+      dom.speechText.textContent = '✨ Whisper STT is ready! Listening to you...';
+    } catch (err) {
+      showMainProgress(false);
+      setPipelineState('idle');
+      dom.speechText.textContent = `Whisper load warning: ${err.message}. Using default speech recognition.`;
+      console.warn('Whisper load error:', err);
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// On-Device Neural Text-to-Speech Loader & Main Screen Progress
+// -------------------------------------------------------------
+async function ensureTTSReady() {
+  if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+    showMainProgress(true, 'Downloading Neural Voice (~36 MB)...', 0);
+    setPipelineState('analyzing', 'Loading Neural Voice...');
+    dom.speechText.textContent = 'Downloading on-device Neural Voice TTS (~36 MB)... Stored in browser cache.';
+    try {
+      await initNeuralTTS((report) => {
+        showMainProgress(true, report.text || `Neural Voice: ${report.progress}%`, report.progress);
+        setPipelineState('analyzing', `Neural Voice: ${report.progress}%`);
+      });
+      showMainProgress(false);
+      setPipelineState('idle');
+      dom.speechText.textContent = '✨ Neural Voice is ready! I will now speak using local neural synthesis.';
+    } catch (err) {
+      showMainProgress(false);
+      setPipelineState('idle');
+      dom.speechText.textContent = `Neural Voice load warning: ${err.message}. Using device native voice.`;
+      console.warn('Neural TTS load error:', err);
+    }
+  }
 }
 
 // -------------------------------------------------------------
@@ -193,9 +257,9 @@ function initApp() {
   // 1. Initialize Pipeline UI & Mic Visualizer
   initPipelineUI();
 
-  // 2. Initialize Modals
+  // 2. Initialize Modals with progress reporting
   modalController = initModals({
-    onEngineChange: (prevEngine, prevModel) => {
+    onEngineChange: async (prevEngine, prevModel, voiceMeta) => {
       if (dockController) dockController.updateEngineBadge();
       if (AppState.engine === 'local') {
         if (prevEngine !== 'local' || prevModel !== AppState.localModel || !AppState.isModelReady) {
@@ -204,6 +268,16 @@ function initApp() {
       } else {
         checkCloudGemini();
       }
+
+      if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
+        await ensureSTTReady();
+      }
+      if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+        await ensureTTSReady();
+      }
+    },
+    onVoiceModelProgress: (visible, text, pct) => {
+      showMainProgress(visible, text, pct);
     }
   });
 
@@ -216,23 +290,12 @@ function initApp() {
     AppState.save();
   }
 
-  // Helper to ensure STT engine is loaded before listening
-  async function ensureSTTReady() {
-    if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
-      setPipelineState('analyzing', 'Loading Whisper STT...');
-      dom.speechText.textContent = 'Meta Quest / WebGPU: Downloading on-device Whisper STT (~39 MB)... First time caches model in browser.';
-      if (dom.modelProgressBar) dom.modelProgressBar.style.display = 'block';
-
-      await initWhisper((report) => {
-        if (dom.modelProgressFill) dom.modelProgressFill.style.width = `${report.progress}%`;
-        if (dom.modelProgressPct) dom.modelProgressPct.textContent = `${report.progress}%`;
-        if (dom.modelProgressLabel) dom.modelProgressLabel.textContent = report.text || 'Loading Whisper...';
-        setPipelineState('analyzing', `Whisper: ${report.progress}%`);
-      });
-
-      if (dom.modelProgressBar) dom.modelProgressBar.style.display = 'none';
-      dom.speechText.textContent = 'Whisper STT Ready! Listening to you...';
-    }
+  // Preload configured voice models in background
+  if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
+    ensureSTTReady();
+  }
+  if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+    ensureTTSReady();
   }
 
   async function handleToggleLiveMode() {
@@ -245,8 +308,11 @@ function initApp() {
       setPipelineState('listening', 'Live Mode: Listening...');
       try {
         await ensureSTTReady();
+        if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+          ensureTTSReady();
+        }
       } catch (err) {
-        dom.speechText.textContent = `Whisper load error: ${err.message}`;
+        dom.speechText.textContent = `Voice load error: ${err.message}`;
       }
       initMicAnalyser((level) => {
         updateMicLevel(level);
@@ -286,8 +352,11 @@ function initApp() {
       updateVRHUDState({ status: 'Listening to you...' });
       try {
         await ensureSTTReady();
+        if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+          ensureTTSReady();
+        }
       } catch (err) {
-        dom.speechText.textContent = `Whisper load error: ${err.message}`;
+        dom.speechText.textContent = `Voice model load error: ${err.message}`;
         setPipelineState('idle');
         return;
       }

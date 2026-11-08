@@ -26,7 +26,8 @@ import {
   speakNeuralTTS,
   stopNeuralTTS,
   setNeuralLipSyncCallback,
-  isNeuralTTSReady
+  isNeuralTTSReady,
+  isNeuralTTSLoading
 } from './neural_tts.js';
 
 let audioUnlocked = false;
@@ -131,5 +132,6 @@ export {
   initWhisper,
   isWhisperReady,
   initNeuralTTS,
-  isNeuralTTSReady
+  isNeuralTTSReady,
+  isNeuralTTSLoading
 };

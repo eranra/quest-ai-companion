@@ -6,7 +6,7 @@ import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, is
 import { checkGeminiResponsiveness } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
-export function initModals({ onEngineChange }) {
+export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
   const dom = {
     modalAvatars: document.getElementById('modal-avatars'),
     modalSpaces: document.getElementById('modal-spaces'),
@@ -267,15 +267,19 @@ export function initModals({ onEngineChange }) {
       dom.btnDownloadWhisper.disabled = true;
       dom.whisperStatusLabel.textContent = 'Downloading Whisper-tiny (~39 MB)...';
       dom.whisperStatusLabel.style.color = '#38bdf8';
+      if (onVoiceModelProgress) onVoiceModelProgress(true, 'Downloading Whisper STT (~39 MB)...', 0);
       try {
         await initWhisper((report) => {
           dom.whisperStatusLabel.textContent = report.text || `Loading (${report.progress}%)`;
+          if (onVoiceModelProgress) onVoiceModelProgress(true, report.text || `Whisper STT: ${report.progress}%`, report.progress);
         });
         dom.whisperStatusLabel.textContent = '✅ Whisper Ready!';
         dom.whisperStatusLabel.style.color = '#10b981';
+        if (onVoiceModelProgress) onVoiceModelProgress(false);
       } catch (err) {
         dom.whisperStatusLabel.textContent = `❌ Error: ${err.message}`;
         dom.whisperStatusLabel.style.color = '#ef4444';
+        if (onVoiceModelProgress) onVoiceModelProgress(false);
       } finally {
         dom.btnDownloadWhisper.disabled = false;
       }
@@ -295,17 +299,21 @@ export function initModals({ onEngineChange }) {
     dom.btnDownloadTts.onclick = async () => {
       unlockAudio();
       dom.btnDownloadTts.disabled = true;
-      dom.ttsStatusLabel.textContent = 'Downloading Neural TTS...';
+      dom.ttsStatusLabel.textContent = 'Downloading Neural Voice (~36 MB)...';
       dom.ttsStatusLabel.style.color = '#38bdf8';
+      if (onVoiceModelProgress) onVoiceModelProgress(true, 'Downloading Neural Voice (~36 MB)...', 0);
       try {
         await initNeuralTTS((report) => {
           dom.ttsStatusLabel.textContent = report.text || `Loading (${report.progress}%)`;
+          if (onVoiceModelProgress) onVoiceModelProgress(true, report.text || `Neural Voice: ${report.progress}%`, report.progress);
         });
-        dom.ttsStatusLabel.textContent = '✅ Neural TTS Ready!';
+        dom.ttsStatusLabel.textContent = '✅ Neural Voice Ready!';
         dom.ttsStatusLabel.style.color = '#10b981';
+        if (onVoiceModelProgress) onVoiceModelProgress(false);
       } catch (err) {
         dom.ttsStatusLabel.textContent = `❌ Error: ${err.message}`;
         dom.ttsStatusLabel.style.color = '#ef4444';
+        if (onVoiceModelProgress) onVoiceModelProgress(false);
       } finally {
         dom.btnDownloadTts.disabled = false;
       }
@@ -342,6 +350,8 @@ export function initModals({ onEngineChange }) {
       const prevEngine = AppState.engine;
       const prevModel = AppState.localModel;
       const prevSpace = AppState.spaceId;
+      const prevStt = AppState.sttEngine;
+      const prevTts = AppState.ttsEngine;
 
       AppState.geminiKey = dom.cfgGeminiKey.value.trim();
       AppState.engine = dom.cfgEngineSelect.value;
@@ -365,7 +375,7 @@ export function initModals({ onEngineChange }) {
       dom.modalSettings.classList.remove('open');
 
       if (onEngineChange) {
-        onEngineChange(prevEngine, prevModel);
+        onEngineChange(prevEngine, prevModel, { prevStt, prevTts });
       }
     };
   }

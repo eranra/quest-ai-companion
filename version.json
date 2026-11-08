@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.4",
-  "build": 25,
-  "released_at": "2026-11-07T22:30:00Z",
-  "changelog": "v0.3.4: Meta Quest 3 In-VR 3D Control Console and Hardware Button Shortcuts: Press B/Y button to immediately exit VR to regular browser mode for full configuration; Press A/X to talk; Squeeze Grip for Live Mode; Thumbstick X to cycle 3D spaces and avatars; interactive 3D Floating Console with laser ray pointers (99 tests passing)."
+  "version": "v0.3.5",
+  "build": 26,
+  "released_at": "2026-11-08T09:30:00Z",
+  "changelog": "v0.3.5: 1) Prominent main-screen loading and progress bar for local Whisper STT and Neural Voice models with input locking while downloading; 2) Android portrait UI overflow fix with Settings cog wheel pinned to top-right header and wrapped compact touch buttons; 3) Upgraded Neural TTS to lightweight Xenova/mms-tts-eng (~36MB VITS) with WebGPU/WASM fallback and automatic native speech failover (zero silent failures)."
 }

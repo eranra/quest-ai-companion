@@ -94,6 +94,13 @@ async function runTestSuite() {
 
                     // Test 1: DOM Elements exist
                     assert('Top Bar exists', document.querySelector('.top-bar'));
+                    assert('Top Bar Header exists', document.querySelector('.top-bar-header'));
+                    assert('Top Header Actions exist', document.querySelector('.top-header-actions'));
+                    assert('Settings button pinned in header actions', document.getElementById('btn-settings').classList.contains('btn-settings-pinned'));
+                    assert('Main Model Progress Bar exists', document.getElementById('model-progress-bar'));
+                    assert('Main Model Progress Fill exists', document.getElementById('model-progress-fill'));
+                    assert('Main Model Progress Pct exists', document.getElementById('model-progress-pct'));
+                    assert('Main Model Progress Label exists', document.getElementById('model-progress-label'));
                     assert('Pipeline Stepper exists', document.getElementById('pipeline-stepper'));
                     assert('All 4 Pipeline Steps present', 
                       document.getElementById('step-listening') && 
@@ -255,6 +262,10 @@ async function runTestSuite() {
                     assert('audio/neural_tts.js exports initNeuralTTS', typeof neuralTtsModule.initNeuralTTS === 'function');
                     assert('audio/neural_tts.js exports speakNeuralTTS', typeof neuralTtsModule.speakNeuralTTS === 'function');
                     assert('audio/neural_tts.js exports stopNeuralTTS', typeof neuralTtsModule.stopNeuralTTS === 'function');
+                    assert('audio/neural_tts.js exports isNeuralTTSReady', typeof neuralTtsModule.isNeuralTTSReady === 'function');
+                    assert('audio/neural_tts.js exports isNeuralTTSLoading', typeof neuralTtsModule.isNeuralTTSLoading === 'function');
+                    const ttsModule = await import('./js/audio/tts.js');
+                    assert('audio/tts.js exports recordSpokenText', typeof ttsModule.recordSpokenText === 'function');
                     assert('audio/index.js exports initWhisper', typeof audioSubsystem.initWhisper === 'function');
                     assert('audio/index.js exports initNeuralTTS', typeof audioSubsystem.initNeuralTTS === 'function');
 

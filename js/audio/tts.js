@@ -56,7 +56,7 @@ function pruneSpokenHistory() {
 /**
  * Records spoken text into rolling history
  */
-function recordSpokenText(cleanText) {
+export function recordSpokenText(cleanText) {
   pruneSpokenHistory();
   const normText = normalizeText(cleanText);
   const words = extractWordTokens(normText);
