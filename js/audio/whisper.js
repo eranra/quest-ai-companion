@@ -14,9 +14,11 @@ let audioContext = null;
 let mediaStream = null;
 let scriptProcessor = null;
 let audioSource = null;
+let muteGain = null;
 
 let isRecording = false;
 let audioChunks = [];
+let preSpeechBuffer = []; // stores last 4 frames (~350ms) to prevent clipping initial phonemes
 let silenceTimer = null;
 let micWatchdogTimer = null;
 let speechDetected = false;
@@ -55,7 +57,10 @@ async function getTransformers() {
  * Features automatic WebGPU -> WASM fallback for Quest 3 / Android
  */
 export async function initWhisper(onProgress) {
-  if (whisperTranscriber) return whisperTranscriber;
+  if (whisperTranscriber) {
+    if (onProgress) onProgress({ progress: 100, text: 'Whisper STT Ready' });
+    return whisperTranscriber;
+  }
 
   if (isWhisperLoading) {
     while (isWhisperLoading) {
@@ -73,7 +78,7 @@ export async function initWhisper(onProgress) {
       tf.env.allowLocalModels = false;
     }
 
-    const modelId = 'onnx-community/whisper-tiny.en';
+    const modelId = 'Xenova/whisper-tiny.en';
     const progressCallback = (info) => {
       if (info && info.progress !== undefined) {
         whisperLoadProgress = Math.round(info.progress);
@@ -91,14 +96,14 @@ export async function initWhisper(onProgress) {
     try {
       const device = navigator.gpu ? 'webgpu' : 'wasm';
       transcriber = await tf.pipeline('automatic-speech-recognition', modelId, {
-        dtype: 'q8',
+        quantized: true,
         device,
         progress_callback: progressCallback
       });
     } catch (gpuErr) {
       console.warn('WebGPU Whisper initialization failed, falling back to WASM:', gpuErr);
       transcriber = await tf.pipeline('automatic-speech-recognition', modelId, {
-        dtype: 'q8',
+        quantized: true,
         device: 'wasm',
         progress_callback: progressCallback
       });
@@ -160,12 +165,17 @@ function downsampleTo16k(inputBuffer, inputSampleRate) {
 export async function startListeningWhisper() {
   if (isRecording) return;
   audioChunks = [];
+  preSpeechBuffer = [];
   speechDetected = false;
 
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!audioContext || audioContext.state === 'closed') {
-      audioContext = new AudioCtx();
+      try {
+        audioContext = new AudioCtx({ sampleRate: 16000 });
+      } catch (e) {
+        audioContext = new AudioCtx();
+      }
     }
     if (audioContext.state === 'suspended') {
       await audioContext.resume().catch(() => {});
@@ -188,6 +198,7 @@ export async function startListeningWhisper() {
     scriptProcessor.onaudioprocess = (e) => {
       if (!isRecording) return;
       const input = e.inputBuffer.getChannelData(0);
+      const frameCopy = new Float32Array(input);
 
       // Compute RMS Energy
       let sum = 0;
@@ -195,7 +206,7 @@ export async function startListeningWhisper() {
         sum += input[i] * input[i];
       }
       const rms = Math.sqrt(sum / input.length);
-      const volume = Math.min(1.0, Math.max(0.0, rms * 10));
+      const volume = Math.min(1.0, Math.max(0.0, rms * 15));
 
       if (onVolumeCallback) {
         onVolumeCallback(volume);
@@ -207,24 +218,36 @@ export async function startListeningWhisper() {
       // In strict half-duplex mode: drop input while assistant is active
       if (isAssistantActive && AppState.echoGuardMode === 'half_duplex') {
         audioChunks = [];
+        preSpeechBuffer = [];
         speechDetected = false;
         return;
       }
 
-      // Speech threshold: ~0.02 RMS
-      if (rms > 0.02) {
+      // Responsive speech threshold based on user sensitivity setting
+      const sensitivity = AppState.liveSensitivity || 'normal';
+      let speechThreshold = 0.007; // normal speech threshold
+      if (sensitivity === 'sensitive') speechThreshold = 0.004;
+      if (sensitivity === 'high_filter') speechThreshold = 0.014;
+
+      if (rms >= speechThreshold) {
         if (!speechDetected) {
           speechDetected = true;
           if (micWatchdogTimer) {
             clearTimeout(micWatchdogTimer);
             micWatchdogTimer = null;
           }
+          // Prepend rolling pre-speech buffer so leading consonants are intact!
+          for (const chunk of preSpeechBuffer) {
+            audioChunks.push(chunk);
+          }
+          preSpeechBuffer = [];
+
           if (onStatusChangeCallback) {
             onStatusChangeCallback('listening', 'Hearing voice...');
           }
         }
         lastSpeechTimestamp = Date.now();
-        audioChunks.push(new Float32Array(input));
+        audioChunks.push(frameCopy);
 
         if (silenceTimer) {
           clearTimeout(silenceTimer);
@@ -232,20 +255,30 @@ export async function startListeningWhisper() {
         }
       } else if (speechDetected) {
         // Collect short tail silence
-        audioChunks.push(new Float32Array(input));
+        audioChunks.push(frameCopy);
 
         // Silence duration before final transcription
-        const silenceDelay = AppState.isLiveMode ? 900 : 650;
+        const silenceDelay = AppState.isLiveMode ? 950 : 750;
         if (!silenceTimer) {
           silenceTimer = setTimeout(async () => {
             await finalizeWhisperTranscription();
           }, silenceDelay);
         }
+      } else {
+        // Keep a rolling pre-speech ring buffer of 4 frames (~350ms)
+        preSpeechBuffer.push(frameCopy);
+        if (preSpeechBuffer.length > 4) {
+          preSpeechBuffer.shift();
+        }
       }
     };
 
+    // Connect through a zero-gain mute node so microphone audio is NOT looped to speakers
+    muteGain = audioContext.createGain();
+    muteGain.gain.value = 0;
     audioSource.connect(scriptProcessor);
-    scriptProcessor.connect(audioContext.destination);
+    scriptProcessor.connect(muteGain);
+    muteGain.connect(audioContext.destination);
 
     isRecording = true;
     AppState.isListening = true;
@@ -253,15 +286,15 @@ export async function startListeningWhisper() {
       onStatusChangeCallback('listening', AppState.isLiveMode ? 'Live Mode: Listening...' : 'Listening to you...');
     }
 
-    // Regular Mode Watchdog: if user taps mic and remains silent for 7s, auto-release mic!
+    // Regular Mode Watchdog: if user taps mic and remains silent for 8s, auto-release mic!
     if (!AppState.isLiveMode) {
       if (micWatchdogTimer) clearTimeout(micWatchdogTimer);
       micWatchdogTimer = setTimeout(() => {
         if (!AppState.isLiveMode && isRecording && !speechDetected) {
-          stopListeningWhisper();
+          stopListeningWhisper(false);
           if (onStatusChangeCallback) onStatusChangeCallback('idle', 'Mic timed out (silent). Tap to speak.');
         }
-      }, 7000);
+      }, 8000);
     }
   } catch (err) {
     console.error('Could not start microphone recording:', err);
@@ -271,87 +304,100 @@ export async function startListeningWhisper() {
 }
 
 /**
- * Transcribes the recorded audio buffer through Gemini Multimodal API or Whisper-tiny
- * In Regular Mode, ALWAYS releases microphone hardware immediately upon completion!
+ * Transcribes the recorded audio buffer through Whisper-tiny or Gemini Multimodal API
+ * In Regular Mode, releases microphone hardware immediately upon completion!
  */
 async function finalizeWhisperTranscription() {
+  if (silenceTimer) {
+    clearTimeout(silenceTimer);
+    silenceTimer = null;
+  }
+
   if (audioChunks.length === 0) {
     speechDetected = false;
     if (!AppState.isLiveMode) {
-      stopListeningWhisper();
+      stopListeningWhisper(false);
     }
     return;
   }
 
+  const currentChunks = audioChunks;
+  audioChunks = [];
+  speechDetected = false;
+
   // Calculate total length
   let totalLength = 0;
-  for (const c of audioChunks) totalLength += c.length;
+  for (const c of currentChunks) totalLength += c.length;
 
-  // In Regular Mode: immediately stop recording & release microphone hardware!
+  // In Regular Mode: immediately release microphone hardware!
   if (!AppState.isLiveMode) {
-    stopListeningWhisper();
+    stopListeningWhisper(false);
   }
 
   const sampleRate = audioContext ? audioContext.sampleRate : 16000;
 
-  // Minimum ~0.4s audio to avoid empty clicks
-  if (totalLength < sampleRate * 0.4) {
-    audioChunks = [];
-    speechDetected = false;
+  // Minimum ~0.35s audio to avoid clicks
+  if (totalLength < sampleRate * 0.35) {
     if (!AppState.isLiveMode) {
-      if (onStatusChangeCallback) onStatusChangeCallback('idle', 'No speech detected.');
+      if (onStatusChangeCallback) onStatusChangeCallback('idle', 'Audio too short. Tap mic to speak.');
     }
     return;
   }
 
   const merged = new Float32Array(totalLength);
   let offset = 0;
-  for (const c of audioChunks) {
+  for (const c of currentChunks) {
     merged.set(c, offset);
     offset += c.length;
   }
-  audioChunks = [];
-  speechDetected = false;
 
   const resampled = downsampleTo16k(merged, sampleRate);
 
   if (onStatusChangeCallback) {
-    const label = AppState.geminiKey ? 'Analyzing audio...' : 'Transcribing speech...';
-    onStatusChangeCallback('analyzing', label);
+    onStatusChangeCallback('analyzing', 'Transcribing speech with Whisper...');
   }
 
   try {
     let transcript = '';
 
-    // Route 1: Cloud Gemini Multimodal Audio (Zero model download, instant, multilingual)
-    if (AppState.geminiKey && AppState.geminiKey.trim()) {
-      try {
-        const wavBlob = encodeWAV(resampled, 16000);
-        const base64Wav = await blobToBase64(wavBlob);
-        transcript = await transcribeAudioWithGemini(base64Wav);
-      } catch (geminiErr) {
-        console.warn('Gemini audio transcription error, falling back to local Whisper:', geminiErr);
-      }
+    // Route 1: Local Whisper-tiny on-device execution
+    if (!whisperTranscriber) {
+      await initWhisper();
     }
 
-    // Route 2: On-device Whisper-tiny (Local WebGPU / WASM fallback)
-    if (!transcript) {
-      if (!whisperTranscriber) {
-        await initWhisper();
-      }
+    if (whisperTranscriber) {
       const output = await whisperTranscriber(resampled);
       if (Array.isArray(output)) {
         transcript = (output[0]?.text || '').trim();
+      } else if (typeof output === 'string') {
+        transcript = output.trim();
       } else {
         transcript = (output?.text || '').trim();
       }
     }
 
+    // Route 2 Fallback: Cloud Gemini Multimodal Audio if local transcription was empty and key is present
+    if (!transcript && AppState.geminiKey && AppState.geminiKey.trim()) {
+      try {
+        const wavBlob = encodeWAV(resampled, 16000);
+        const base64Wav = await blobToBase64(wavBlob);
+        transcript = await transcribeAudioWithGemini(base64Wav);
+      } catch (geminiErr) {
+        console.warn('Gemini audio transcription fallback error:', geminiErr);
+      }
+    }
+
+    // Strip common Whisper empty-audio hallucinated tokens e.g. [BLANK_AUDIO] or (music)
+    if (transcript) {
+      transcript = transcript.replace(/^\[.*?\]/g, '').replace(/^\(.*?\)/g, '').trim();
+    }
+
     if (!transcript) {
+      console.log('No speech detected in audio stream.');
       if (AppState.isLiveMode) {
         if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
       } else {
-        if (onStatusChangeCallback) onStatusChangeCallback('idle', 'No speech detected. Tap mic to speak.');
+        if (onStatusChangeCallback) onStatusChangeCallback('idle', 'No speech recognized. Tap to try again.');
       }
       return;
     }
@@ -377,7 +423,6 @@ async function finalizeWhisperTranscription() {
           return;
         }
       } else {
-        // Did not meet interruption threshold
         if (!AppState.isLiveMode) {
           if (onStatusChangeCallback) onStatusChangeCallback('idle');
         }
@@ -385,13 +430,14 @@ async function finalizeWhisperTranscription() {
       }
     }
 
+    console.log(`[Whisper STT] Recognized: "${transcript}"`);
     if (onSpeechFinishedCallback) {
       onSpeechFinishedCallback(transcript);
     }
   } catch (err) {
     console.error('Speech transcription error:', err);
     if (!AppState.isLiveMode) {
-      stopListeningWhisper();
+      stopListeningWhisper(false);
       if (onStatusChangeCallback) onStatusChangeCallback('idle', `Speech error: ${err.message}`);
     }
   }
@@ -399,10 +445,17 @@ async function finalizeWhisperTranscription() {
 
 /**
  * Stops microphone recording and releases hardware
+ * If finalizeIfAudioPresent is true and audio was captured, processes the audio buffer
  */
-export function stopListeningWhisper() {
+export function stopListeningWhisper(finalizeIfAudioPresent = false) {
+  if (finalizeIfAudioPresent && audioChunks.length > 0) {
+    finalizeWhisperTranscription();
+    return;
+  }
+
   isRecording = false;
   AppState.isListening = false;
+  preSpeechBuffer = [];
   if (silenceTimer) {
     clearTimeout(silenceTimer);
     silenceTimer = null;
@@ -416,6 +469,12 @@ export function stopListeningWhisper() {
       scriptProcessor.disconnect();
     } catch (e) {}
     scriptProcessor = null;
+  }
+  if (muteGain) {
+    try {
+      muteGain.disconnect();
+    } catch (e) {}
+    muteGain = null;
   }
   if (audioSource) {
     try {

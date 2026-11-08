@@ -105,54 +105,50 @@ export function isSelfEcho(transcript) {
 
   const isAssistantActive = AppState.isSpeaking || AppState.isGenerating || now < echoCooldownUntil;
 
-  // Tier 1: Substring / Phrase Inclusion against recent utterances
-  for (let i = spokenHistory.length - 1; i >= 0; i--) {
-    const entry = spokenHistory[i];
-    if (candNorm.length >= 4 && (entry.normText.includes(candNorm) || candNorm.includes(entry.normText))) {
-      return true;
-    }
-  }
-
-  // Tier 2: N-gram Match (Consecutive 2 or 3 words)
-  const candNgrams = extractNgrams(candWords);
-  for (let i = spokenHistory.length - 1; i >= 0; i--) {
-    const entry = spokenHistory[i];
-    for (const ng of candNgrams) {
-      if (entry.ngrams.has(ng)) {
-        // If candidate is short (<= 3 words) and has an ngram match -> definite echo
-        if (candWords.length <= 3) return true;
-        // If longer candidate matches a 3-word or 4-word phrase -> definite echo
-        if (ng.split(' ').length >= 3) return true;
+  // Echo detection: physical speaker sound can ONLY reach microphone while assistant is active or in cooldown!
+  if (isAssistantActive) {
+    // Tier 1: Substring / Phrase Inclusion against recent active utterances
+    for (let i = spokenHistory.length - 1; i >= 0; i--) {
+      const entry = spokenHistory[i];
+      if (candNorm.length >= 4 && (entry.normText.includes(candNorm) || candNorm.includes(entry.normText))) {
+        return true;
       }
     }
-  }
 
-  // Tier 3: Lexical Token Intersection Overlap
-  const allSpokenWords = new Set();
-  for (const entry of spokenHistory) {
-    for (const w of entry.wordSet) {
-      allSpokenWords.add(w);
+    // Tier 2: N-gram Match (Consecutive 2 or 3 words)
+    const candNgrams = extractNgrams(candWords);
+    for (let i = spokenHistory.length - 1; i >= 0; i--) {
+      const entry = spokenHistory[i];
+      for (const ng of candNgrams) {
+        if (entry.ngrams.has(ng)) {
+          // If candidate is short (<= 3 words) and has an ngram match -> definite echo
+          if (candWords.length <= 3) return true;
+          // If longer candidate matches a 3-word or 4-word phrase -> definite echo
+          if (ng.split(' ').length >= 3) return true;
+        }
+      }
     }
-  }
 
-  let matchCount = 0;
-  for (const w of candWords) {
-    if (allSpokenWords.has(w)) {
-      matchCount++;
+    // Tier 3: Lexical Token Overlap while active
+    const allSpokenWords = new Set();
+    for (const entry of spokenHistory) {
+      for (const w of entry.wordSet) {
+        allSpokenWords.add(w);
+      }
     }
-  }
 
-  const overlapRatio = matchCount / candWords.length;
+    let matchCount = 0;
+    for (const w of candWords) {
+      if (allSpokenWords.has(w)) {
+        matchCount++;
+      }
+    }
 
-  // If assistant is actively speaking or in post-speech cooldown:
-  if (isAssistantActive) {
+    const overlapRatio = matchCount / candWords.length;
     // If 1-2 words and any of them match assistant speech -> echo
     if (candWords.length <= 2 && matchCount >= 1) return true;
     // If >= 3 words and at least 30% match assistant speech -> echo
     if (overlapRatio >= 0.30) return true;
-  } else {
-    // After cooldown has expired: require high lexical overlap (>= 60%) to avoid false rejections
-    if (overlapRatio >= 0.60) return true;
   }
 
   return false;

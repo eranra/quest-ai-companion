@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.5",
-  "build": 26,
-  "released_at": "2026-11-08T09:30:00Z",
-  "changelog": "v0.3.5: 1) Prominent main-screen loading and progress bar for local Whisper STT and Neural Voice models with input locking while downloading; 2) Android portrait UI overflow fix with Settings cog wheel pinned to top-right header and wrapped compact touch buttons; 3) Upgraded Neural TTS to lightweight Xenova/mms-tts-eng (~36MB VITS) with WebGPU/WASM fallback and automatic native speech failover (zero silent failures)."
+  "version": "v0.3.6",
+  "build": 27,
+  "released_at": "2026-11-08T10:00:00Z",
+  "changelog": "v0.3.6: Fixed on-device Whisper STT: 1) Replaced audio looping with silent zero-gain mute node to prevent feedback loops; 2) Adjusted voice detection threshold from 0.02 to 0.007 with adaptive sensitivity; 3) Added 350ms pre-speech rolling audio ring buffer to preserve leading phonemes; 4) Fixed acoustic echo guard false rejections when assistant is silent; 5) Push-to-talk auto-finalize when tapping mic button; 6) Added clear transcription progress status."
 }

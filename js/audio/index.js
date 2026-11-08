@@ -77,8 +77,8 @@ export function startListening() {
 /**
  * Stops listening and releases hardware across active engines
  */
-export function stopListening() {
-  stopListeningWhisper();
+export function stopListening(finalize = false) {
+  stopListeningWhisper(finalize);
   nativeStopListening();
 }
 

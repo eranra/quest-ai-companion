@@ -37,7 +37,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.5';
+export const APP_VERSION = 'v0.3.6';
 
 // DOM References
 const dom = {
@@ -343,7 +343,7 @@ function initApp() {
       }
     }
     if (AppState.isListening) {
-      stopListening();
+      stopListening(true);
       stopMicAnalyser();
       setPipelineState('idle');
       updateVRHUDState({ status: 'Ready' });
@@ -424,15 +424,22 @@ function initApp() {
         dom.speechText.textContent = `Listening: "${interim}..."`;
       },
       onVolume: (level) => updateMicLevel(level),
-      onStatusChange: (status) => {
+      onStatusChange: (status, statusText) => {
         if (status === 'listening') {
-          setPipelineState('listening', AppState.isLiveMode ? 'Live Mode: Listening...' : 'Listening to you...');
+          setPipelineState('listening', statusText || (AppState.isLiveMode ? 'Live Mode: Listening...' : 'Listening to you...'));
           if (dom.btnMic) dom.btnMic.classList.add('listening');
+        } else if (status === 'analyzing') {
+          setPipelineState('analyzing', statusText || 'Analyzing speech...');
+          if (dom.speechText && statusText) {
+            dom.speechText.textContent = `⚡ ${statusText}`;
+          }
+          if (dom.btnMic) dom.btnMic.classList.remove('listening');
         } else if (status === 'idle') {
           if (dom.btnMic) dom.btnMic.classList.remove('listening');
           if (!AppState.isSpeaking && !AppState.isGenerating) {
             setPipelineState('idle');
             stopMicAnalyser();
+            if (statusText) dom.speechText.textContent = statusText;
           }
         } else if (status === 'mic-denied') {
           if (dom.btnMic) dom.btnMic.classList.remove('listening');
