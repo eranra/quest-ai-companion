@@ -1,6 +1,6 @@
 {
-  "version": "v0.3.9",
-  "build": 30,
-  "released_at": "2026-11-08T12:15:00Z",
-  "changelog": "v0.3.9: Meta Quest 3 zero-hang architecture & smart AI engine routing: 1) Added checkWebGPUSupport() with 2.5s adapter probe to detect disabled WebGPU on Quest Browser before invoking WebLLM; 2) Meta Quest 3 detection with proactive Gemini Cloud recommendations in Settings and VR HUD; 3) Shared initialization Promise and listener broadcasting in local.js to eliminate concurrency deadlocks; 4) Built-in conversational fallback for companion queries ('what is your name', 'who are you', etc.) ensuring instant spoken response even when WebGPU is unavailable; 5) Strict 10-12s watchdog with seamless Gemini cloud failover guaranteeing pipeline never hangs on Analyzing."
+  "version": "v0.4.0",
+  "build": 31,
+  "released_at": "2026-11-08T14:10:00Z",
+  "changelog": "v0.4.0: Meta Quest 3 WebGPU flag detection & intelligent user alerts: 1) Added checkQuestWebGPUFlagStatus() detecting if chrome://flags WebGPU is disabled vs enabled on Quest 3; 2) Live status indicator in Settings showing exact flag status (🟢 Enabled / 🔴 Disabled); 3) Dedicated Quest 3 WebGPU Alert modal explaining why local models cannot run without GPU compute shaders; 4) One-click 'Switch to Google Gemini Cloud' button inside the alert for instant zero-flag VR chat; 5) Clear step-by-step instructions on enabling chrome://flags#enable-unsafe-webgpu; 6) Automatic alert triggers on Quest 3 when attempting to select or prompt local model with disabled flag."
 }

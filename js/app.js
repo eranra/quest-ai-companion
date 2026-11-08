@@ -43,7 +43,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.3.9';
+export const APP_VERSION = 'v0.4.0';
 
 // DOM References
 const dom = {
@@ -104,6 +104,15 @@ async function handleUserSpeech(userText) {
     setPipelineState('ready');
     dom.speechText.textContent = reply;
     updateVRHUDState({ status: 'Ready', text: reply });
+
+    // If on Quest 3 trying to use Local mode with disabled WebGPU, alert user with resolution modal
+    if (AppState.engine === 'local' && isQuestBrowser() && (!AppState.geminiKey || !AppState.geminiKey.trim())) {
+      checkWebGPUSupport().then(gpu => {
+        if (!gpu.supported && modalController && modalController.showQuestGPUAlert) {
+          modalController.showQuestGPUAlert();
+        }
+      }).catch(() => {});
+    }
 
     // Step 4: Speaking Reply
     setPipelineState('speaking', '🗣️ Speaking (Tap to stop)...');
@@ -186,10 +195,14 @@ async function startLocalModelLoading() {
     AppState.modelStatusText = 'WebGPU unavailable';
     if (dockController) dockController.updateEngineBadge();
     const isQuest = isQuestBrowser();
-    const hintMsg = isQuest
-      ? '🥽 Meta Quest 3 detected: WebGPU is experimental on Quest Browser. Google Gemini Cloud mode is recommended for instant responses in VR.'
-      : 'WebGPU is not enabled on this browser.';
-    dom.speechText.textContent = `${hintMsg} You can enter a Google Gemini API key in Settings (⚙️) to start chatting!`;
+    if (isQuest) {
+      dom.speechText.textContent = '🥽 Meta Quest 3: WebGPU flag is DISABLED in Quest Browser. Tap the badge or Settings to switch to Google Gemini Cloud (recommended)!';
+      if (modalController && modalController.showQuestGPUAlert) {
+        modalController.showQuestGPUAlert();
+      }
+    } else {
+      dom.speechText.textContent = 'WebGPU is not enabled on this browser. You can enter a Google Gemini API key in Settings (⚙️) to start chatting!';
+    }
     return;
   }
 
@@ -415,7 +428,12 @@ function initApp() {
     onSendPrompt: (prompt) => handleUserSpeech(prompt),
     onTurnAvatar: () => flipAvatarOrientation(),
     onToggleLiveMode: () => handleToggleLiveMode(),
-    onToggleMic: () => handleToggleMic()
+    onToggleMic: () => handleToggleMic(),
+    onShowGPUAlert: () => modalController && modalController.showQuestGPUAlert && modalController.showQuestGPUAlert(),
+    onOpenSettings: () => {
+      const btn = document.getElementById('btn-settings');
+      if (btn) btn.click();
+    }
   });
 
   // Sync Badges

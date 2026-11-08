@@ -138,6 +138,9 @@ async function runTestSuite() {
                     const modalSpaces = document.getElementById('modal-spaces');
                     assert('Spaces button exists in UI', !!btnSpaces);
                     assert('Spaces Modal exists in UI', !!modalSpaces);
+                    assert('Quest GPU Alert Modal exists in UI', !!document.getElementById('modal-quest-gpu-alert'));
+                    assert('Quest Alert Switch Gemini button exists', !!document.getElementById('btn-quest-switch-gemini'));
+                    assert('Quest GPU Flag Status pill exists in settings', !!document.getElementById('quest-gpu-flag-status'));
                     btnSpaces.click();
                     assert('Spaces Modal opens on click', modalSpaces.classList.contains('open'));
 
@@ -311,6 +314,10 @@ async function runTestSuite() {
                     
                     const gpuCheck = await aiSubsystem.checkWebGPUSupport();
                     assert('checkWebGPUSupport returns support status object without throwing', typeof gpuCheck === 'object' && gpuCheck !== null && 'supported' in gpuCheck);
+
+                    assert('ai/index.js exports checkQuestWebGPUFlagStatus', typeof aiSubsystem.checkQuestWebGPUFlagStatus === 'function');
+                    const questFlag = await aiSubsystem.checkQuestWebGPUFlagStatus();
+                    assert('checkQuestWebGPUFlagStatus returns flagDisabled boolean', typeof questFlag === 'object' && 'flagDisabled' in questFlag && 'supported' in questFlag);
 
                     const testReply = await aiSubsystem.callLocalWebLLM('what is your name');
                     assert('callLocalWebLLM returns non-empty reply without hanging', typeof testReply === 'string' && testReply.length > 5);

@@ -3,7 +3,7 @@ import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
 import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady } from '../audio/index.js';
-import { checkGeminiResponsiveness, isQuestBrowser } from '../ai.js';
+import { checkGeminiResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
 export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
@@ -44,7 +44,12 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     cfgTtsEngine: document.getElementById('cfg-tts-engine'),
     ttsLoaderBox: document.getElementById('tts-loader-box'),
     btnDownloadTts: document.getElementById('btn-download-tts'),
-    ttsStatusLabel: document.getElementById('tts-status-label')
+    ttsStatusLabel: document.getElementById('tts-status-label'),
+    modalQuestGpuAlert: document.getElementById('modal-quest-gpu-alert'),
+    btnCloseQuestAlert: document.getElementById('btn-close-quest-alert'),
+    btnQuestSwitchGemini: document.getElementById('btn-quest-switch-gemini'),
+    btnQuestAlertGotIt: document.getElementById('btn-quest-alert-got-it'),
+    questGpuFlagStatus: document.getElementById('quest-gpu-flag-status')
   };
 
   // Sync active avatar card
@@ -204,11 +209,36 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         dom.groupGemini.style.display = 'none';
         dom.groupLocalModel.style.display = 'block';
         dom.engineSummaryHint.textContent = 'Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.';
+        if (isQuestBrowser()) {
+          checkWebGPUSupport().then(gpu => {
+            if (!gpu.supported) {
+              showQuestGPUAlert();
+            }
+          }).catch(() => {});
+        }
       }
 
       const questNotice = document.getElementById('quest-engine-notice');
       if (questNotice) {
         questNotice.style.display = isQuestBrowser() ? 'block' : 'none';
+      }
+
+      if (dom.questGpuFlagStatus) {
+        checkQuestWebGPUFlagStatus().then(status => {
+          if (!status.isQuest) {
+            dom.questGpuFlagStatus.innerHTML = status.supported 
+              ? '<span style="color: #34d399;">🟢 WebGPU Hardware: Available & Active</span>' 
+              : '<span style="color: #f59e0b;">⚠️ WebGPU Hardware: Unavailable</span>';
+          } else if (status.supported) {
+            dom.questGpuFlagStatus.innerHTML = '<span style="color: #34d399;">🟢 Meta Quest WebGPU Flag: ENABLED (Adreno GPU ready)</span>';
+          } else {
+            dom.questGpuFlagStatus.innerHTML = '<span style="color: #fbbf24;">🔴 Meta Quest WebGPU Flag: DISABLED</span> <button type="button" id="btn-show-gpu-instructions" style="background: transparent; border: none; color: #38bdf8; text-decoration: underline; cursor: pointer; padding: 0 4px; font-size: 11px;">(How to fix)</button>';
+            const btnShow = document.getElementById('btn-show-gpu-instructions');
+            if (btnShow) {
+              btnShow.onclick = () => showQuestGPUAlert();
+            }
+          }
+        }).catch(() => {});
       }
 
       dom.modalSettings.classList.add('open');
@@ -229,6 +259,13 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         dom.groupGemini.style.display = 'none';
         dom.groupLocalModel.style.display = 'block';
         dom.engineSummaryHint.textContent = 'Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.';
+        if (isQuestBrowser()) {
+          checkWebGPUSupport().then(gpu => {
+            if (!gpu.supported) {
+              showQuestGPUAlert();
+            }
+          }).catch(() => {});
+        }
       }
     };
   }
@@ -349,6 +386,54 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     };
   }
 
+  function showQuestGPUAlert() {
+    unlockAudio();
+    if (dom.modalQuestGpuAlert) {
+      dom.modalQuestGpuAlert.classList.add('open');
+    }
+  }
+
+  function hideQuestGPUAlert() {
+    if (dom.modalQuestGpuAlert) {
+      dom.modalQuestGpuAlert.classList.remove('open');
+    }
+  }
+
+  if (dom.btnCloseQuestAlert) {
+    dom.btnCloseQuestAlert.onclick = () => hideQuestGPUAlert();
+  }
+
+  if (dom.btnQuestAlertGotIt) {
+    dom.btnQuestAlertGotIt.onclick = () => hideQuestGPUAlert();
+  }
+
+  if (dom.btnQuestSwitchGemini) {
+    dom.btnQuestSwitchGemini.onclick = () => {
+      unlockAudio();
+      const prevEngine = AppState.engine;
+      const prevModel = AppState.localModel;
+      AppState.engine = 'cloud';
+      AppState.save();
+      hideQuestGPUAlert();
+      if (dom.cfgEngineSelect) {
+        dom.cfgEngineSelect.value = 'cloud';
+        dom.groupGemini.style.display = 'block';
+        dom.groupLocalModel.style.display = 'none';
+        dom.engineSummaryHint.textContent = 'Connects to Google Gemini 2.5 Flash cloud API for fast answers.';
+      }
+      if (onEngineChange) {
+        onEngineChange(prevEngine, prevModel, { prevStt: AppState.sttEngine, prevTts: AppState.ttsEngine });
+      }
+      if (!AppState.geminiKey || !AppState.geminiKey.trim()) {
+        dom.modalSettings.classList.add('open');
+        if (dom.cfgGeminiKey) dom.cfgGeminiKey.focus();
+        speakReply("Switched to Google Gemini Cloud. Enter your free API key in settings to talk!");
+      } else {
+        speakReply("Switched to Google Gemini Cloud mode. I am ready to talk with you!");
+      }
+    };
+  }
+
   if (dom.btnSaveSettings) {
     dom.btnSaveSettings.onclick = () => {
       unlockAudio();
@@ -379,11 +464,26 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
       dom.modalSettings.classList.remove('open');
 
+      // If user selected Local on Quest 3 but WebGPU flag is disabled, alert immediately!
+      if (isQuestBrowser() && AppState.engine === 'local') {
+        checkWebGPUSupport().then(gpu => {
+          if (!gpu.supported) {
+            showQuestGPUAlert();
+          }
+        }).catch(() => {});
+      }
+
       if (onEngineChange) {
         onEngineChange(prevEngine, prevModel, { prevStt, prevTts });
       }
     };
   }
 
-  return { syncAvatarCards, syncSpaceCards, populateVoiceList };
+  return { 
+    syncAvatarCards, 
+    syncSpaceCards, 
+    populateVoiceList,
+    showQuestGPUAlert,
+    hideQuestGPUAlert
+  };
 }

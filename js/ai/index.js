@@ -6,6 +6,7 @@ import {
   callLocalWebLLM, 
   checkWebGPUSupport, 
   isQuestBrowser, 
+  checkQuestWebGPUFlagStatus,
   getOfflineCompanionAnswer, 
   resetLocalWebLLM 
 } from './local.js';
@@ -47,6 +48,7 @@ export {
   callLocalWebLLM,
   checkWebGPUSupport,
   isQuestBrowser,
+  checkQuestWebGPUFlagStatus,
   getOfflineCompanionAnswer,
   resetLocalWebLLM,
   checkGeminiResponsiveness,

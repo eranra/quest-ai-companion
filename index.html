@@ -59,7 +59,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.3.9</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.0</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -350,6 +350,7 @@
         </p>
         <div id="quest-engine-notice" style="display: none; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 10px; margin-top: 8px; font-size: 12px; line-height: 1.4; color: #bae6fd;">
           <strong>🥽 Meta Quest 3 Hardware Note:</strong> Meta Quest Browser allocates ~1.5GB RAM per tab, and WebGPU compute shaders are experimental. <strong>Google Gemini Cloud</strong> is recommended for instant responses and smooth 90Hz VR frame rates with zero headset memory overhead.
+          <div id="quest-gpu-flag-status" style="margin-top: 8px; font-size: 11px; font-weight: 600; padding-top: 6px; border-top: 1px solid rgba(56, 189, 248, 0.2);"></div>
         </div>
       </div>
 
@@ -478,6 +479,55 @@
       </div>
 
       <button id="btn-save-settings" class="action-btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 8px;">Save Settings</button>
+    </div>
+  </div>
+
+  <!-- Meta Quest 3 WebGPU Flag Alert Modal -->
+  <div id="modal-quest-gpu-alert" class="modal-backdrop">
+    <div class="modal" style="border: 1px solid rgba(245, 158, 11, 0.6); box-shadow: 0 20px 50px rgba(245, 158, 11, 0.25);">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #fbbf24; display: flex; align-items: center; gap: 8px;">
+          <span>🥽 ⚠️ WebGPU Flag is Disabled</span>
+        </h3>
+        <button id="btn-close-quest-alert" class="icon-btn" style="width: 32px; height: 32px;">✕</button>
+      </div>
+
+      <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 12px; font-size: 13px; line-height: 1.5; color: #fef3c7;">
+        <p><strong>Meta Quest Browser has WebGPU turned OFF by default.</strong></p>
+        <p style="margin-top: 6px;">
+          Local on-device AI (Qwen 2.5) requires WebGPU hardware compute shaders to run. Since the flag is disabled, local models cannot generate responses.
+        </p>
+      </div>
+
+      <!-- Option 1: Recommended Cloud Switch -->
+      <div style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-weight: 700; color: #38bdf8; font-size: 13px;">⭐ Recommended: Instant VR Chat</span>
+          <span style="font-size: 11px; background: #0369a1; color: white; padding: 2px 8px; border-radius: 999px;">0 MB VRAM</span>
+        </div>
+        <p style="font-size: 12px; color: #bae6fd; line-height: 1.4;">
+          Switch to <strong>Google Gemini Cloud</strong>. It requires zero browser flags, uses no headset memory, and answers in ~300ms!
+        </p>
+        <button id="btn-quest-switch-gemini" class="action-btn" style="background: #0284c7; justify-content: center; padding: 10px; font-weight: 600;">
+          <span>☁️ Switch to Google Gemini Mode</span>
+        </button>
+      </div>
+
+      <!-- Option 2: How to enable WebGPU flag in Quest Browser -->
+      <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 12px; padding: 12px; font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+        <p style="font-weight: 600; color: #e2e8f0; margin-bottom: 6px;">🔧 How to enable WebGPU on Meta Quest 3:</p>
+        <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px;">
+          <li>Open a <strong>new tab</strong> in Meta Quest Browser.</li>
+          <li>Type <code style="background: #1e293b; padding: 2px 6px; border-radius: 4px; color: #38bdf8;">chrome://flags</code> in the address bar.</li>
+          <li>Search for <strong style="color: #fff;">webgpu</strong>.</li>
+          <li>Set <strong>WebGPU</strong> and <strong>Unsafe WebGPU</strong> to <strong style="color: #34d399;">Enabled</strong>.</li>
+          <li>Tap <strong>Relaunch</strong> at the bottom of the screen.</li>
+        </ol>
+      </div>
+
+      <button id="btn-quest-alert-got-it" class="action-btn" style="width: 100%; justify-content: center; padding: 10px; background: rgba(51, 65, 85, 0.8);">
+        Dismiss
+      </button>
     </div>
   </div>
 

@@ -5,7 +5,7 @@ import { unlockAudio } from '../audio/index.js';
 
 let latestDetectedVersion = null;
 
-export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAvatar, appVersion }) {
+export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAvatar, appVersion, onShowGPUAlert, onOpenSettings }) {
   const dom = {
     promptInput: document.getElementById('prompt-input'),
     btnSend: document.getElementById('btn-send'),
@@ -160,6 +160,18 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
   }
   if (dom.versionBadge) {
     dom.versionBadge.onclick = () => checkAppVersion(true);
+  }
+  if (dom.engineBadge) {
+    dom.engineBadge.style.cursor = 'pointer';
+    dom.engineBadge.title = 'Click to configure or view AI Engine status';
+    dom.engineBadge.onclick = () => {
+      unlockAudio();
+      if (AppState.engine === 'local' && AppState.modelStatusText === 'WebGPU unavailable' && onShowGPUAlert) {
+        onShowGPUAlert();
+      } else if (onOpenSettings) {
+        onOpenSettings();
+      }
+    };
   }
 
   checkAppVersion();

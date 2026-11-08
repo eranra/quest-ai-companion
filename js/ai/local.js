@@ -23,6 +23,7 @@ export async function checkWebGPUSupport() {
   if (typeof navigator === 'undefined' || !navigator.gpu) {
     return { 
       supported: false, 
+      flagStatus: 'unsupported',
       reason: 'WebGPU is not supported by this browser.' 
     };
   }
@@ -33,13 +34,29 @@ export async function checkWebGPUSupport() {
     if (!adapter) {
       return { 
         supported: false, 
+        flagStatus: 'disabled',
         reason: 'WebGPU adapter is disabled or unavailable. (On Meta Quest Browser, WebGPU requires experimental flags in chrome://flags).' 
       };
     }
-    return { supported: true, adapter };
+    return { supported: true, flagStatus: 'enabled', adapter };
   } catch (err) {
-    return { supported: false, reason: err.message };
+    return { supported: false, flagStatus: 'disabled', reason: err.message };
   }
+}
+
+/**
+ * Specifically check Meta Quest 3 WebGPU flag status
+ */
+export async function checkQuestWebGPUFlagStatus() {
+  const isQuest = isQuestBrowser();
+  const gpu = await checkWebGPUSupport();
+  return {
+    isQuest,
+    supported: gpu.supported,
+    flagStatus: gpu.flagStatus, // 'enabled' | 'disabled' | 'unsupported'
+    flagDisabled: isQuest && !gpu.supported,
+    reason: gpu.reason
+  };
 }
 
 /**
