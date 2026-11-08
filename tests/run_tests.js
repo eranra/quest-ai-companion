@@ -147,7 +147,7 @@ async function runTestSuite() {
                     assert('Spaces Modal opens on click', modalSpaces.classList.contains('open'));
 
                     const spaceCards = document.querySelectorAll('.space-card');
-                    assert('All 4 Spaces in Gallery', spaceCards.length === 4, 'Found: ' + spaceCards.length);
+                    assert('All 5 Spaces in Gallery', spaceCards.length === 5, 'Found: ' + spaceCards.length);
 
                     const btnCloseSpaces = document.getElementById('btn-close-spaces');
                     btnCloseSpaces.click();
@@ -226,7 +226,7 @@ async function runTestSuite() {
 
                     // Test 3B: Spaces Switching & Dynamic Particle Simulation
                     const { switchSpace, updateCurrentSpace } = await import('./js/spaces/index.js');
-                    const spaceIds = ['hall', 'garden', 'penthouse', 'cafe'];
+                    const spaceIds = ['hall', 'garden', 'penthouse', 'cafe', 'passthrough'];
 
                     for (const sId of spaceIds) {
                       try {

@@ -5,6 +5,27 @@ import { createGardenSpace } from './garden.js';
 import { createPenthouseSpace } from './penthouse.js';
 import { createCafeSpace } from './cafe.js';
 
+export function createPassthroughSpace() {
+  const group = new THREE.Group();
+  group.name = 'space_passthrough';
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+  group.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xfff8ee, 0.9);
+  dirLight.position.set(2, 4, 3);
+  group.add(dirLight);
+
+  const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.4);
+  fillLight.position.set(-2, 3, -1);
+  group.add(fillLight);
+
+  return {
+    group,
+    update: (delta, elapsed) => {}
+  };
+}
+
 export const SPACE_DEFINITIONS = [
   {
     id: 'hall',
@@ -33,6 +54,13 @@ export const SPACE_DEFINITIONS = [
     icon: '☕',
     tagline: '360° Photorealistic coffeehouse with rising steam & window rain',
     factory: createCafeSpace
+  },
+  {
+    id: 'passthrough',
+    name: 'Real Room (Immersed)',
+    icon: '🪟',
+    tagline: 'Mixed Reality Passthrough: See your real physical room with the avatar right in front of you',
+    factory: createPassthroughSpace
   }
 ];
 

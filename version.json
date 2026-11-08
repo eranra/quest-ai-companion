@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.8",
-  "build": 39,
-  "released_at": "2026-11-08T18:30:00Z",
-  "changelog": "v0.4.8: Consolidated 360° VR and Immersive View into a single unified 360° VR button. Uses the rock-solid Quest 3 WebXR engine with full 360° photorealistic dome space rendering, 6DOF controller tracking, thumbstick space/avatar cycling, and In-VR 3D HUD console, eliminating the separate redundant window button."
+  "version": "v0.4.9",
+  "build": 40,
+  "released_at": "2026-11-08T18:55:00Z",
+  "changelog": "v0.4.9: 1) Added 'Real Room (Immersed)' as a selectable 5th space in the environment gallery and thumbstick rotation, enabling full Mixed Reality Passthrough where the avatar stands in your physical room; 2) Fixed Right Controller pointer selection by binding WebXR select listeners directly to each controller and correctly mapping gamepad input indices, ensuring both left and right controller beams point and select In-VR console buttons reliably."
 }

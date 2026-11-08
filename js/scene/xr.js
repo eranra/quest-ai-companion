@@ -55,6 +55,13 @@ export function setupXRControllers(scene, renderer) {
   for (let i = 0; i < 2; i++) {
     const controller = renderer.xr.getController(i);
     controller.addEventListener('selectstart', () => unlockAudio());
+    controller.addEventListener('select', () => {
+      unlockAudio();
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+      testVRHUDIntersection(raycaster, true, registeredActionCallbacks);
+    });
 
     // Laser pointer beam
     controller.add(createControllerLaser());
@@ -134,14 +141,14 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
     const triggerClick = b0 && !prev.b0;
     prev.b0 = b0;
 
-    // Controller Raycasting against In-VR Console
-    const controller = xrControllers[handedness === 'left' ? 1 : 0] || xrControllers[0];
-    if (controller) {
+    // Controller Raycasting against In-VR Console (mapped to exact controller index)
+    const controller = xrControllers[idx] || renderer.xr.getController(idx);
+    if (controller && triggerClick) {
       tempMatrix.identity().extractRotation(controller.matrixWorld);
       raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
       raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
 
-      testVRHUDIntersection(raycaster, triggerClick, callbacks);
+      testVRHUDIntersection(raycaster, true, callbacks);
     }
 
     // 5. Thumbstick Inputs
@@ -173,6 +180,18 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
           if (callbacks.onCycleSpace) callbacks.onCycleSpace(dir);
         }
       }
+    }
+  }
+
+  // Update In-VR HUD hover state from pointing controllers
+  for (let i = 0; i < xrControllers.length; i++) {
+    const c = xrControllers[i];
+    if (c && c.visible) {
+      tempMatrix.identity().extractRotation(c.matrixWorld);
+      raycaster.ray.origin.setFromMatrixPosition(c.matrixWorld);
+      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+      const hit = testVRHUDIntersection(raycaster, false, callbacks);
+      if (hit && hit.buttonKey) break;
     }
   }
 
