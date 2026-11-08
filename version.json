@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.7",
-  "build": 38,
-  "released_at": "2026-11-08T16:50:00Z",
-  "changelog": "v0.4.7: 1) Multi-Threaded CPU WASM via Cross-Origin Isolation: integrated coi-serviceworker to unlock SharedArrayBuffer in OculusBrowser on Meta Quest 3, enabling multi-core parallel WASM execution across all 3 CPU cores for Whisper, SmolLM2, and Piper; 2) Ultra-Fast Local AI Turnaround: shifted local LLM to greedy decoding (do_sample: false) with snappy 1-sentence constraints (max 24 tokens) to eliminate 24s paragraph wandering, dropping LLM time to ~2-3s; 3) Instant 0ms Fast-Path & Instant Companion Mode: added instant 0ms responses for common greetings and pleasantries, plus added an Instant Companion option in Settings; 4) Serial Prioritized TTS Queue: eliminated CPU contention in Piper TTS by prioritizing Sentence 1 at 100% CPU and buffering subsequent sentences during audio playback; 5) Whisper Short-Clip Acceleration: removed 30s chunk loop overhead for short speech clips and trimmed silence delay to 550ms."
+  "version": "v0.4.8",
+  "build": 39,
+  "released_at": "2026-11-08T18:30:00Z",
+  "changelog": "v0.4.8: Consolidated 360° VR and Immersive View into a single unified 360° VR button. Uses the rock-solid Quest 3 WebXR engine with full 360° photorealistic dome space rendering, 6DOF controller tracking, thumbstick space/avatar cycling, and In-VR 3D HUD console, eliminating the separate redundant window button."
 }

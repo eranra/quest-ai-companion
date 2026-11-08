@@ -219,20 +219,33 @@ export function enterVR(renderer, scene, onSessionChange) {
   setSpaceVisibility(true);
   setVRHUDVisibility(true);
 
-  // Standard Three.js Quest 3 session configuration
+  // Standard Three.js Quest 3 session configuration (verified reliable on Meta Quest 3 HorizonOS)
   const sessionInit = {
-    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers']
+    optionalFeatures: ['local-floor', 'hit-test', 'hand-tracking']
   };
 
-  // Synchronous call inside the user gesture event: zero await delay!
-  return navigator.xr.requestSession('immersive-vr', sessionInit)
+  // Synchronous call inside user gesture:
+  // Meta Quest 3 natively launches via 'immersive-ar' with 360 photo dome and 6DOF tracking!
+  const sessionPromise = navigator.xr.requestSession('immersive-ar', sessionInit)
+    .catch((arErr) => {
+      console.warn('immersive-ar request failed, trying immersive-vr fallback:', arErr);
+      return navigator.xr.requestSession('immersive-vr', {
+        optionalFeatures: ['local-floor', 'hand-tracking']
+      });
+    });
+
+  return sessionPromise
     .then(async (session) => {
       xrSession = session;
       isEnteringXR = false;
+      scene.background = null;
+      setSpaceVisibility(true);
+      setVRHUDVisibility(true);
 
       session.addEventListener('end', () => {
         xrSession = null;
         isEnteringXR = false;
+        scene.background = new THREE.Color(0x05070f);
         setSpaceVisibility(true);
         setVRHUDVisibility(false);
         if (onSessionChange) onSessionChange(false, 'vr');
@@ -241,7 +254,7 @@ export function enterVR(renderer, scene, onSessionChange) {
       try {
         await renderer.xr.setSession(session);
       } catch (xrErr) {
-        console.warn('Primary reference space setSession failed, attempting local reference space fallback:', xrErr);
+        console.warn('Primary reference space setSession failed, attempting local fallback:', xrErr);
         try {
           renderer.xr.setReferenceSpaceType('local');
           await renderer.xr.setSession(session);
@@ -270,83 +283,10 @@ export function enterVR(renderer, scene, onSessionChange) {
 }
 
 /**
- * Enters Mixed Reality Passthrough (See your real room with the avatar)
- * SYNCHRONOUS: Calls navigator.xr.requestSession synchronously to preserve user activation!
+ * Consolidated AR alias: routes through the unified WebXR session
  */
 export function enterAR(renderer, scene, onSessionChange) {
-  if (typeof window !== 'undefined' && window.isSecureContext === false) {
-    alert('WebXR requires HTTPS. Please open https://eranra.github.io/quest-ai-companion/ in Meta Quest Browser (HTTP over local IP disables WebXR).');
-    return Promise.reject(new Error('WebXR requires HTTPS'));
-  }
-
-  if (!navigator.xr) {
-    alert('WebXR is not supported on this browser.');
-    return Promise.reject(new Error('WebXR not available'));
-  }
-
-  if (xrSession) {
-    xrSession.end();
-    xrSession = null;
-    return Promise.resolve(null);
-  }
-
-  if (isEnteringXR) {
-    console.log('WebXR AR entry already in progress, ignoring duplicate trigger.');
-    return Promise.resolve(null);
-  }
-
-  isEnteringXR = true;
-
-  const sessionInit = {
-    optionalFeatures: ['local-floor', 'hit-test', 'hand-tracking']
-  };
-
-  return navigator.xr.requestSession('immersive-ar', sessionInit)
-    .then(async (session) => {
-      xrSession = session;
-      isEnteringXR = false;
-      scene.background = null;
-      setSpaceVisibility(false);
-      setVRHUDVisibility(true);
-
-      session.addEventListener('end', () => {
-        xrSession = null;
-        isEnteringXR = false;
-        scene.background = new THREE.Color(0x05070f);
-        setSpaceVisibility(true);
-        setVRHUDVisibility(false);
-        if (onSessionChange) onSessionChange(false, 'ar');
-      });
-
-      try {
-        await renderer.xr.setSession(session);
-      } catch (xrErr) {
-        console.warn('AR setSession failed, attempting local fallback:', xrErr);
-        try {
-          renderer.xr.setReferenceSpaceType('local');
-          await renderer.xr.setSession(session);
-        } catch (fatalErr) {
-          console.error('Fatal WebXR AR setSession error:', fatalErr);
-          session.end();
-          xrSession = null;
-          setVRHUDVisibility(false);
-          throw fatalErr;
-        }
-      }
-
-      setVRHUDVisibility(true);
-      if (onSessionChange) onSessionChange(true, 'ar');
-      return session;
-    })
-    .catch((err) => {
-      isEnteringXR = false;
-      setVRHUDVisibility(false);
-      console.error('WebXR AR request failed:', err);
-      if (!xrSession) {
-        alert(`Passthrough AR error: ${err.message}`);
-      }
-      throw err;
-    });
+  return enterVR(renderer, scene, onSessionChange);
 }
 
 /**

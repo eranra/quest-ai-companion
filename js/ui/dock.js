@@ -74,7 +74,7 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     };
   }
 
-  // Meta Quest 3 Full 360° VR Immersion (Synchronous gesture invocation)
+  // Consolidated WebXR 360° VR Immersion (Synchronous gesture invocation)
   if (dom.btnVr) {
     dom.btnVr.onclick = () => {
       unlockAudio();
@@ -86,14 +86,14 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     };
   }
 
-  // Meta Quest 3 Mixed Reality Passthrough (Synchronous gesture invocation)
+  // Consolidated with 360° VR
   if (dom.btnAr) {
     dom.btnAr.onclick = () => {
       unlockAudio();
-      enterAR((isAR) => {
-        if (dom.xrLabel) dom.xrLabel.textContent = isAR ? 'Exit AR' : 'AR';
+      enterVR((isVR) => {
+        if (dom.vrLabel) dom.vrLabel.textContent = isVR ? 'Exit VR' : '360° VR';
       }).catch((err) => {
-        console.warn('WebXR AR entry rejected:', err);
+        console.warn('WebXR entry rejected:', err);
       });
     };
   }
