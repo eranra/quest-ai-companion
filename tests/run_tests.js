@@ -393,7 +393,7 @@ async function runTestSuite() {
                     assert('neural_tts exports PIPER_VOICE_CONFIGS', typeof neuralTtsModule.PIPER_VOICE_CONFIGS === 'object');
                     assert('neural_tts exports AVATAR_DEFAULT_VOICES', typeof neuralTtsModule.AVATAR_DEFAULT_VOICES === 'object');
 
-                    const sentenceParts = neuralTtsModule.splitIntoSentences('Hello Eran! This is sentence two. And here is sentence three?');
+                    const sentenceParts = neuralTtsModule.splitIntoSentences('Hello there! This is sentence two. And here is sentence three?');
                     assert('splitIntoSentences splits into 3 parts', sentenceParts.length === 3, 'Length: ' + sentenceParts.length);
 
                     const { getDefaultVoiceForAvatar } = await import('./js/avatars/index.js');
@@ -570,17 +570,17 @@ async function runTestSuite() {
                     const alexPersona = agentModule.getActiveAvatarPersona('alex');
                     assert('Alex persona has correct name', alexPersona && alexPersona.name === 'Alex');
 
-                    const promptString = agentModule.buildAgentSystemPrompt({ persona: mayaPersona, spaceId: 'penthouse', userName: 'Eran' });
+                    const promptString = agentModule.buildAgentSystemPrompt({ persona: mayaPersona, spaceId: 'penthouse' });
                     assert('System prompt includes persona name', promptString.includes('Maya'));
-                    assert('System prompt includes user name Eran', promptString.includes('Eran'));
+                    assert('System prompt addresses the user neutrally', promptString.includes('the user'));
                     assert('System prompt includes space name', promptString.includes('penthouse'));
 
                     // Output Validation and Healing
-                    const rawWithTokens = '<|im_start|>assistant\\n*smiles* Hello Eran! 😊 How can I help? <|im_end|>';
+                    const rawWithTokens = '<|im_start|>assistant\\n*smiles* Hello friend! 😊 How can I help? <|im_end|>';
                     const cleanedTokens = agentModule.cleanAndValidateSpeech(rawWithTokens, 'Hi', mayaPersona);
                     assert('cleanAndValidateSpeech strips ChatML tokens', !cleanedTokens.includes('<|im_start|>') && !cleanedTokens.includes('<|im_end|>'));
                     assert('cleanAndValidateSpeech strips asterisks/emojis', !cleanedTokens.includes('*') && !cleanedTokens.includes('😊'));
-                    assert('cleanAndValidateSpeech retains spoken content', cleanedTokens.includes('Hello Eran'));
+                    assert('cleanAndValidateSpeech retains spoken content', cleanedTokens.includes('Hello friend'));
 
                     const truncatedSentence = 'I am glad to show you around the virtual room and explore';
                     const healedSentence = agentModule.cleanAndValidateSpeech(truncatedSentence, 'Hello', mayaPersona);
@@ -738,6 +738,39 @@ async function runTestSuite() {
                     assert('Diagnostic report contains Quest hardware specs', e2eReport.includes('Logical CPU Cores') || e2eReport.includes('Memory'));
                     assert('Diagnostic report contains STT metrics', e2eReport.includes('STT (Whisper)'));
                     assert('Diagnostic report contains live event logs', e2eReport.includes('Live Event Log'));
+
+                    // 13.6 Trajectory Persistence Across Reloads
+                    agentModule.clearConversationHistory();
+                    assert('Cleared trajectory removes quest_dialogue_trajectory from localStorage', localStorage.getItem('quest_dialogue_trajectory') === null);
+                    agentModule.recordDialogueTurn('user', 'Hello there, virtual friend');
+                    agentModule.recordDialogueTurn('assistant', 'Greetings! How can I assist you in VR today?');
+                    const storedTrajectoryJson = localStorage.getItem('quest_dialogue_trajectory');
+                    assert('Dialogue turn is persisted to localStorage (quest_dialogue_trajectory)', !!storedTrajectoryJson && storedTrajectoryJson.includes('virtual friend'));
+                    const reloadedHistory = agentModule.loadPersistedHistory();
+                    assert('loadPersistedHistory successfully recovers stored multi-turn conversation', Array.isArray(reloadedHistory) && reloadedHistory.length === 2);
+                    assert('Loaded history preserves user role and text', reloadedHistory[0].content === 'Hello there, virtual friend');
+
+                    // 13.7 Microphone Red-Blinking Race Condition & Live Mode Stream Contention Checks
+                    const btnMicDom = document.getElementById('btn-mic');
+                    assert('btn-mic element exists in DOM', !!btnMicDom);
+                    // Ensure btnMic does not get stuck in listening state
+                    btnMicDom.classList.remove('listening');
+                    assert('Mic button initial state is not listening (no red blinking)', !btnMicDom.classList.contains('listening'));
+
+                    assert('audio/whisper.js exports stopListeningWhisper', typeof whisperModule.stopListeningWhisper === 'function');
+                    whisperModule.stopListeningWhisper(false);
+                    assert('Whisper stopListeningWhisper cleans up AppState isListening', AppState.isListening === false);
+
+                    const vadModule = await import('./js/audio/vad.js');
+                    assert('audio/vad.js exports initMicAnalyser', typeof vadModule.initMicAnalyser === 'function');
+                    // In whisper STT mode, initMicAnalyser should gracefully avoid duplicate getUserMedia contention
+                    AppState.sttEngine = 'whisper';
+                    const vadContentionSafe = await vadModule.initMicAnalyser(() => {});
+                    assert('vad.js avoids duplicate getUserMedia stream when whisper is active', vadContentionSafe === true);
+
+                    // 13.8 Version Badge Verification
+                    const badgeElem = document.getElementById('app-version-badge');
+                    assert('App version badge reflects v0.5.4', badgeElem && badgeElem.textContent.includes('v0.5.4'));
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

@@ -4,8 +4,30 @@ import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
 import { getOfflineCompanionAnswer } from './local.js';
 
+const TRAJECTORY_STORAGE_KEY = 'quest_dialogue_trajectory';
 const MAX_HISTORY_TURNS = 6; // Sliding window of 3 complete user-assistant dialogue pairs
-let conversationHistory = [];
+let conversationHistory = loadPersistedHistory();
+
+export function loadPersistedHistory() {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(TRAJECTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(-MAX_HISTORY_TURNS) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function persistHistory() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(TRAJECTORY_STORAGE_KEY, JSON.stringify(conversationHistory));
+  } catch (e) {
+    console.warn('Could not persist dialogue trajectory:', e);
+  }
+}
 
 export const AVATAR_PERSONAS = {
   maya: {
@@ -70,6 +92,7 @@ export function recordDialogueTurn(role, content) {
   if (conversationHistory.length > MAX_HISTORY_TURNS) {
     conversationHistory = conversationHistory.slice(-MAX_HISTORY_TURNS);
   }
+  persistHistory();
 }
 
 /**
@@ -78,7 +101,10 @@ export function recordDialogueTurn(role, content) {
 export function clearConversationHistory() {
   const count = conversationHistory.length;
   conversationHistory = [];
-  logDebug('AGENT', `Conversation history cleared (${count} turns wiped)`);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(TRAJECTORY_STORAGE_KEY);
+  }
+  logDebug('AGENT', `Conversation history cleared (${count} turns wiped from memory and storage)`);
 }
 
 /**
@@ -112,7 +138,7 @@ export function buildAgentSystemPrompt(options = {}) {
   const persona = options.persona || getActiveAvatarPersona(AppState.avatarId);
   const spaceId = options.spaceId || AppState.spaceId || 'hall';
   const spaceName = spaceId === 'passthrough' ? 'the user\'s real physical room in Mixed Reality Passthrough' : `${spaceId} 360° virtual space`;
-  const userName = options.userName || 'Eran';
+  const userName = options.userName || 'the user';
   const liveContext = options.liveContext ? `\nLive Facts: ${options.liveContext.formatted || options.liveContext}` : '';
 
   return `You are ${persona.name}, a warm 3D companion speaking directly to ${userName} in ${spaceName}.${liveContext}

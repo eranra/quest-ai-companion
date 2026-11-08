@@ -266,8 +266,12 @@ export function initSpeechRecognition(handlers) {
       }, delay);
     } else {
       // Regular Mode (Push-to-Talk): stays idle after single utterance and mic hardware is released
-      if (onStatusChangeCallback && !AppState.isSpeaking && !AppState.isGenerating) {
-        onStatusChangeCallback('idle');
+      if (onStatusChangeCallback) {
+        if (!AppState.isSpeaking && !AppState.isGenerating) {
+          onStatusChangeCallback('idle');
+        } else {
+          onStatusChangeCallback('analyzing');
+        }
       }
     }
   };
@@ -316,8 +320,12 @@ export function stopListening() {
   }
   AppState.isListening = false;
   if (onVolumeCallback) onVolumeCallback(0.0);
-  if (onStatusChangeCallback && !AppState.isSpeaking && !AppState.isGenerating) {
-    onStatusChangeCallback('idle');
+  if (onStatusChangeCallback) {
+    if (!AppState.isSpeaking && !AppState.isGenerating) {
+      onStatusChangeCallback('idle');
+    } else {
+      onStatusChangeCallback('analyzing');
+    }
   }
 }
 

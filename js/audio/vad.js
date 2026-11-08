@@ -1,5 +1,6 @@
 // Voice Activity & Microphone Audio Level Analyser (Web Audio API)
 // Provides continuous microphone level detection and live visualization with zero system beeps
+import { AppState } from '../state.js';
 
 let audioContext = null;
 let mediaStream = null;
@@ -11,6 +12,11 @@ let volumeCallback = null;
 
 export async function initMicAnalyser(onVolume) {
   volumeCallback = onVolume;
+  // If Whisper STT is active, Whisper natively computes live RMS volume on its audio processor.
+  // Avoid opening a redundant second hardware audio stream on mobile Quest to prevent driver contention.
+  if (AppState.sttEngine === 'whisper') {
+    return true;
+  }
   if (isMetering && analyserNode) return true;
 
   try {

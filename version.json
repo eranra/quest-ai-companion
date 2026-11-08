@@ -1,6 +1,6 @@
 {
-  "version": "v0.5.3",
-  "build": 44,
-  "released_at": "2026-11-08T22:40:00Z",
-  "changelog": "v0.5.3: 1) Added realistic Quest 3 local-only end-to-end benchmark & latency test suite to tests/run_tests.js; 2) Validated complete pipeline: audio capture/WAV encoding -> Whisper STT -> SmolLM2 agent analysis -> Piper sentence-streaming TTS; 3) Verified CPU core monitoring, latency budgets, stage transitions, watchdog protection against hangs, and full diagnostic report profiling."
+  "version": "v0.5.4",
+  "build": 45,
+  "released_at": "2026-11-08T23:05:00Z",
+  "changelog": "v0.5.4: 1) Removed hardcoded user name 'Eran' in favor of neutral addressing; 2) Added conversation trajectory persistence across page reloads via localStorage; 3) Verified and protected permanent browser cache storage for all local models (Whisper, SmolLM2, Piper VITS); 4) Fixed microphone red blinking stuck state / race condition on speech completion; 5) Fixed Live Mode hardware audio stream contention on Meta Quest; 6) Added realistic Quest 3 end-to-end benchmark scenarios for conversation trajectory and mic transitions."
 }

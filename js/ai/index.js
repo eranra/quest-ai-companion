@@ -17,6 +17,8 @@ import {
   getConversationHistory,
   recordDialogueTurn,
   clearConversationHistory,
+  loadPersistedHistory,
+  persistHistory,
   getActiveAvatarPersona,
   buildAgentSystemPrompt,
   cleanAndValidateSpeech,
@@ -39,15 +41,15 @@ function getAvatarWelcomeSpeech(avatarName) {
   const n = (avatarName || '').toLowerCase();
   switch (n) {
     case 'maya':
-      return "Hello Eran, Maya here! It's wonderful to guide you.";
+      return "Hello, Maya here! It's wonderful to guide you.";
     case 'alex':
-      return "Hey Eran, Alex here! Geared up and ready for adventure.";
+      return "Hey, Alex here! Geared up and ready for adventure.";
     case 'ollie':
-      return "Beep boop! Ollie the robot at your service, Eran!";
+      return "Beep boop! Ollie the robot at your service!";
     case 'spark':
       return "Spark online! Buzzing and ready to explore!";
     case 'pip':
-      return "Hiya Eran! Pip is here to bring some fun and magic!";
+      return "Hiya! Pip is here to bring some fun and magic!";
     case 'echo':
     default:
       return "Echo holographic guide initialized and synced with your view.";
@@ -57,7 +59,7 @@ function getAvatarWelcomeSpeech(avatarName) {
 function getSpaceArrivalSpeech(spaceName) {
   const s = (spaceName || '').toLowerCase();
   if (s.includes('garden')) {
-    return "Welcome to the peaceful Zen Garden, Eran! Enjoy the cherry blossoms and tranquil waters.";
+    return "Welcome to the peaceful Zen Garden! Enjoy the cherry blossoms and tranquil waters.";
   } else if (s.includes('penthouse')) {
     return "Here we are in the cyberpunk Penthouse! Take in that futuristic neon skyline.";
   } else if (s.includes('cafe')) {
@@ -177,6 +179,8 @@ export {
   getConversationHistory,
   recordDialogueTurn,
   clearConversationHistory,
+  loadPersistedHistory,
+  persistHistory,
   getActiveAvatarPersona,
   buildAgentSystemPrompt,
   cleanAndValidateSpeech,

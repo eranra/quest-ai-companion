@@ -398,7 +398,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       dom.btnTestVoice.style.background = '#6366f1';
       dom.btnTestVoice.disabled = true;
 
-      speakReply("Hello Eran! Testing voice synthesis and body language.", () => {
+      speakReply("Hello! Testing voice synthesis and body language.", () => {
         dom.btnTestVoice.innerHTML = '<span>▶️ Test Speech & Motion</span>';
         dom.btnTestVoice.style.background = '#10b981';
         dom.btnTestVoice.disabled = false;

@@ -47,7 +47,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.5.3';
+export const APP_VERSION = 'v0.5.4';
 
 // DOM References
 const dom = {
@@ -84,6 +84,8 @@ async function handleUserSpeech(userText) {
   if (!AppState.isLiveMode || AppState.echoGuardMode === 'half_duplex') {
     stopListening();
     stopMicAnalyser();
+    if (dom.btnMic) dom.btnMic.classList.remove('listening');
+    if (dockController) dockController.updateMicUI(false);
   }
 
   if (dom.promptInput) {
@@ -131,6 +133,8 @@ async function handleUserSpeech(userText) {
           if (AppState.isLiveMode) {
             setPipelineState('listening', 'Live Mode: Listening...');
             updateVRHUDState({ status: 'Live Mode: Listening...' });
+            if (dom.btnMic) dom.btnMic.classList.add('listening');
+            if (dockController) dockController.updateMicUI(true);
             initMicAnalyser((level) => {
               updateMicLevel(level);
               updateVRHUDState({ volume: level });
@@ -142,6 +146,8 @@ async function handleUserSpeech(userText) {
         // In Regular Mode (Live Mode OFF): return to idle and KEEP MIC CLOSED!
         setPipelineState('idle');
         stopMicAnalyser();
+        if (dom.btnMic) dom.btnMic.classList.remove('listening');
+        if (dockController) dockController.updateMicUI(false);
         updateVRHUDState({ status: 'Ready' });
       }
     });
@@ -151,10 +157,14 @@ async function handleUserSpeech(userText) {
     updateVRHUDState({ status: 'Error', text: err.message });
     setPipelineState('idle');
     stopMicAnalyser();
+    if (dom.btnMic) dom.btnMic.classList.remove('listening');
+    if (dockController) dockController.updateMicUI(false);
     if (AppState.isLiveMode) {
       setTimeout(() => {
         setPipelineState('listening', 'Live Mode: Listening...');
         updateVRHUDState({ status: 'Live Mode: Listening...' });
+        if (dom.btnMic) dom.btnMic.classList.add('listening');
+        if (dockController) dockController.updateMicUI(true);
         initMicAnalyser((level) => {
           updateMicLevel(level);
           updateVRHUDState({ volume: level });
@@ -196,8 +206,8 @@ async function startLocalModelLoading() {
     showMainProgress(false);
     setPipelineState('idle');
     if (dockController) dockController.updateEngineBadge();
-    dom.speechText.textContent = `Hello Eran! I am running locally as your Instant Companion with zero latency. Speak or type below to talk to me!`;
-    speakReply(`Hello Eran! I am now ready as your companion running locally on your device.`);
+    dom.speechText.textContent = `Hello! I am running locally as your Instant Companion with zero latency. Speak or type below to talk to me!`;
+    speakReply(`Hello! I am now ready as your companion running locally on your device.`);
     return;
   }
 
@@ -215,8 +225,8 @@ async function startLocalModelLoading() {
     setPipelineState('idle');
     if (dockController) dockController.updateEngineBadge();
     const cleanName = AppState.localModel.includes('Qwen') ? 'Qwen 2.5' : 'SmolLM2';
-    dom.speechText.textContent = `Hello Eran! I am running 100% locally on your device with ${cleanName} via CPU WebAssembly. Speak or type below to talk to me!`;
-    speakReply(`Hello Eran! I am now ready as your companion running locally on your device.`);
+    dom.speechText.textContent = `Hello! I am running 100% locally on your device with ${cleanName} via CPU WebAssembly. Speak or type below to talk to me!`;
+    speakReply(`Hello! I am now ready as your companion running locally on your device.`);
   } catch (err) {
     showMainProgress(false);
     setPipelineState('idle');
@@ -379,6 +389,8 @@ function initApp() {
 
     if (nextMode) {
       setPipelineState('listening', 'Live Mode: Listening...');
+      if (dom.btnMic) dom.btnMic.classList.add('listening');
+      if (dockController) dockController.updateMicUI(true);
       try {
         await ensureSTTReady();
         if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
@@ -398,6 +410,8 @@ function initApp() {
       stopListening();
       stopMicAnalyser();
       setPipelineState('idle');
+      if (dom.btnMic) dom.btnMic.classList.remove('listening');
+      if (dockController) dockController.updateMicUI(false);
       updateVRHUDState({ text: '⚡ Live Mode turned OFF. Press A/X to talk or B/Y to exit VR.' });
     }
   }
@@ -408,10 +422,14 @@ function initApp() {
       if (AppState.isLiveMode) {
         setPipelineState('listening', 'Interrupted. Listening...');
         updateVRHUDState({ status: 'Interrupted. Listening...' });
+        if (dom.btnMic) dom.btnMic.classList.add('listening');
+        if (dockController) dockController.updateMicUI(true);
         return;
       } else {
         setPipelineState('idle');
         updateVRHUDState({ status: 'Ready' });
+        if (dom.btnMic) dom.btnMic.classList.remove('listening');
+        if (dockController) dockController.updateMicUI(false);
         return;
       }
     }
@@ -420,9 +438,13 @@ function initApp() {
       stopMicAnalyser();
       setPipelineState('idle');
       updateVRHUDState({ status: 'Ready' });
+      if (dom.btnMic) dom.btnMic.classList.remove('listening');
+      if (dockController) dockController.updateMicUI(false);
     } else {
       setPipelineState('listening', 'Listening to you...');
       updateVRHUDState({ status: 'Listening to you...' });
+      if (dom.btnMic) dom.btnMic.classList.add('listening');
+      if (dockController) dockController.updateMicUI(true);
       try {
         await ensureSTTReady();
         if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
@@ -431,6 +453,8 @@ function initApp() {
       } catch (err) {
         dom.speechText.textContent = `Voice model load error: ${err.message}`;
         setPipelineState('idle');
+        if (dom.btnMic) dom.btnMic.classList.remove('listening');
+        if (dockController) dockController.updateMicUI(false);
         return;
       }
       initMicAnalyser((level) => {
@@ -506,14 +530,17 @@ function initApp() {
         if (status === 'listening') {
           setPipelineState('listening', statusText || (AppState.isLiveMode ? 'Live Mode: Listening...' : 'Listening to you...'));
           if (dom.btnMic) dom.btnMic.classList.add('listening');
+          if (dockController) dockController.updateMicUI(true);
         } else if (status === 'analyzing') {
           setPipelineState('analyzing', statusText || 'Analyzing speech...');
           if (dom.speechText && statusText) {
             dom.speechText.textContent = `⚡ ${statusText}`;
           }
           if (dom.btnMic) dom.btnMic.classList.remove('listening');
+          if (dockController) dockController.updateMicUI(false);
         } else if (status === 'idle') {
           if (dom.btnMic) dom.btnMic.classList.remove('listening');
+          if (dockController) dockController.updateMicUI(false);
           if (!AppState.isSpeaking && !AppState.isGenerating) {
             setPipelineState('idle');
             stopMicAnalyser();
@@ -521,6 +548,7 @@ function initApp() {
           }
         } else if (status === 'mic-denied') {
           if (dom.btnMic) dom.btnMic.classList.remove('listening');
+          if (dockController) dockController.updateMicUI(false);
           setPipelineState('mic-denied');
           stopMicAnalyser();
         }

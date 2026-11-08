@@ -77,6 +77,7 @@ export async function initWhisper(onProgress) {
     const tf = await getTransformers();
     if (tf.env) {
       tf.env.allowLocalModels = false;
+      tf.env.useBrowserCache = true;
       if (tf.env.backends?.onnx?.wasm) {
         tf.env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 3, 4);
       }
@@ -343,6 +344,9 @@ async function finalizeWhisperTranscription() {
     return;
   }
 
+  isRecording = false;
+  AppState.isListening = false;
+
   const merged = new Float32Array(totalLength);
   let offset = 0;
   for (const c of currentChunks) {
@@ -481,6 +485,8 @@ async function finalizeWhisperTranscription() {
  */
 export function stopListeningWhisper(finalizeIfAudioPresent = false) {
   if (finalizeIfAudioPresent && audioChunks.length > 0) {
+    isRecording = false;
+    AppState.isListening = false;
     finalizeWhisperTranscription();
     return;
   }
@@ -523,7 +529,12 @@ export function stopListeningWhisper(finalizeIfAudioPresent = false) {
   if (onVolumeCallback) {
     onVolumeCallback(0);
   }
-  if (onStatusChangeCallback && !AppState.isSpeaking && !AppState.isGenerating) {
-    onStatusChangeCallback('idle');
+  // Unconditionally notify status to ensure UI cleans up the active mic button!
+  if (onStatusChangeCallback) {
+    if (!AppState.isSpeaking && !AppState.isGenerating) {
+      onStatusChangeCallback('idle');
+    } else {
+      onStatusChangeCallback('analyzing');
+    }
   }
 }

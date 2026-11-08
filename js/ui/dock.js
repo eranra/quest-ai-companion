@@ -124,10 +124,17 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     if ('caches' in window) {
       try {
         const names = await caches.keys();
-        // Explicitly preserve WebLLM / MLC AI model weight caches so users don't redownload models on updates
+        // Explicitly preserve WebLLM, Transformers.js, ONNX, and Piper VITS voice caches so users don't redownload models on updates
         const nonModelCaches = names.filter(n => {
           const lower = n.toLowerCase();
-          return !lower.includes('webllm') && !lower.includes('mlc') && !lower.includes('model') && !lower.includes('weight');
+          return !lower.includes('webllm') && 
+                 !lower.includes('mlc') && 
+                 !lower.includes('model') && 
+                 !lower.includes('weight') && 
+                 !lower.includes('transformers') && 
+                 !lower.includes('huggingface') && 
+                 !lower.includes('vits') && 
+                 !lower.includes('onnx');
         });
         await Promise.all(nonModelCaches.map(name => caches.delete(name)));
       } catch (e) {}
@@ -227,6 +234,16 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
       } else {
         dom.btnLiveMode.classList.remove('active');
         dom.btnLiveMode.innerHTML = `<span class="live-pulse-dot"></span> <span>${label}: OFF</span>`;
+      }
+    },
+
+    updateMicUI(isListening) {
+      if (!dom.btnMic) return;
+      const active = (isListening !== undefined) ? !!isListening : !!AppState.isListening;
+      if (active) {
+        dom.btnMic.classList.add('listening');
+      } else {
+        dom.btnMic.classList.remove('listening');
       }
     }
   };

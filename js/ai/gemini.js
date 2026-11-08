@@ -106,7 +106,7 @@ export async function callGeminiAPI(prompt, signal, context = {}) {
       {
         role: "user",
         parts: [{
-          text: `[System Observation: Tool "${name}" executed successfully. Result: ${toolExec.result}. Please respond warmly to Eran as the companion in 1-2 spoken sentences acknowledging this.]`
+          text: `[System Observation: Tool "${name}" executed successfully. Result: ${toolExec.result}. Please respond warmly to the user as the companion in 1-2 spoken sentences acknowledging this.]`
         }]
       }
     ];
