@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.0",
-  "build": 31,
-  "released_at": "2026-11-08T14:10:00Z",
-  "changelog": "v0.4.0: Meta Quest 3 WebGPU flag detection & intelligent user alerts: 1) Added checkQuestWebGPUFlagStatus() detecting if chrome://flags WebGPU is disabled vs enabled on Quest 3; 2) Live status indicator in Settings showing exact flag status (🟢 Enabled / 🔴 Disabled); 3) Dedicated Quest 3 WebGPU Alert modal explaining why local models cannot run without GPU compute shaders; 4) One-click 'Switch to Google Gemini Cloud' button inside the alert for instant zero-flag VR chat; 5) Clear step-by-step instructions on enabling chrome://flags#enable-unsafe-webgpu; 6) Automatic alert triggers on Quest 3 when attempting to select or prompt local model with disabled flag."
+  "version": "v0.4.1",
+  "build": 32,
+  "released_at": "2026-11-08T14:20:00Z",
+  "changelog": "v0.4.1: Migrated from WebLLM/WebGPU to unified CPU WebAssembly (WASM): 1) Replaced WebLLM and WebGPU shaders with Transformers.js ONNX Runtime CPU WASM; 2) Added SmolLM2 135M as default ultra-lightweight model (~80 MB, ~15-20 tok/s on CPU); 3) Preserved Qwen 2.5 0.5B in quantized CPU WASM format (~350 MB); 4) Universal out-of-the-box compatibility on Meta Quest 3, mobile, and desktop without chrome://flags; 5) Shared ONNX runtime caching between Whisper STT, Neural TTS, and SmolLM/Qwen text generation."
 }

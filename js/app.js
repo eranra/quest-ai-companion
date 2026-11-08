@@ -43,7 +43,7 @@ import {
   initDock
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.4.0';
+export const APP_VERSION = 'v0.4.1';
 
 // DOM References
 const dom = {
@@ -104,15 +104,6 @@ async function handleUserSpeech(userText) {
     setPipelineState('ready');
     dom.speechText.textContent = reply;
     updateVRHUDState({ status: 'Ready', text: reply });
-
-    // If on Quest 3 trying to use Local mode with disabled WebGPU, alert user with resolution modal
-    if (AppState.engine === 'local' && isQuestBrowser() && (!AppState.geminiKey || !AppState.geminiKey.trim())) {
-      checkWebGPUSupport().then(gpu => {
-        if (!gpu.supported && modalController && modalController.showQuestGPUAlert) {
-          modalController.showQuestGPUAlert();
-        }
-      }).catch(() => {});
-    }
 
     // Step 4: Speaking Reply
     setPipelineState('speaking', '🗣️ Speaking (Tap to stop)...');
@@ -183,32 +174,13 @@ function showMainProgress(visible, text = '', pct = 0) {
 }
 
 // -------------------------------------------------------------
-// Local WebGPU Model Loader & Progress Tracking
+// Local CPU WASM Model Loader & Progress Tracking
 // -------------------------------------------------------------
 async function startLocalModelLoading() {
-  const gpuCheck = await checkWebGPUSupport();
-  if (!gpuCheck.supported) {
-    showMainProgress(false);
-    setPipelineState('idle');
-    AppState.isModelLoading = false;
-    AppState.isModelReady = false;
-    AppState.modelStatusText = 'WebGPU unavailable';
-    if (dockController) dockController.updateEngineBadge();
-    const isQuest = isQuestBrowser();
-    if (isQuest) {
-      dom.speechText.textContent = '🥽 Meta Quest 3: WebGPU flag is DISABLED in Quest Browser. Tap the badge or Settings to switch to Google Gemini Cloud (recommended)!';
-      if (modalController && modalController.showQuestGPUAlert) {
-        modalController.showQuestGPUAlert();
-      }
-    } else {
-      dom.speechText.textContent = 'WebGPU is not enabled on this browser. You can enter a Google Gemini API key in Settings (⚙️) to start chatting!';
-    }
-    return;
-  }
-
-  showMainProgress(true, 'Downloading Qwen 2.5 Model...', 0);
-  setPipelineState('analyzing', 'Loading Qwen 2.5...');
-  dom.speechText.textContent = `Loading ${AppState.localModel} into browser WebGPU memory... First time downloads weights into local cache.`;
+  const modelName = AppState.localModel.includes('Qwen') ? 'Qwen 2.5 (350 MB)' : 'SmolLM2 (80 MB)';
+  showMainProgress(true, `Downloading ${modelName}...`, 0);
+  setPipelineState('analyzing', `Loading ${modelName}...`);
+  dom.speechText.textContent = `Downloading ${modelName} into browser CPU WebAssembly cache... First time stores model for offline use.`;
 
   try {
     await initLocalWebLLM((report) => {
@@ -218,13 +190,14 @@ async function startLocalModelLoading() {
     showMainProgress(false);
     setPipelineState('idle');
     if (dockController) dockController.updateEngineBadge();
-    dom.speechText.textContent = `Hello Eran! I am running 100% locally on your device with Qwen 2.5 via WebGPU. Speak or type below to talk to me!`;
+    const cleanName = AppState.localModel.includes('Qwen') ? 'Qwen 2.5' : 'SmolLM2';
+    dom.speechText.textContent = `Hello Eran! I am running 100% locally on your device with ${cleanName} via CPU WebAssembly. Speak or type below to talk to me!`;
     speakReply(`Hello Eran! I am now ready as your companion running locally on your device.`);
   } catch (err) {
     showMainProgress(false);
     setPipelineState('idle');
     if (dockController) dockController.updateEngineBadge();
-    dom.speechText.textContent = `WebGPU Error: ${err.message}. If your device doesn't support WebGPU, switch to Google Gemini mode in Settings (⚙️).`;
+    dom.speechText.textContent = `Local WASM Error: ${err.message}. You can switch to Google Gemini mode in Settings (⚙️).`;
   }
 }
 

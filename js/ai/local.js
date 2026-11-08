@@ -1,9 +1,9 @@
-// Local On-Device AI Engine: WebLLM (Qwen 2.5 via WebGPU)
+// Local On-Device AI Engine: CPU WebAssembly (WASM) via Transformers.js
+// Powered by ONNX Runtime WASM (SIMD) - Zero WebGPU requirements, runs out-of-the-box on Meta Quest 3, Android, iOS & PC!
 import { AppState } from '../state.js';
 import { callGeminiAPI } from './gemini.js';
 
-let webllm = null;
-let webllmEngine = null;
+let textGenerator = null;
 let currentLoadedModel = null;
 let pendingInitPromise = null;
 const progressListeners = new Set();
@@ -17,89 +17,101 @@ export function isQuestBrowser() {
 }
 
 /**
- * Verify WebGPU availability and adapter acquisition with safety timeout
+ * Backwards compatibility stub for legacy web-llm loader
  */
-export async function checkWebGPUSupport() {
-  if (typeof navigator === 'undefined' || !navigator.gpu) {
-    return { 
-      supported: false, 
-      flagStatus: 'unsupported',
-      reason: 'WebGPU is not supported by this browser.' 
-    };
-  }
-  try {
-    const adapterPromise = navigator.gpu.requestAdapter();
-    const timeoutPromise = new Promise(r => setTimeout(() => r(null), 2500));
-    const adapter = await Promise.race([adapterPromise, timeoutPromise]);
-    if (!adapter) {
-      return { 
-        supported: false, 
-        flagStatus: 'disabled',
-        reason: 'WebGPU adapter is disabled or unavailable. (On Meta Quest Browser, WebGPU requires experimental flags in chrome://flags).' 
-      };
-    }
-    return { supported: true, flagStatus: 'enabled', adapter };
-  } catch (err) {
-    return { supported: false, flagStatus: 'disabled', reason: err.message };
-  }
+export async function getWebLLM() {
+  return {};
 }
 
 /**
- * Specifically check Meta Quest 3 WebGPU flag status
+ * Returns human-friendly model display name
  */
-export async function checkQuestWebGPUFlagStatus() {
-  const isQuest = isQuestBrowser();
-  const gpu = await checkWebGPUSupport();
+export function getModelDisplayName(modelId) {
+  if (!modelId) return 'SmolLM2 135M';
+  if (modelId.includes('Qwen') || modelId.includes('qwen')) return 'Qwen 2.5 0.5B';
+  if (modelId.includes('SmolLM') || modelId.includes('smollm')) return 'SmolLM2 135M';
+  return modelId.split('/').pop();
+}
+
+/**
+ * CPU WASM Support check (Backwards compatible helper)
+ * WebAssembly with SIMD is supported universally across modern browsers.
+ */
+export async function checkWebGPUSupport() {
+  const hasWasm = typeof WebAssembly !== 'undefined';
   return {
-    isQuest,
-    supported: gpu.supported,
-    flagStatus: gpu.flagStatus, // 'enabled' | 'disabled' | 'unsupported'
-    flagDisabled: isQuest && !gpu.supported,
-    reason: gpu.reason
+    supported: hasWasm,
+    engine: 'wasm',
+    device: 'cpu',
+    flagStatus: 'enabled',
+    reason: hasWasm ? 'CPU WebAssembly runtime available' : 'WebAssembly not supported'
   };
 }
 
 /**
- * Offline companion responses for common introductory queries when
- * WebGPU is unavailable on mobile/Quest and no Gemini key is yet configured.
+ * Quest WebGPU Flag Status (Backwards compatible helper)
+ * With CPU WASM, no experimental flags are required on Meta Quest 3!
+ */
+export async function checkQuestWebGPUFlagStatus() {
+  const isQuest = isQuestBrowser();
+  return {
+    isQuest,
+    supported: true,
+    engine: 'wasm',
+    flagStatus: 'wasm_cpu',
+    flagDisabled: false,
+    reason: 'Running via CPU WebAssembly - no browser flags required'
+  };
+}
+
+/**
+ * Offline companion responses for common introductory queries
  */
 export function getOfflineCompanionAnswer(prompt) {
   const clean = (prompt || '').toLowerCase().trim();
   if (/what('?s| is) your name|who are you/i.test(clean)) {
-    return "I am your 3D VR companion! On Meta Quest 3, connecting a Google Gemini key in Settings (⚙️) unlocks full conversational intelligence.";
+    return "I am your 3D VR companion! I am running locally right here on your device via CPU WebAssembly.";
   }
   if (/^(hello|hi|hey|good morning|good afternoon|good evening)/i.test(clean)) {
-    return "Hello! Wonderful to see you here in VR. To have full conversations on Meta Quest 3, you can add a free Google Gemini key in Settings (⚙️)!";
+    return "Hello! Great to see you in VR. I am your companion running on CPU WebAssembly!";
   }
   if (/how are you/i.test(clean)) {
-    return "I am doing great, standing right here with you! Connect a Google Gemini API key in Settings for open-ended voice conversation.";
+    return "I am doing great, standing right here with you! What would you like to talk about?";
   }
   if (/what can you do|help me|what is this/i.test(clean)) {
-    return "I can listen to your voice, step into 360° virtual spaces, and speak with full-body gestures! Enter a Google Gemini key in Settings (⚙️) to chat about anything.";
+    return "I can listen to your voice, step into 360° virtual spaces, and speak with full-body gestures using local CPU AI!";
   }
   return null;
 }
 
 /**
- * Dynamically import WebLLM from CDN
+ * Dynamically loads Transformers.js from CDN (same unified runtime as Whisper & Neural TTS)
  */
-export async function getWebLLM() {
-  if (webllm) return webllm;
-  try {
-    webllm = await import("https://esm.run/@mlc-ai/web-llm");
-    return webllm;
-  } catch (err) {
-    console.warn("Retrying WebLLM load from jsdelivr...", err);
-    webllm = await import("https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.78/+esm");
-    return webllm;
+async function getTransformers() {
+  const cdnUrls = [
+    'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm',
+    'https://esm.sh/@huggingface/transformers@3.3.3',
+    'https://unpkg.com/@huggingface/transformers@3.3.3/dist/transformers.min.js'
+  ];
+
+  for (const url of cdnUrls) {
+    try {
+      const mod = await import(url);
+      if (mod && (mod.pipeline || mod.default?.pipeline)) {
+        return mod.pipeline ? mod : mod.default;
+      }
+    } catch (e) {
+      console.warn(`Failed loading transformers from ${url}:`, e);
+    }
   }
+  throw new Error('Could not load Transformers.js runtime.');
 }
 
 /**
- * Reset local engine instance (useful for model switching or error recovery)
+ * Reset local engine instance (useful for model switching or memory clearing)
  */
 export function resetLocalWebLLM() {
-  webllmEngine = null;
+  textGenerator = null;
   currentLoadedModel = null;
   pendingInitPromise = null;
   AppState.isModelReady = false;
@@ -107,16 +119,20 @@ export function resetLocalWebLLM() {
 }
 
 /**
- * Initialize Local WebGPU Model (Qwen 2.5 0.5B default)
- * Uses shared Promise and broadcast listener to avoid concurrency freezes.
+ * Initialize Local CPU WASM Model (SmolLM2 135M default or Qwen 2.5 0.5B)
+ * Uses shared Promise and broadcast listener to prevent duplicate loads.
  */
 export async function initLocalWebLLM(onProgress) {
-  if (webllmEngine && currentLoadedModel === AppState.localModel) {
+  if (textGenerator && currentLoadedModel === AppState.localModel) {
     AppState.isModelReady = true;
     if (onProgress) {
-      onProgress({ progress: 100, text: `${AppState.localModel} Ready (WebGPU)`, ready: true });
+      onProgress({ 
+        progress: 100, 
+        text: `${getModelDisplayName(AppState.localModel)} Ready (CPU WASM)`, 
+        ready: true 
+      });
     }
-    return webllmEngine;
+    return textGenerator;
   }
 
   if (onProgress) {
@@ -128,24 +144,28 @@ export async function initLocalWebLLM(onProgress) {
   }
 
   pendingInitPromise = (async () => {
-    // 1. Verify WebGPU hardware adapter first
-    const gpuCheck = await checkWebGPUSupport();
-    if (!gpuCheck.supported) {
-      throw new Error(gpuCheck.reason);
-    }
-
     AppState.isModelLoading = true;
     AppState.isModelReady = false;
     AppState.modelLoadProgress = 0;
-    AppState.modelStatusText = `Initializing ${AppState.localModel}...`;
+    const modelName = getModelDisplayName(AppState.localModel);
+    AppState.modelStatusText = `Initializing ${modelName} in CPU WASM...`;
 
     try {
-      const mlc = await getWebLLM();
+      const transformers = await getTransformers();
+      const createPipeline = transformers.pipeline;
+      if (transformers.env) {
+        transformers.env.allowLocalModels = false;
+        transformers.env.useBrowserCache = true;
+      }
 
-      const initProgressCallback = (report) => {
-        AppState.modelStatusText = report.text || 'Loading weights into WebGPU...';
-        if (report.progress !== undefined) {
-          AppState.modelLoadProgress = Math.round(report.progress * 100);
+      const progressCallback = (report) => {
+        if (report && report.progress !== undefined) {
+          AppState.modelLoadProgress = Math.round(report.progress);
+          const fileInfo = report.file ? ` (${report.file.split('/').pop()})` : '';
+          AppState.modelStatusText = `Downloading ${modelName}${fileInfo}: ${AppState.modelLoadProgress}%`;
+        } else if (report && report.status === 'ready') {
+          AppState.modelLoadProgress = 100;
+          AppState.modelStatusText = `${modelName} Ready (CPU WASM)`;
         }
         const data = {
           progress: AppState.modelLoadProgress,
@@ -156,12 +176,18 @@ export async function initLocalWebLLM(onProgress) {
         });
       };
 
-      const engine = await mlc.CreateMLCEngine(AppState.localModel, { initProgressCallback });
-      webllmEngine = engine;
+      // Load model strictly on CPU WASM with q4 quantization
+      const generator = await createPipeline('text-generation', AppState.localModel, {
+        device: 'wasm',
+        dtype: 'q4',
+        progress_callback: progressCallback
+      });
+
+      textGenerator = generator;
       currentLoadedModel = AppState.localModel;
       AppState.isModelReady = true;
       AppState.isModelLoading = false;
-      AppState.modelStatusText = `${AppState.localModel} Ready (WebGPU)`;
+      AppState.modelStatusText = `${modelName} Ready (CPU WASM)`;
 
       const readyData = {
         progress: 100,
@@ -172,12 +198,12 @@ export async function initLocalWebLLM(onProgress) {
         try { listener(readyData); } catch (e) {}
       });
 
-      return engine;
+      return generator;
     } catch (err) {
       AppState.isModelLoading = false;
       AppState.isModelReady = false;
       AppState.modelStatusText = `Failed: ${err.message}`;
-      console.error('Local model initialization error:', err);
+      console.error('CPU WASM model initialization error:', err);
 
       const errorData = {
         progress: 0,
@@ -199,40 +225,24 @@ export async function initLocalWebLLM(onProgress) {
 }
 
 /**
- * Generate AI Response using Local WebLLM with zero-hang watchdog & Gemini failover
+ * Execute Local CPU WASM Text Generation
  */
 export async function callLocalWebLLM(prompt, onProgress, signal) {
-  // 1. Check WebGPU adapter support
-  const gpuCheck = await checkWebGPUSupport();
-  if (!gpuCheck.supported) {
-    if (AppState.geminiKey && AppState.geminiKey.trim()) {
-      console.log('WebGPU unavailable on this device; seamlessly routing to Google Gemini Cloud API');
-      return await callGeminiAPI(prompt, signal);
-    }
-    const companionAns = getOfflineCompanionAnswer(prompt);
-    if (companionAns) return companionAns;
-    return `I heard your message: "${prompt}". Meta Quest Browser does not have WebGPU enabled by default. Please enter a free Google Gemini key in Settings (⚙️) for instant cloud responses!`;
-  }
-
-  let engine = webllmEngine;
-  if (!engine || currentLoadedModel !== AppState.localModel) {
+  let generator = textGenerator;
+  if (!generator || currentLoadedModel !== AppState.localModel) {
     try {
       if (onProgress) {
-        onProgress({ progress: 10, text: `Downloading ${AppState.localModel} weights...` });
+        onProgress({ progress: 10, text: `Loading ${getModelDisplayName(AppState.localModel)} in CPU WASM...` });
       }
-      // Strict 12-second watchdog for mobile/Quest VR
-      const initTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('WebGPU model initialization timed out on mobile hardware')), 12000)
-      );
-      engine = await Promise.race([initLocalWebLLM(onProgress), initTimeoutPromise]);
+      generator = await initLocalWebLLM(onProgress);
     } catch (initErr) {
-      console.warn("WebLLM initialization error/timeout:", initErr);
+      console.warn("WASM model initialization error:", initErr);
       if (AppState.geminiKey && AppState.geminiKey.trim()) {
         return await callGeminiAPI(prompt, signal);
       }
       const companionAns = getOfflineCompanionAnswer(prompt);
       if (companionAns) return companionAns;
-      return `I heard you say: "${prompt}". My local Qwen 2.5 WebGPU model is still loading or reached a mobile memory limit on Quest 3. You can connect a Google Gemini API key in Settings (⚙️) for instant cloud responses!`;
+      return `I heard you say: "${prompt}". My local CPU model is still downloading. You can connect a Google Gemini key in Settings (⚙️) for instant cloud responses!`;
     }
   }
 
@@ -247,28 +257,38 @@ export async function callLocalWebLLM(prompt, onProgress, signal) {
   ];
 
   try {
-    // Strict 10-second watchdog for generation
-    const genTimeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('WebGPU generation timed out after 10s')), 10000)
-    );
+    const output = await generator(messages, {
+      max_new_tokens: 60,
+      temperature: 0.7,
+      do_sample: true
+    });
 
-    const completion = await Promise.race([
-      engine.chat.completions.create({
-        messages,
-        temperature: 0.7,
-        max_tokens: 120
-      }),
-      genTimeoutPromise
-    ]);
+    let reply = '';
+    const generated = output[0]?.generated_text;
+    if (Array.isArray(generated)) {
+      const last = generated[generated.length - 1];
+      reply = last?.content || '';
+    } else if (typeof generated === 'string') {
+      reply = generated;
+      const parts = reply.split(/<\|im_start\|>assistant|<assistant>:?/i);
+      if (parts.length > 1) {
+        reply = parts[parts.length - 1];
+      }
+    }
+    reply = (reply || '')
+      .replace(/<\|im_end\|>|<\|endoftext\|>/g, '')
+      .replace(/<\|user\|>.*$/is, '')
+      .replace(/<\|system\|>.*$/is, '')
+      .trim();
 
-    return completion.choices[0]?.message?.content || "Hello! I am here with you.";
+    return reply || "Hello! I am here with you.";
   } catch (genErr) {
-    console.warn("Local WebLLM generation error/timeout:", genErr);
+    console.warn("WASM text generation error:", genErr);
     if (AppState.geminiKey && AppState.geminiKey.trim()) {
       return await callGeminiAPI(prompt, signal);
     }
     const companionAns = getOfflineCompanionAnswer(prompt);
     if (companionAns) return companionAns;
-    return `I heard: "${prompt}". Local Qwen generation took too long or reached a mobile GPU shader limit on Quest 3. Connecting a Google Gemini key in Settings (⚙️) provides fast, reliable cloud responses.`;
+    return `I heard: "${prompt}". My CPU model encountered an issue. You can switch to Google Gemini in Settings (⚙️) for cloud AI.`;
   }
 }

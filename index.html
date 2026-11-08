@@ -59,7 +59,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.0</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.4.1</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -342,27 +342,26 @@
       <div class="form-group">
         <label class="form-label">AI Engine</label>
         <select id="cfg-engine-select" class="form-input">
-          <option value="cloud">☁️ Google Gemini Cloud API (Recommended for Meta Quest 3 & VR)</option>
-          <option value="local">🏠 Local WebGPU (Offline Qwen 2.5 - PC & High-End Mobile)</option>
+          <option value="local" selected>🏠 Local CPU WASM (100% Offline - Works on Quest 3, Mobile & PC)</option>
+          <option value="cloud">☁️ Google Gemini Cloud API (Ultra-Fast 2.5 Flash)</option>
         </select>
         <p id="engine-summary-hint" class="help-hint" style="margin-top: 4px;">
-          Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.
+          Runs 100% offline via CPU WebAssembly (WASM). No WebGPU or browser flags required!
         </p>
         <div id="quest-engine-notice" style="display: none; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 10px; margin-top: 8px; font-size: 12px; line-height: 1.4; color: #bae6fd;">
-          <strong>🥽 Meta Quest 3 Hardware Note:</strong> Meta Quest Browser allocates ~1.5GB RAM per tab, and WebGPU compute shaders are experimental. <strong>Google Gemini Cloud</strong> is recommended for instant responses and smooth 90Hz VR frame rates with zero headset memory overhead.
+          <strong>🥽 Meta Quest 3 Ready:</strong> Local models run directly via CPU WebAssembly (WASM)—the exact same engine as Whisper! No experimental flags needed.
           <div id="quest-gpu-flag-status" style="margin-top: 8px; font-size: 11px; font-weight: 600; padding-top: 6px; border-top: 1px solid rgba(56, 189, 248, 0.2);"></div>
         </div>
       </div>
 
       <!-- Local Model Selection Group -->
       <div id="group-local-model" class="form-group">
-        <label class="form-label">Local Model</label>
+        <label class="form-label">Local Model (CPU WASM)</label>
         <select id="cfg-local-model" class="form-input">
-          <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC" selected>Qwen 2.5 0.5B Instruct (Default - Fast, ~350 MB)</option>
-          <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 1.5B Instruct (Higher quality, ~900 MB)</option>
-          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B Instruct (~650 MB)</option>
+          <option value="onnx-community/SmolLM2-135M-Instruct-ONNX" selected>SmolLM2 135M Instruct (Default - Ultra-Fast, ~80 MB)</option>
+          <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen 2.5 0.5B Instruct (Higher quality, ~350 MB)</option>
         </select>
-        <p class="help-hint">Cached automatically in browser storage after initial download.</p>
+        <p class="help-hint">Cached automatically in browser storage (IndexedDB) for offline use.</p>
       </div>
 
       <!-- Gemini API Key & Responsiveness Group -->

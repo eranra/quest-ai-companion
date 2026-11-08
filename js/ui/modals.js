@@ -208,14 +208,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       } else {
         dom.groupGemini.style.display = 'none';
         dom.groupLocalModel.style.display = 'block';
-        dom.engineSummaryHint.textContent = 'Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.';
-        if (isQuestBrowser()) {
-          checkWebGPUSupport().then(gpu => {
-            if (!gpu.supported) {
-              showQuestGPUAlert();
-            }
-          }).catch(() => {});
-        }
+        dom.engineSummaryHint.textContent = 'Runs 100% offline via CPU WebAssembly (WASM). Zero API keys, completely private.';
       }
 
       const questNotice = document.getElementById('quest-engine-notice');
@@ -224,21 +217,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       }
 
       if (dom.questGpuFlagStatus) {
-        checkQuestWebGPUFlagStatus().then(status => {
-          if (!status.isQuest) {
-            dom.questGpuFlagStatus.innerHTML = status.supported 
-              ? '<span style="color: #34d399;">🟢 WebGPU Hardware: Available & Active</span>' 
-              : '<span style="color: #f59e0b;">⚠️ WebGPU Hardware: Unavailable</span>';
-          } else if (status.supported) {
-            dom.questGpuFlagStatus.innerHTML = '<span style="color: #34d399;">🟢 Meta Quest WebGPU Flag: ENABLED (Adreno GPU ready)</span>';
-          } else {
-            dom.questGpuFlagStatus.innerHTML = '<span style="color: #fbbf24;">🔴 Meta Quest WebGPU Flag: DISABLED</span> <button type="button" id="btn-show-gpu-instructions" style="background: transparent; border: none; color: #38bdf8; text-decoration: underline; cursor: pointer; padding: 0 4px; font-size: 11px;">(How to fix)</button>';
-            const btnShow = document.getElementById('btn-show-gpu-instructions');
-            if (btnShow) {
-              btnShow.onclick = () => showQuestGPUAlert();
-            }
-          }
-        }).catch(() => {});
+        dom.questGpuFlagStatus.innerHTML = '<span style="color: #34d399;">🟢 Local Engine: CPU WebAssembly (WASM) — 100% Native on Meta Quest 3, zero flags needed!</span>';
       }
 
       dom.modalSettings.classList.add('open');
@@ -258,14 +237,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       } else {
         dom.groupGemini.style.display = 'none';
         dom.groupLocalModel.style.display = 'block';
-        dom.engineSummaryHint.textContent = 'Runs offline on your device GPU with Qwen 2.5. Zero API keys, completely private.';
-        if (isQuestBrowser()) {
-          checkWebGPUSupport().then(gpu => {
-            if (!gpu.supported) {
-              showQuestGPUAlert();
-            }
-          }).catch(() => {});
-        }
+        dom.engineSummaryHint.textContent = 'Runs 100% offline via CPU WebAssembly (WASM). Zero API keys, completely private.';
       }
     };
   }
@@ -463,15 +435,6 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       AppState.save();
 
       dom.modalSettings.classList.remove('open');
-
-      // If user selected Local on Quest 3 but WebGPU flag is disabled, alert immediately!
-      if (isQuestBrowser() && AppState.engine === 'local') {
-        checkWebGPUSupport().then(gpu => {
-          if (!gpu.supported) {
-            showQuestGPUAlert();
-          }
-        }).catch(() => {});
-      }
 
       if (onEngineChange) {
         onEngineChange(prevEngine, prevModel, { prevStt, prevTts });

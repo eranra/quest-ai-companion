@@ -1,8 +1,14 @@
 // Quest AI Companion - Global State & Storage Persistence
 export const AppState = {
-  // Default to Local Qwen Model as requested!
+  // Default to Local CPU WASM Model: SmolLM2 135M (ultra-fast, zero-flags)
   engine: localStorage.getItem('quest_engine') || 'local', // 'local' or 'cloud'
-  localModel: localStorage.getItem('quest_local_model') || 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+  localModel: (() => {
+    const saved = localStorage.getItem('quest_local_model');
+    if (!saved || saved.includes('MLC') || saved.includes('Llama')) {
+      return 'onnx-community/SmolLM2-135M-Instruct-ONNX';
+    }
+    return saved;
+  })(),
   geminiKey: localStorage.getItem('quest_gemini_key') || '',
   avatarId: localStorage.getItem('quest_avatar_id') || 'echo',
   spaceId: localStorage.getItem('quest_space_id') || 'hall',
