@@ -827,6 +827,37 @@ async function runTestSuite() {
                     const genMerged = await genWithTools('Who are you?');
                     assert('generateAIResponse continues to work in merged local mode', typeof genMerged === 'string' && genMerged.length > 5);
 
+
+                    // 14.7 Remote Model Selection & WASM Pipeline Verification
+                    assert('remote-model-selection DOM element exists', document.getElementById('remote-model-selection') !== null);
+                    assert('cfg-remote-stt-model dropdown exists', document.getElementById('cfg-remote-stt-model') !== null);
+                    assert('cfg-remote-llm-model dropdown exists', document.getElementById('cfg-remote-llm-model') !== null);
+                    assert('cfg-remote-tts-model dropdown exists', document.getElementById('cfg-remote-tts-model') !== null);
+
+                    const modelsRes = await fetch('http://127.0.0.1:8125/api/models').then(r => r.json());
+                    assert('Server exposes models API', modelsRes.success === true && modelsRes.models);
+                    assert('Server has >1 STT model (Whisper WASM variants)', modelsRes.models.stt && modelsRes.models.stt.length >= 3);
+                    assert('Server has >1 LLM model (WASM variants)', modelsRes.models.llm && modelsRes.models.llm.length >= 4);
+                    assert('Server has >1 TTS voice model (Piper WASM variants)', modelsRes.models.tts && modelsRes.models.tts.length >= 5);
+
+                    const selectRes = await fetch('http://127.0.0.1:8125/api/models/select', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ stt: 'whisper-base', llm: 'smollm2-135m', tts: 'en_US-ryan-low' })
+                    }).then(r => r.json());
+                    assert('POST /api/models/select updates active models', selectRes.success && selectRes.active.stt === 'whisper-base');
+
+                    // 14.8 Agentic Process & Natural Phrasing Fix Verification
+                    const timeToolCheck = await toolsModule.detectAndExecuteTool("Can you tell me what's at the time right now?");
+                    assert('Time query with natural speech variations detects get_time', timeToolCheck && timeToolCheck.tool === 'get_time');
+
+                    AppState.engine = 'remote';
+                    const timeRemoteReply = await remoteModule.callRemoteBackend("Can you tell me what's at the time right now?");
+                    assert('Remote server answers time query authentically', typeof timeRemoteReply === 'string' && !timeRemoteReply.includes('received your thought') && (timeRemoteReply.includes(':') || timeRemoteReply.includes('time')));
+
+                    const capRemoteReply = await remoteModule.callRemoteBackend("You're able to do anything interesting or just respond sweet");
+                    assert('Remote server answers capabilities without placeholder', typeof capRemoteReply === 'string' && !capRemoteReply.includes('received your thought'));
+
                     // Stop heartbeat cleanup
                     remoteModule.stopRemoteHeartbeat();
 

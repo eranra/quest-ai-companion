@@ -20,6 +20,11 @@ export const AppState = {
   spaceId: storage.getItem('quest_space_id') || 'hall',
   isLiveMode: storage.getItem('quest_live_mode') === 'true',
   
+  // Standalone PC Server Remote Models (WASM)
+  remoteSttModel: storage.getItem('quest_remote_stt_model') || 'whisper-tiny',
+  remoteLlmModel: storage.getItem('quest_remote_llm_model') || 'instant-companion',
+  remoteTtsModel: storage.getItem('quest_remote_tts_model') || 'en_US-amy-low',
+
   // Runtime status
   isModelLoading: false,
   modelLoadProgress: 0,
@@ -61,5 +66,8 @@ export const AppState = {
     storage.setItem('quest_echo_guard', this.echoGuardMode);
     storage.setItem('quest_stt_engine', this.sttEngine);
     storage.setItem('quest_tts_engine', this.ttsEngine);
+    storage.setItem('quest_remote_stt_model', this.remoteSttModel);
+    storage.setItem('quest_remote_llm_model', this.remoteLlmModel);
+    storage.setItem('quest_remote_tts_model', this.remoteTtsModel);
   }
 };

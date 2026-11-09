@@ -7,6 +7,16 @@ import { executeTool } from './tools.js';
 let clientVersion = 'v0.6.0';
 let heartbeatTimer = null;
 let onServerStatusChangeCallback = null;
+let cachedRemoteModels = null;
+let cachedActiveRemoteModels = null;
+
+export function getCachedRemoteModels() {
+  return cachedRemoteModels;
+}
+
+export function getCachedActiveRemoteModels() {
+  return cachedActiveRemoteModels;
+}
 
 export function setClientVersion(v) {
   if (v) clientVersion = v;
@@ -43,7 +53,8 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'X-Client-Version': clientVersion
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
       },
       signal: controller.signal
     });
@@ -51,6 +62,12 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
 
     if (res.ok) {
       const data = await res.json();
+      if (data.models) {
+        cachedRemoteModels = data.models;
+      }
+      if (data.activeModels) {
+        cachedActiveRemoteModels = data.activeModels;
+      }
       if (data.status === 'upgrading' || data.upgradeTriggered) {
         AppState.remoteServerStatus = 'upgrading';
         logDebug('REMOTE', `Server is automatically upgrading to ${clientVersion}...`);
@@ -69,7 +86,8 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
         versionMatch: data.versionMatch,
         upgrading: data.status === 'upgrading' || data.upgradeTriggered,
         memoryFreeMb: data.memoryFreeMb,
-        ollama: data.ollama?.active || false
+        models: data.models || null,
+        activeModels: data.activeModels || null
       };
     } else {
       AppState.remoteServerStatus = 'offline';
@@ -132,6 +150,7 @@ export async function callRemoteBackend(prompt, signal, context = {}) {
       prompt: cleanPrompt,
       avatarId: AppState.avatarId,
       spaceId: AppState.spaceId,
+      model: AppState.remoteLlmModel || 'instant-companion',
       history: context.history || []
     };
 
@@ -140,7 +159,8 @@ export async function callRemoteBackend(prompt, signal, context = {}) {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'X-Client-Version': clientVersion
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
       },
       body: JSON.stringify(payload),
       signal
@@ -180,10 +200,129 @@ export async function resetRemoteServerMemory() {
   try {
     const res = await fetch(`${url}/api/reset`, { 
       method: 'POST',
-      headers: { 'X-Client-Version': clientVersion }
+      headers: { 
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
+      }
     });
     return res.ok;
   } catch {
     return false;
   }
+}
+
+/**
+ * Fetches available WASM models catalog from the PC server
+ */
+export async function fetchRemoteModels() {
+  const url = normalizeServerUrl(AppState.remoteServerUrl);
+  try {
+    const res = await fetch(`${url}/api/models`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.models) {
+        cachedRemoteModels = data.models;
+      }
+      if (data.active) {
+        cachedActiveRemoteModels = data.active;
+      }
+      return data;
+    }
+  } catch (err) {
+    console.warn('Could not fetch remote models:', err);
+  }
+  return null;
+}
+
+/**
+ * Updates the active models on the standalone PC server
+ */
+export async function selectRemoteModel({ stt, llm, tts }) {
+  const url = normalizeServerUrl(AppState.remoteServerUrl);
+  try {
+    const res = await fetch(`${url}/api/models/select`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
+      },
+      body: JSON.stringify({ stt, llm, tts })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.active) {
+        cachedActiveRemoteModels = data.active;
+      }
+      return data;
+    }
+  } catch (err) {
+    console.warn('Could not select remote model:', err);
+  }
+  return null;
+}
+
+/**
+ * Optional: Transcribe audio on the standalone PC server via WASM Whisper
+ */
+export async function callRemoteStt(audioFloat32Array, model) {
+  const url = normalizeServerUrl(AppState.remoteServerUrl);
+  try {
+    const res = await fetch(`${url}/api/stt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
+      },
+      body: JSON.stringify({
+        audio: Array.from(audioFloat32Array),
+        model: model || AppState.remoteSttModel || 'whisper-tiny'
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.text;
+    }
+  } catch (err) {
+    console.warn('Remote STT request failed:', err);
+  }
+  return null;
+}
+
+/**
+ * Optional: Synthesize speech on the standalone PC server via WASM Piper
+ */
+export async function callRemoteTts(text, voiceId) {
+  const url = normalizeServerUrl(AppState.remoteServerUrl);
+  try {
+    const res = await fetch(`${url}/api/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
+      },
+      body: JSON.stringify({
+        text,
+        voiceId: voiceId || AppState.remoteTtsModel || 'en_US-amy-low'
+      })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('Remote TTS request failed:', err);
+  }
+  return null;
 }

@@ -326,7 +326,10 @@ export async function detectAndExecuteTool(userPrompt) {
   const p = (userPrompt || '').toLowerCase().trim();
 
   // 1. Time / Date queries
-  if (/\b(what time is it|what('s| is) the time|current time|tell me the time|what('s| is) (today'?s date|the date)|what day is it)\b/i.test(p)) {
+  if (
+    (/\b(time|date|clock|day of the week)\b/i.test(p) && /\b(what|tell|know|current|give|have|check|right now|today|at the)\b/i.test(p)) ||
+    /\b(what('?s| is).*time|tell.*time|time right now|what time|what day|what date|today'?s date)\b/i.test(p)
+  ) {
     return await executeTool('get_time');
   }
 

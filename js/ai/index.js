@@ -19,7 +19,13 @@ import {
   startRemoteHeartbeat,
   stopRemoteHeartbeat,
   setClientVersion,
-  getClientVersion
+  getClientVersion,
+  fetchRemoteModels,
+  selectRemoteModel,
+  getCachedRemoteModels,
+  getCachedActiveRemoteModels,
+  callRemoteStt,
+  callRemoteTts
 } from './remote.js';
 import {
   classifyUserIntent,
@@ -212,5 +218,11 @@ export {
   startRemoteHeartbeat,
   stopRemoteHeartbeat,
   setClientVersion,
-  getClientVersion
+  getClientVersion,
+  fetchRemoteModels,
+  selectRemoteModel,
+  getCachedRemoteModels,
+  getCachedActiveRemoteModels,
+  callRemoteStt,
+  callRemoteTts
 };

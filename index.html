@@ -395,6 +395,40 @@
         <p class="help-hint" style="margin-top: 4px;">
           Connects over local Wi-Fi to the standalone server running on your Mac/PC/Linux for high-end models & sub-second latency.
         </p>
+
+        <!-- Remote PC Server Models (WASM) Selection -->
+        <div id="remote-model-selection" style="display: none; margin-top: 12px; padding: 10px; background: rgba(0,255,204,0.06); border: 1px solid rgba(0,255,204,0.25); border-radius: 8px;">
+          <div style="font-size: 11px; font-weight: 600; color: #00ffcc; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">🖥️ PC Server Models (Local WebAssembly)</div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div>
+              <label class="form-label" style="font-size: 11px; margin-bottom: 2px;">Speech-to-Text (STT):</label>
+              <select id="cfg-remote-stt-model" class="form-input" style="padding: 6px; font-size: 12px;">
+                <option value="whisper-tiny">Whisper Tiny (Fastest - 39M params)</option>
+                <option value="whisper-base">Whisper Base (Balanced - 74M params)</option>
+                <option value="whisper-small">Whisper Small (High Accuracy - 244M params)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 11px; margin-bottom: 2px;">Agent / LLM Reasoning:</label>
+              <select id="cfg-remote-llm-model" class="form-input" style="padding: 6px; font-size: 12px;">
+                <option value="instant-companion">Instant Companion (Rule-Based 0ms)</option>
+                <option value="smollm2-135m">SmolLM2 135M Instruct (Fast WASM)</option>
+                <option value="smollm2-360m">SmolLM2 360M Instruct (Conversational WASM)</option>
+                <option value="qwen2.5-0.5b">Qwen 2.5 0.5B Instruct (Rich Dialogue WASM)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" style="font-size: 11px; margin-bottom: 2px;">Text-to-Speech (TTS Voice):</label>
+              <select id="cfg-remote-tts-model" class="form-input" style="padding: 6px; font-size: 12px;">
+                <option value="en_US-amy-low">Amy (Female - Friendly & Clear)</option>
+                <option value="en_US-ryan-low">Ryan (Male - Natural & Fast)</option>
+                <option value="en_US-lessac-low">Lessac (Neutral - Narrator)</option>
+                <option value="en_US-kathleen-low">Kathleen (Female - Cheerful)</option>
+                <option value="en_US-danny-low">Danny (Male - Energetic)</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Gemini API Key & Responsiveness Group -->

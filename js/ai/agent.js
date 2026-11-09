@@ -23,8 +23,8 @@ export function getOfflineCompanionAnswer(prompt) {
   if (/thank(s| you)/i.test(clean)) {
     return "You are very welcome! I am always here to assist you.";
   }
-  if (/what can you do|help me|what is this/i.test(clean)) {
-    return "I can listen to your voice, step into 360° virtual spaces, and speak with full-body gestures using local CPU AI!";
+  if (/\b(what can you do|what are you able to do|able to do anything|your capabilities|what else can you do|what do you do|help me|what is this)\b/i.test(clean)) {
+    return "I can listen to your voice, step into 360° virtual spaces, transform my avatar, and speak with full-body gestures using local WebAssembly AI!";
   }
   return null;
 }

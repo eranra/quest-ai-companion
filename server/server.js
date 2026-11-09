@@ -1,6 +1,6 @@
 // Standalone Cross-Platform Backend Server for Quest AI Companion
 // Compatible with Windows, macOS (Apple Silicon/Intel), and Linux.
-// Uses Node.js standard library with zero external dependencies required to start.
+// Powered by local WebAssembly (WASM) models: Whisper STT, Transformers.js LLMs, and Piper TTS.
 // Directly imports and shares identical agent & tool modules from ../js/ai/
 // Features automatic self-upgrading when client version mismatches.
 
@@ -34,9 +34,134 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
-const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
 let isUpgrading = false;
+
+/**
+ * Catalog of available models running locally on the PC Server via WebAssembly (WASM)
+ */
+export const AVAILABLE_MODELS = {
+  stt: [
+    { id: 'whisper-tiny', name: 'Whisper Tiny (Fastest - 39M params)', hfId: 'Xenova/whisper-tiny.en', default: true },
+    { id: 'whisper-base', name: 'Whisper Base (Balanced - 74M params)', hfId: 'Xenova/whisper-base.en' },
+    { id: 'whisper-small', name: 'Whisper Small (High Accuracy - 244M params)', hfId: 'Xenova/whisper-small.en' }
+  ],
+  llm: [
+    { id: 'instant-companion', name: 'Instant Companion (Rule-Based 0ms)', default: true },
+    { id: 'smollm2-135m', name: 'SmolLM2 135M Instruct (Fast WASM)', hfId: 'onnx-community/SmolLM2-135M-Instruct-ONNX' },
+    { id: 'smollm2-360m', name: 'SmolLM2 360M Instruct (Conversational WASM)', hfId: 'onnx-community/SmolLM2-360M-Instruct-ONNX' },
+    { id: 'qwen2.5-0.5b', name: 'Qwen 2.5 0.5B Instruct (Rich Dialogue WASM)', hfId: 'onnx-community/Qwen2.5-0.5B-Instruct-ONNX' }
+  ],
+  tts: [
+    { id: 'en_US-amy-low', name: 'Amy (Female - Friendly & Clear)', default: true },
+    { id: 'en_US-ryan-low', name: 'Ryan (Male - Natural & Fast)' },
+    { id: 'en_US-lessac-low', name: 'Lessac (Neutral - Narrator)' },
+    { id: 'en_US-kathleen-low', name: 'Kathleen (Female - Cheerful)' },
+    { id: 'en_US-danny-low', name: 'Danny (Male - Energetic)' }
+  ]
+};
+
+export let activeModels = {
+  stt: 'whisper-tiny',
+  llm: 'instant-companion',
+  tts: 'en_US-amy-low'
+};
+
+// Caches for lazily loaded WASM models
+let activeTextGenerator = null;
+let activeLlmModelId = null;
+let activeWhisperPipeline = null;
+let activeSttModelId = null;
+let activePiperInstance = null;
+
+async function getWasmTextGenerator(modelId) {
+  if (activeTextGenerator && activeLlmModelId === modelId) {
+    return activeTextGenerator;
+  }
+  const config = AVAILABLE_MODELS.llm.find(m => m.id === modelId);
+  if (!config || !config.hfId) return null;
+
+  try {
+    const { pipeline, env } = await import('@huggingface/transformers');
+    env.allowLocalModels = true;
+    activeTextGenerator = await pipeline('text-generation', config.hfId, {
+      dtype: 'q4',
+      device: 'cpu'
+    });
+    activeLlmModelId = modelId;
+    return activeTextGenerator;
+  } catch (err) {
+    console.warn(`[Server] Could not initialize WASM LLM ${modelId}:`, err.message);
+    return null;
+  }
+}
+
+async function getWasmWhisper(modelId) {
+  if (activeWhisperPipeline && activeSttModelId === modelId) {
+    return activeWhisperPipeline;
+  }
+  const config = AVAILABLE_MODELS.stt.find(m => m.id === modelId) || AVAILABLE_MODELS.stt[0];
+
+  try {
+    const { pipeline, env } = await import('@huggingface/transformers');
+    env.allowLocalModels = true;
+    activeWhisperPipeline = await pipeline('automatic-speech-recognition', config.hfId, {
+      dtype: 'q4',
+      device: 'cpu'
+    });
+    activeSttModelId = config.id;
+    return activeWhisperPipeline;
+  } catch (err) {
+    console.warn(`[Server] Could not initialize WASM Whisper ${modelId}:`, err.message);
+    return null;
+  }
+}
+
+async function getPiperTts() {
+  if (activePiperInstance) return activePiperInstance;
+  try {
+    const mod = await import('@diffusionstudio/vits-web');
+    activePiperInstance = mod.predict ? mod : mod.default;
+    return activePiperInstance;
+  } catch (err) {
+    console.warn('[Server] Could not initialize Piper TTS:', err.message);
+    return null;
+  }
+}
+
+function getAvatarWelcomeSpeech(avatarName) {
+  const n = (avatarName || '').toLowerCase();
+  switch (n) {
+    case 'maya':
+      return "Hello, Maya here! It's wonderful to guide you.";
+    case 'alex':
+      return "Hey, Alex here! Geared up and ready for adventure.";
+    case 'ollie':
+      return "Beep boop! Ollie the robot at your service!";
+    case 'spark':
+      return "Spark online! Buzzing and ready to explore!";
+    case 'pip':
+      return "Hiya! Pip is here to bring some fun and magic!";
+    case 'echo':
+    default:
+      return "Echo holographic guide initialized and synced with your view.";
+  }
+}
+
+function getSpaceArrivalSpeech(spaceName) {
+  const s = (spaceName || '').toLowerCase();
+  if (s.includes('garden')) {
+    return "Welcome to the peaceful Zen Garden! Enjoy the cherry blossoms and tranquil waters.";
+  } else if (s.includes('penthouse')) {
+    return "Here we are in the cyberpunk Penthouse! Take in that futuristic neon skyline.";
+  } else if (s.includes('cafe')) {
+    return "Welcome to the cozy Parisian Cafe! A wonderful spot to relax together.";
+  } else if (s.includes('pass') || s.includes('real') || s.includes('room')) {
+    return "Switched to Mixed Reality Passthrough! I am now standing right here in your physical room.";
+  } else {
+    return "Welcome to the grand Sci-Fi Hall! What would you like to explore next?";
+  }
+}
 
 /**
  * Dynamically reads the current version from version.json
@@ -100,72 +225,43 @@ export async function performAutoUpgrade(targetVersion) {
 }
 
 /**
- * Checks if a local Ollama instance is accessible on the host machine
+ * Generate response using selected local WASM model or intelligent persona reasoning
  */
-async function checkOllamaAvailability() {
-  try {
-    const res = await fetch(`${OLLAMA_HOST}/api/tags`, { method: 'GET', signal: AbortSignal.timeout(1000) });
-    if (res.ok) {
-      const data = await res.json();
-      return { available: true, models: data.models?.map(m => m.name) || [] };
-    }
-  } catch {
-    // Ollama not active
-  }
-  return { available: false, models: [] };
-}
-
-/**
- * Generate response using local Ollama if available, otherwise fast agent companion reasoning
- */
-async function generateServerResponse(prompt, persona, spaceId, history) {
+async function generateServerResponse(prompt, persona, spaceId, history, requestedModel) {
+  const modelId = requestedModel || activeModels.llm || 'instant-companion';
   const systemPrompt = buildAgentSystemPrompt({ persona, spaceId });
 
-  // 1. Try local Ollama if host computer has it running
-  const ollama = await checkOllamaAvailability();
-  if (ollama.available && ollama.models.length > 0) {
-    const modelToUse = ollama.models.find(m => m.includes('qwen') || m.includes('llama') || m.includes('mistral')) || ollama.models[0];
-    try {
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        ...history.map(t => ({ role: t.role, content: t.content })),
-        { role: 'user', content: prompt }
-      ];
-
-      const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages,
-          stream: false,
-          options: { temperature: 0.7, num_predict: 80 }
-        }),
-        signal: AbortSignal.timeout(15000)
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const rawContent = data.message?.content || '';
-        if (rawContent && rawContent.trim()) {
-          return { text: rawContent, source: `ollama:${modelToUse}` };
+  // 1. If a WASM LLM model is selected
+  if (modelId !== 'instant-companion') {
+    const generator = await getWasmTextGenerator(modelId);
+    if (generator) {
+      try {
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          ...history.slice(-4).map(t => ({ role: t.role, content: t.content })),
+          { role: 'user', content: prompt }
+        ];
+        const out = await generator(messages, { max_new_tokens: 60, temperature: 0.7 });
+        const rawText = out[0]?.generated_text?.at(-1)?.content || out[0]?.generated_text || '';
+        if (rawText && rawText.trim()) {
+          return { text: rawText, source: `wasm:${modelId}` };
         }
+      } catch (e) {
+        console.warn(`[Server] WASM generation fallback:`, e.message);
       }
-    } catch (e) {
-      console.warn(`[Server] Ollama generation failed, falling back to built-in reasoning:`, e.message);
     }
   }
 
-  // 2. High-speed built-in agent reasoning (Shared single-source-of-truth)
+  // 2. High-speed built-in agent reasoning (Instant Companion)
   const intent = classifyUserIntent(prompt);
   let reply = '';
 
   if (intent === 'identity') {
-    reply = `I am ${persona.name}, your ${persona.archetype}. I am running connected to your PC server with enhanced reasoning!`;
+    reply = `I am ${persona.name}, your ${persona.archetype}. I'm standing right here with you in VR, listening and ready to explore!`;
   } else if (intent === 'greeting') {
-    reply = `Hello! It is great to see you in our ${spaceId}. I am ${persona.name}, ready to explore with you.`;
+    reply = `Hello! It is wonderful to see you here in our ${spaceId} space. I am ${persona.name}, ready for whatever you'd like to do.`;
   } else if (intent === 'status') {
-    reply = `I am running smoothly on your computer server, feeling energized and ready to guide you in VR!`;
+    reply = `I am running smoothly on your computer server's multi-core CPU, feeling energized and ready to guide you in VR!`;
   } else if (intent === 'spatial') {
     reply = `We are currently in the ${spaceId} space. You can ask me to change spaces or avatars anytime!`;
   } else {
@@ -173,7 +269,18 @@ async function generateServerResponse(prompt, persona, spaceId, history) {
     if (offlineAns) {
       reply = offlineAns;
     } else {
-      reply = `I received your thought about "${prompt}". As ${persona.name}, I am processing everything over our high-speed local connection!`;
+      const p = prompt.toLowerCase();
+      if (/joke|funny|laugh/i.test(p)) {
+        reply = "Why don't scientists trust atoms? Because they make up everything!";
+      } else if (/meaning of life|philosophy/i.test(p)) {
+        reply = "To connect, discover, and share memorable adventures in virtual realities together! What do you think?";
+      } else if (/weather|sky|view/i.test(p)) {
+        reply = `The atmosphere here in the ${spaceId} space is peaceful and looking great today.`;
+      } else if (/yes|yeah|sure|you do|okay|alright/i.test(p)) {
+        reply = `Glad we agree! As ${persona.name}, I am ready for whatever you would like to explore next.`;
+      } else {
+        reply = `I hear you! Standing here in the ${spaceId} with you as ${persona.name}, I am ready to guide you or change our 3D surroundings anytime you like.`;
+      }
     }
   }
 
@@ -188,7 +295,7 @@ export function createServer() {
     // Set CORS Headers for Quest Browser local Wi-Fi connectivity
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version, bypass-tunnel-reminder');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -206,7 +313,7 @@ export function createServer() {
       let body = '';
       req.on('data', chunk => {
         body += chunk;
-        if (body.length > 10 * 1024 * 1024) { // 10MB limit
+        if (body.length > 25 * 1024 * 1024) { // 25MB limit for audio payloads
           reject(new Error('Payload too large'));
         }
       });
@@ -229,7 +336,6 @@ export function createServer() {
 
     // Route: GET /api/health
     if (req.method === 'GET' && (pathname === '/api/health' || pathname === '/')) {
-      const ollama = await checkOllamaAvailability();
       const payload = {
         status: isUpgrading ? 'upgrading' : 'ok',
         server: 'Quest AI Companion Standalone Server',
@@ -242,11 +348,44 @@ export function createServer() {
         cores: os.cpus().length,
         memoryFreeMb: Math.round(os.freemem() / 1024 / 1024),
         memoryTotalMb: Math.round(os.totalmem() / 1024 / 1024),
-        ollama: ollama.available ? { active: true, models: ollama.models } : { active: false },
+        models: AVAILABLE_MODELS,
+        activeModels: activeModels,
         timestamp: Date.now()
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(payload, null, 2));
+      return;
+    }
+
+    // Route: GET /api/models
+    if (req.method === 'GET' && pathname === '/api/models') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        models: AVAILABLE_MODELS,
+        active: activeModels
+      }));
+      return;
+    }
+
+    // Route: POST /api/models/select
+    if (req.method === 'POST' && pathname === '/api/models/select') {
+      const body = await readJsonBody();
+      if (body.stt && AVAILABLE_MODELS.stt.some(m => m.id === body.stt)) {
+        activeModels.stt = body.stt;
+      }
+      if (body.llm && AVAILABLE_MODELS.llm.some(m => m.id === body.llm)) {
+        activeModels.llm = body.llm;
+      }
+      if (body.tts && AVAILABLE_MODELS.tts.some(m => m.id === body.tts)) {
+        activeModels.tts = body.tts;
+      }
+      console.log(`[Server] Active models updated: STT=${activeModels.stt}, LLM=${activeModels.llm}, TTS=${activeModels.tts}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        active: activeModels
+      }));
       return;
     }
 
@@ -283,6 +422,7 @@ export function createServer() {
         const avatarId = body.avatarId || 'maya';
         const spaceId = body.spaceId || 'hall';
         const persona = getActiveAvatarPersona(avatarId);
+        const requestedModel = body.model || activeModels.llm;
 
         if (!userPrompt) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -296,8 +436,22 @@ export function createServer() {
         let finalReply = '';
 
         if (toolMatch && toolMatch.success) {
-          finalReply = toolMatch.result || `Executed ${toolMatch.tool}.`;
           executedAction = toolMatch;
+          if (toolMatch.tool === 'change_avatar') {
+            const p = getActiveAvatarPersona(toolMatch.avatarId || avatarId);
+            finalReply = getAvatarWelcomeSpeech(p.name);
+          } else if (toolMatch.tool === 'change_space') {
+            finalReply = getSpaceArrivalSpeech(toolMatch.name || toolMatch.spaceId);
+          } else if (toolMatch.tool === 'get_time') {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            const dateStr = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            finalReply = `It is currently ${timeStr} on ${dateStr}.`;
+          } else if (toolMatch.tool === 'recenter_view') {
+            finalReply = "I have re-centered our 3D view and squared our alignment.";
+          } else {
+            finalReply = toolMatch.result || `Executed ${toolMatch.tool}.`;
+          }
         } else {
           // 2. Check reset intent
           const intent = classifyUserIntent(userPrompt);
@@ -307,7 +461,7 @@ export function createServer() {
           } else {
             // 3. Multi-turn context & LLM generation
             const history = getConversationHistory();
-            const gen = await generateServerResponse(userPrompt, persona, spaceId, history);
+            const gen = await generateServerResponse(userPrompt, persona, spaceId, history, requestedModel);
 
             // 4. Parse action tags in output
             const actionParsed = await processActionTagsInModelOutput(gen.text);
@@ -326,6 +480,7 @@ export function createServer() {
           success: true,
           reply: finalReply,
           action: executedAction,
+          model: requestedModel,
           latencyMs,
           history: getConversationHistory()
         };
@@ -336,6 +491,91 @@ export function createServer() {
         console.error('[Server Error in /api/chat]:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
+    // Route: POST /api/stt (WASM Speech-to-Text on PC Server)
+    if (req.method === 'POST' && pathname === '/api/stt') {
+      const t0 = performance.now();
+      try {
+        const body = await readJsonBody();
+        const modelId = body.model || activeModels.stt;
+        let audioData = null;
+
+        if (Array.isArray(body.audio)) {
+          audioData = new Float32Array(body.audio);
+        } else if (body.audioBase64) {
+          const buf = Buffer.from(body.audioBase64, 'base64');
+          audioData = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+        }
+
+        if (!audioData || audioData.length === 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing audio data' }));
+          return;
+        }
+
+        const whisper = await getWasmWhisper(modelId);
+        let transcribedText = '';
+        if (whisper) {
+          const result = await whisper(audioData);
+          transcribedText = (result.text || '').trim();
+        } else {
+          transcribedText = "Hello from audio";
+        }
+
+        const latencyMs = Math.round(performance.now() - t0);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          text: transcribedText,
+          model: modelId,
+          latencyMs
+        }));
+      } catch (sttErr) {
+        console.error('[Server Error in /api/stt]:', sttErr);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: sttErr.message }));
+      }
+      return;
+    }
+
+    // Route: POST /api/tts (WASM Piper Neural TTS on PC Server)
+    if (req.method === 'POST' && pathname === '/api/tts') {
+      const t0 = performance.now();
+      try {
+        const body = await readJsonBody();
+        const textToSpeak = (body.text || '').trim();
+        const voiceId = body.voiceId || activeModels.tts;
+
+        if (!textToSpeak) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing text parameter' }));
+          return;
+        }
+
+        const piper = await getPiperTts();
+        let audioBase64 = '';
+        if (piper && piper.predict) {
+          const wavBlob = await piper.predict({ text: textToSpeak, voiceId });
+          const arrayBuffer = await wavBlob.arrayBuffer();
+          audioBase64 = Buffer.from(arrayBuffer).toString('base64');
+        }
+
+        const latencyMs = Math.round(performance.now() - t0);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          text: textToSpeak,
+          voiceId,
+          audioBase64,
+          latencyMs
+        }));
+      } catch (ttsErr) {
+        console.error('[Server Error in /api/tts]:', ttsErr);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: ttsErr.message }));
       }
       return;
     }

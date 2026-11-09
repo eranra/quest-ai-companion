@@ -3,7 +3,7 @@ import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
 import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady, PIPER_VOICE_CONFIGS, getActiveVoiceId, setActiveVoiceId, getDefaultVoiceForAvatar } from '../audio/index.js';
-import { checkGeminiResponsiveness, checkRemoteServerResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport } from '../ai.js';
+import { checkGeminiResponsiveness, checkRemoteServerResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport, selectRemoteModel, fetchRemoteModels, getCachedRemoteModels } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
 export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
@@ -34,6 +34,10 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     cfgRemoteUrl: document.getElementById('cfg-remote-url'),
     btnTestRemote: document.getElementById('btn-test-remote'),
     remoteTestStatus: document.getElementById('remote-test-status'),
+    remoteModelSelection: document.getElementById('remote-model-selection'),
+    cfgRemoteSttModel: document.getElementById('cfg-remote-stt-model'),
+    cfgRemoteLlmModel: document.getElementById('cfg-remote-llm-model'),
+    cfgRemoteTtsModel: document.getElementById('cfg-remote-tts-model'),
     engineSummaryHint: document.getElementById('engine-summary-hint'),
     cfgVoiceSelect: document.getElementById('cfg-voice-select'),
     btnTestVoice: document.getElementById('btn-test-voice'),
@@ -217,6 +221,44 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     };
   }
 
+  function populateRemoteModels(models, active) {
+    if (!models || !dom.remoteModelSelection) return;
+    dom.remoteModelSelection.style.display = 'block';
+
+    if (models.stt && dom.cfgRemoteSttModel) {
+      dom.cfgRemoteSttModel.innerHTML = '';
+      models.stt.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        dom.cfgRemoteSttModel.appendChild(opt);
+      });
+      dom.cfgRemoteSttModel.value = AppState.remoteSttModel || active?.stt || models.stt[0].id;
+    }
+
+    if (models.llm && dom.cfgRemoteLlmModel) {
+      dom.cfgRemoteLlmModel.innerHTML = '';
+      models.llm.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        dom.cfgRemoteLlmModel.appendChild(opt);
+      });
+      dom.cfgRemoteLlmModel.value = AppState.remoteLlmModel || active?.llm || models.llm[0].id;
+    }
+
+    if (models.tts && dom.cfgRemoteTtsModel) {
+      dom.cfgRemoteTtsModel.innerHTML = '';
+      models.tts.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        dom.cfgRemoteTtsModel.appendChild(opt);
+      });
+      dom.cfgRemoteTtsModel.value = AppState.remoteTtsModel || active?.tts || models.tts[0].id;
+    }
+  }
+
   // Settings Modal Handlers
   if (dom.btnSettings) {
     dom.btnSettings.onclick = () => {
@@ -245,6 +287,15 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
       if (dom.cfgRemoteUrl) {
         dom.cfgRemoteUrl.value = AppState.remoteServerUrl || 'http://localhost:8080';
+      }
+
+      const cachedModels = getCachedRemoteModels();
+      if (cachedModels) {
+        populateRemoteModels(cachedModels);
+      } else if (AppState.engine === 'remote') {
+        fetchRemoteModels().then(data => {
+          if (data && data.models) populateRemoteModels(data.models, data.active);
+        }).catch(() => {});
       }
 
       function updateEngineVisibility(engine) {
@@ -329,6 +380,9 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         if (dom.remoteTestStatus) {
           dom.remoteTestStatus.textContent = `✅ Connected! (${check.cores} cores)`;
           dom.remoteTestStatus.style.color = '#10b981';
+        }
+        if (check.models) {
+          populateRemoteModels(check.models, check.activeModels);
         }
       } else {
         if (dom.remoteTestStatus) {
@@ -541,6 +595,22 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       }
       if (dom.cfgVoiceSelect) {
         setActiveVoiceId(dom.cfgVoiceSelect.value);
+      }
+      if (dom.cfgRemoteSttModel) {
+        AppState.remoteSttModel = dom.cfgRemoteSttModel.value;
+      }
+      if (dom.cfgRemoteLlmModel) {
+        AppState.remoteLlmModel = dom.cfgRemoteLlmModel.value;
+      }
+      if (dom.cfgRemoteTtsModel) {
+        AppState.remoteTtsModel = dom.cfgRemoteTtsModel.value;
+      }
+      if (AppState.engine === 'remote') {
+        selectRemoteModel({
+          stt: AppState.remoteSttModel,
+          llm: AppState.remoteLlmModel,
+          tts: AppState.remoteTtsModel
+        }).catch(() => {});
       }
       AppState.save();
 
