@@ -792,7 +792,7 @@ async function runTestSuite() {
                     const healthCheck = await remoteModule.checkRemoteServerResponsiveness('http://127.0.0.1:8125');
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.0');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.1');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
                     const mismatchRes = await fetch('http://127.0.0.1:8125/api/health?v=v9.9.9', {
@@ -804,7 +804,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.6.0' })
+                      body: JSON.stringify({ targetVersion: 'v0.6.1' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -863,7 +863,7 @@ async function runTestSuite() {
 
                     // 14.7 Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.6.0', badgeElem && badgeElem.textContent.includes('v0.6.0'));
+                    assert('App version badge reflects v0.6.1', badgeElem && badgeElem.textContent.includes('v0.6.1'));
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

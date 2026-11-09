@@ -1,6 +1,6 @@
 {
   "name": "quest-ai-companion-server",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Standalone Cross-Platform Server for Meta Quest AI Companion",
   "type": "module",
   "main": "server.js",

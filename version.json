@@ -1,6 +1,6 @@
 {
-  "version": "v0.6.0",
-  "build": 47,
-  "released_at": "2026-11-09T20:45:00Z",
-  "changelog": "v0.6.0 (Build 47): 1) Local WebAssembly (WASM) Server AI Pipeline: Powered by local WASM models (Whisper STT, SmolLM2/Qwen LLMs, Piper Neural TTS) running directly in Node.js on PC multi-core CPU without external dependencies; 2) Tri-Model Catalog & Remote Selection: Quest 3 settings dynamically queries PC server WASM models (/api/models) and lets user choose STT, LLM, and TTS models; 3) Agentic Process & Tooling: Fixed natural Whisper speech matcher for time, battery, and world control queries; eliminated canned placeholder responses; 4) 300 automated tests passing with zero failures."
+  "version": "v0.6.1",
+  "build": 48,
+  "released_at": "2026-11-09T20:52:00Z",
+  "changelog": "v0.6.1: 1) Native WebAssembly (WASM) Standalone Server AI Pipelines: Whisper STT, SmolLM2/Qwen LLMs, and Piper Neural TTS running 100% locally on PC multi-core CPU without external dependencies; 2) Dynamic PC Model Catalog & Quest 3 Selection: UI settings dynamically query PC models (/api/models) and allow selecting STT, LLM, and Voice models; 3) Agentic Process & Tooling Fixes: Fixed speech matching for natural phrasing, eliminated placeholder replies, enabled server-dispatched 3D world actions."
 }
