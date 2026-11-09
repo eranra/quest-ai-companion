@@ -148,8 +148,19 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
       } catch (e) {}
     }
     try { sessionStorage.clear(); } catch (e) {}
-    const v = targetVersion || appVersion || 'v0.5.3';
+    const v = targetVersion || appVersion || 'v0.6.3';
     window.location.replace(`${window.location.origin}${window.location.pathname}?v=${encodeURIComponent(v)}&_ts=${Date.now()}`);
+  }
+
+  function isRemoteNewer(remote, local) {
+    if (!remote || !local) return false;
+    const parse = v => String(v).replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+    const [rMaj, rMin, rPat] = parse(remote);
+    const [lMaj, lMin, lPat] = parse(local);
+    if (rMaj > lMaj) return true;
+    if (rMaj === lMaj && rMin > lMin) return true;
+    if (rMaj === lMaj && rMin === lMin && rPat > lPat) return true;
+    return false;
   }
 
   async function checkAppVersion(manual = false) {
@@ -160,7 +171,7 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
       const normRemote = String(data.version || '').replace(/^v/i, '').trim();
       const normLocal = String(appVersion || '').replace(/^v/i, '').trim();
 
-      if (normRemote && normLocal && normRemote !== normLocal) {
+      if (normRemote && normLocal && isRemoteNewer(normRemote, normLocal)) {
         latestDetectedVersion = data.version;
         if (dom.updateText) dom.updateText.textContent = `🚀 New update available (${data.version})!`;
         if (dom.updateBanner) dom.updateBanner.style.display = 'flex';
