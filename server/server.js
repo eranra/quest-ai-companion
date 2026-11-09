@@ -232,10 +232,21 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.6.1';
+    return JSON.parse(raw).version || 'v0.6.2';
   } catch {
-    return 'v0.6.1';
+    return 'v0.6.2';
   }
+}
+
+export function isClientNewer(clientVer, serverVer) {
+  if (!clientVer || !serverVer) return false;
+  const parse = v => String(v).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
+  const [cMaj, cMin, cPat] = parse(clientVer);
+  const [sMaj, sMin, sPat] = parse(serverVer);
+  if (cMaj > sMaj) return true;
+  if (cMaj === sMaj && cMin > sMin) return true;
+  if (cMaj === sMaj && cMin === sMin && cPat > sPat) return true;
+  return false;
 }
 
 /**
@@ -268,10 +279,11 @@ export async function performAutoUpgrade(targetVersion) {
       // In real standalone server mode, respawn detached process and gracefully exit current
       setTimeout(() => {
         try {
-          const child = spawn(process.argv[0], process.argv.slice(1), {
+          const spawnArgs = [...process.execArgv, ...process.argv.slice(1)];
+          const child = spawn(process.argv[0], spawnArgs, {
             cwd: ROOT_DIR,
             detached: true,
-            stdio: 'inherit'
+            stdio: 'ignore'
           });
           child.unref();
           console.log(`[AutoUpgrade] ✅ Respawned upgraded server process (PID: ${child.pid}). Shutting down previous instance.`);
@@ -403,8 +415,8 @@ export function createServer() {
     });
 
     let upgradeTriggered = false;
-    if (clientVersion && clientVersion !== currentServerVersion && !isUpgrading) {
-      console.log(`[Server] Detected client version mismatch (${clientVersion} vs server ${currentServerVersion}). Auto-upgrading...`);
+    if (clientVersion && isClientNewer(clientVersion, currentServerVersion) && !isUpgrading) {
+      console.log(`[Server] Detected newer client version (${clientVersion} vs server ${currentServerVersion}). Auto-upgrading...`);
       performAutoUpgrade(clientVersion);
       upgradeTriggered = true;
     }
