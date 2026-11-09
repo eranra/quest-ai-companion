@@ -4,6 +4,18 @@ import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
 import { executeTool } from './tools.js';
 
+let clientVersion = 'v0.6.0';
+let heartbeatTimer = null;
+let onServerStatusChangeCallback = null;
+
+export function setClientVersion(v) {
+  if (v) clientVersion = v;
+}
+
+export function getClientVersion() {
+  return clientVersion;
+}
+
 /**
  * Normalizes URL string to guarantee protocol and remove trailing slashes
  */
@@ -17,7 +29,7 @@ export function normalizeServerUrl(url) {
 }
 
 /**
- * Checks connectivity to the standalone PC/Mac server
+ * Checks connectivity to the standalone PC/Mac server and validates version lockstep
  */
 export async function checkRemoteServerResponsiveness(targetUrl) {
   const url = normalizeServerUrl(targetUrl || AppState.remoteServerUrl);
@@ -27,22 +39,35 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);
 
-    const res = await fetch(`${url}/api/health`, {
+    const res = await fetch(`${url}/api/health?v=${encodeURIComponent(clientVersion)}`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+        'X-Client-Version': clientVersion
+      },
       signal: controller.signal
     });
     clearTimeout(timeout);
 
     if (res.ok) {
       const data = await res.json();
-      AppState.remoteServerStatus = 'online';
-      logDebug('REMOTE', `Connected to server! ${data.server} on ${data.platform} (${data.cores} cores)`);
+      if (data.status === 'upgrading' || data.upgradeTriggered) {
+        AppState.remoteServerStatus = 'upgrading';
+        logDebug('REMOTE', `Server is automatically upgrading to ${clientVersion}...`);
+      } else {
+        AppState.remoteServerStatus = 'online';
+        logDebug('REMOTE', `Connected to server! ${data.server} on ${data.platform} (${data.cores} cores)`);
+      }
+
       return {
         responsive: true,
         server: data.server,
         platform: data.platform,
         cores: data.cores,
+        serverVersion: data.version,
+        clientVersion: data.clientVersion,
+        versionMatch: data.versionMatch,
+        upgrading: data.status === 'upgrading' || data.upgradeTriggered,
         memoryFreeMb: data.memoryFreeMb,
         ollama: data.ollama?.active || false
       };
@@ -55,6 +80,41 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
     const reason = err.name === 'AbortError' ? 'Connection timed out (Check IP & firewall)' : err.message;
     logDebug('REMOTE', `Server unreachable at ${url}: ${reason}`, 'error');
     return { responsive: false, reason };
+  }
+}
+
+/**
+ * Starts periodic heartbeat between Quest 3 and Standalone PC Server
+ * Ensures live connectivity monitoring and automatic version synchronization
+ */
+export function startRemoteHeartbeat(onStatusChange, intervalMs = 6000) {
+  stopRemoteHeartbeat();
+  onServerStatusChangeCallback = onStatusChange;
+
+  const ping = async () => {
+    if (AppState.engine !== 'remote') return;
+    try {
+      const check = await checkRemoteServerResponsiveness();
+      if (onServerStatusChangeCallback) {
+        onServerStatusChangeCallback(check);
+      }
+    } catch (e) {
+      // Status recorded in checkRemoteServerResponsiveness
+    }
+  };
+
+  // Immediate initial check + scheduled interval
+  ping();
+  heartbeatTimer = setInterval(ping, intervalMs);
+}
+
+/**
+ * Stops the periodic heartbeat timer
+ */
+export function stopRemoteHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
   }
 }
 
@@ -79,7 +139,8 @@ export async function callRemoteBackend(prompt, signal, context = {}) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-Client-Version': clientVersion
       },
       body: JSON.stringify(payload),
       signal
@@ -117,7 +178,10 @@ export async function callRemoteBackend(prompt, signal, context = {}) {
 export async function resetRemoteServerMemory() {
   const url = normalizeServerUrl(AppState.remoteServerUrl);
   try {
-    const res = await fetch(`${url}/api/reset`, { method: 'POST' });
+    const res = await fetch(`${url}/api/reset`, { 
+      method: 'POST',
+      headers: { 'X-Client-Version': clientVersion }
+    });
     return res.ok;
   } catch {
     return false;

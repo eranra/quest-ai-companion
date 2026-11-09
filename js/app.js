@@ -17,6 +17,9 @@ import {
   initLocalWebLLM, 
   checkGeminiResponsiveness,
   checkRemoteServerResponsiveness,
+  startRemoteHeartbeat,
+  stopRemoteHeartbeat,
+  setClientVersion,
   checkWebGPUSupport,
   isQuestBrowser,
   registerSceneHooks
@@ -319,18 +322,33 @@ async function checkRemoteServer() {
   const check = await checkRemoteServerResponsiveness();
   if (check.responsive) {
     setPipelineState('idle');
-    dom.speechText.textContent = `Connected to PC Server (${check.server}) on ${check.platform} (${check.cores} cores)! Ready for fast responses.`;
+    if (check.upgrading) {
+      dom.speechText.textContent = `🔄 PC Server detected version mismatch. Auto-upgrading server to ${APP_VERSION}...`;
+    } else {
+      dom.speechText.textContent = `Connected to PC Server (${check.server}) on ${check.platform} (${check.cores} cores)! Ready for fast responses.`;
+    }
   } else {
     setPipelineState('idle');
     dom.speechText.textContent = `⚠️ PC Server not responding at ${AppState.remoteServerUrl}: ${check.reason}. You can verify your IP in Settings (⚙️) or switch to Local CPU WASM.`;
   }
   if (dockController) dockController.updateEngineBadge();
+
+  // Start continuous heartbeat to monitor connectivity and keep versions in lockstep
+  startRemoteHeartbeat((status) => {
+    if (dockController) dockController.updateEngineBadge();
+    if (status.upgrading) {
+      dom.speechText.textContent = `🔄 Standalone PC Server is auto-upgrading to match client (${APP_VERSION})...`;
+    }
+  }, 6000);
 }
 
 // -------------------------------------------------------------
 // Initialize App & UI Event Binding
 // -------------------------------------------------------------
 function initApp() {
+  // Sync client version to remote module
+  setClientVersion(APP_VERSION);
+
   // 1. Initialize Pipeline UI, Mic Visualizer & Live Debug Logger
   initPipelineUI();
   initDebugDrawer();
@@ -340,12 +358,14 @@ function initApp() {
     onEngineChange: async (prevEngine, prevModel, voiceMeta) => {
       if (dockController) dockController.updateEngineBadge();
       if (AppState.engine === 'local') {
+        stopRemoteHeartbeat();
         if (prevEngine !== 'local' || prevModel !== AppState.localModel || !AppState.isModelReady) {
           startLocalModelLoading();
         }
       } else if (AppState.engine === 'remote') {
         checkRemoteServer();
       } else {
+        stopRemoteHeartbeat();
         checkCloudGemini();
       }
 

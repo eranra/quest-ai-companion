@@ -2,9 +2,14 @@
 // Compatible with Windows, macOS (Apple Silicon/Intel), and Linux.
 // Uses Node.js standard library with zero external dependencies required to start.
 // Directly imports and shares identical agent & tool modules from ../js/ai/
+// Features automatic self-upgrading when client version mismatches.
 
 import http from 'http';
 import os from 'os';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { exec, spawn } from 'child_process';
 import {
   AVATAR_PERSONAS,
   getActiveAvatarPersona,
@@ -24,8 +29,75 @@ import {
   getLiveEnvironmentContext
 } from '../js/ai/tools.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, '..');
+
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
+
+let isUpgrading = false;
+
+/**
+ * Dynamically reads the current version from version.json
+ */
+export function getServerVersion() {
+  try {
+    const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
+    return JSON.parse(raw).version || 'v0.6.0';
+  } catch {
+    return 'v0.6.0';
+  }
+}
+
+/**
+ * Performs automatic self-upgrade when client and server versions differ
+ */
+export async function performAutoUpgrade(targetVersion) {
+  if (isUpgrading) return { status: 'already_upgrading' };
+  isUpgrading = true;
+  const currentVer = getServerVersion();
+  console.log(`[AutoUpgrade] 🔄 Version mismatch detected: Client is on ${targetVersion}, server is on ${currentVer}. Initiating automatic upgrade...`);
+
+  return new Promise((resolve) => {
+    exec('git pull origin main', { cwd: ROOT_DIR }, (err, stdout) => {
+      if (err) {
+        console.warn(`[AutoUpgrade] Note during git pull:`, err.message);
+      } else {
+        console.log(`[AutoUpgrade] Git pull completed:`, stdout.trim());
+      }
+
+      const updatedVer = getServerVersion();
+      console.log(`[AutoUpgrade] Post-upgrade server version: ${updatedVer}`);
+
+      // If in automated test environment, avoid process.exit()
+      if (process.env.TEST_MODE === '1' || process.env.NODE_ENV === 'test') {
+        isUpgrading = false;
+        resolve({ status: 'reloaded_in_test', from: currentVer, version: updatedVer, target: targetVersion });
+        return;
+      }
+
+      // In real standalone server mode, respawn detached process and gracefully exit current
+      setTimeout(() => {
+        try {
+          const child = spawn(process.argv[0], process.argv.slice(1), {
+            cwd: ROOT_DIR,
+            detached: true,
+            stdio: 'inherit'
+          });
+          child.unref();
+          console.log(`[AutoUpgrade] ✅ Respawned upgraded server process (PID: ${child.pid}). Shutting down previous instance.`);
+          process.exit(0);
+        } catch (spawnErr) {
+          console.error(`[AutoUpgrade] Respawn error:`, spawnErr);
+          isUpgrading = false;
+        }
+      }, 500);
+
+      resolve({ status: 'restarting', from: currentVer, version: updatedVer, target: targetVersion });
+    });
+  });
+}
 
 /**
  * Checks if a local Ollama instance is accessible on the host machine
@@ -116,7 +188,7 @@ export function createServer() {
     // Set CORS Headers for Quest Browser local Wi-Fi connectivity
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Version');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -126,40 +198,8 @@ export function createServer() {
 
     const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = parsedUrl.pathname;
-
-    // Route: GET /api/health
-    if (req.method === 'GET' && (pathname === '/api/health' || pathname === '/')) {
-      const ollama = await checkOllamaAvailability();
-      const payload = {
-        status: 'ok',
-        server: 'Quest AI Companion Standalone Server',
-        version: 'v0.6.0',
-        platform: os.platform(),
-        arch: os.arch(),
-        cores: os.cpus().length,
-        memoryFreeMb: Math.round(os.freemem() / 1024 / 1024),
-        memoryTotalMb: Math.round(os.totalmem() / 1024 / 1024),
-        ollama: ollama.available ? { active: true, models: ollama.models } : { active: false },
-        timestamp: Date.now()
-      };
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(payload, null, 2));
-      return;
-    }
-
-    // Route: GET /api/personas
-    if (req.method === 'GET' && pathname === '/api/personas') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ personas: AVATAR_PERSONAS }));
-      return;
-    }
-
-    // Route: GET /api/tools
-    if (req.method === 'GET' && pathname === '/api/tools') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ tools: TOOL_DEFINITIONS }));
-      return;
-    }
+    const clientVersion = req.headers['x-client-version'] || parsedUrl.searchParams.get('v') || null;
+    const currentServerVersion = getServerVersion();
 
     // Read POST JSON body helper
     const readJsonBody = () => new Promise((resolve, reject) => {
@@ -179,6 +219,60 @@ export function createServer() {
       });
       req.on('error', reject);
     });
+
+    let upgradeTriggered = false;
+    if (clientVersion && clientVersion !== currentServerVersion && !isUpgrading) {
+      console.log(`[Server] Detected client version mismatch (${clientVersion} vs server ${currentServerVersion}). Auto-upgrading...`);
+      performAutoUpgrade(clientVersion);
+      upgradeTriggered = true;
+    }
+
+    // Route: GET /api/health
+    if (req.method === 'GET' && (pathname === '/api/health' || pathname === '/')) {
+      const ollama = await checkOllamaAvailability();
+      const payload = {
+        status: isUpgrading ? 'upgrading' : 'ok',
+        server: 'Quest AI Companion Standalone Server',
+        version: currentServerVersion,
+        clientVersion: clientVersion || currentServerVersion,
+        versionMatch: !clientVersion || clientVersion === currentServerVersion,
+        upgradeTriggered,
+        platform: os.platform(),
+        arch: os.arch(),
+        cores: os.cpus().length,
+        memoryFreeMb: Math.round(os.freemem() / 1024 / 1024),
+        memoryTotalMb: Math.round(os.totalmem() / 1024 / 1024),
+        ollama: ollama.available ? { active: true, models: ollama.models } : { active: false },
+        timestamp: Date.now()
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(payload, null, 2));
+      return;
+    }
+
+    // Route: POST /api/upgrade
+    if (req.method === 'POST' && pathname === '/api/upgrade') {
+      const body = await readJsonBody();
+      const target = body.targetVersion || clientVersion || 'latest';
+      const upgradeRes = await performAutoUpgrade(target);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(upgradeRes));
+      return;
+    }
+
+    // Route: GET /api/personas
+    if (req.method === 'GET' && pathname === '/api/personas') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ personas: AVATAR_PERSONAS }));
+      return;
+    }
+
+    // Route: GET /api/tools
+    if (req.method === 'GET' && pathname === '/api/tools') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ tools: TOOL_DEFINITIONS }));
+      return;
+    }
 
     // Route: POST /api/chat
     if (req.method === 'POST' && pathname === '/api/chat') {

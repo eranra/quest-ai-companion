@@ -1,5 +1,6 @@
 // Automated End-to-End Regression Test Suite for Quest AI Companion
 // Tests Three.js rendering, Avatar builds, UI modals, Audio pipeline, and DOM interactions in Headless Chrome
+process.env.TEST_MODE = '1';
 const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
@@ -784,13 +785,30 @@ async function runTestSuite() {
                     assert('ai/remote.js exports checkRemoteServerResponsiveness', typeof remoteModule.checkRemoteServerResponsiveness === 'function');
                     assert('ai/remote.js exports callRemoteBackend', typeof remoteModule.callRemoteBackend === 'function');
                     assert('ai/remote.js exports resetRemoteServerMemory', typeof remoteModule.resetRemoteServerMemory === 'function');
+                    assert('ai/remote.js exports startRemoteHeartbeat', typeof remoteModule.startRemoteHeartbeat === 'function');
+                    assert('ai/remote.js exports stopRemoteHeartbeat', typeof remoteModule.stopRemoteHeartbeat === 'function');
 
                     // 14.3 Connectivity to Standalone Server (HTTP GET /api/health)
                     const healthCheck = await remoteModule.checkRemoteServerResponsiveness('http://127.0.0.1:8125');
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.0');
 
-                    // 14.4 Client-Server Remote Chat & Shared Tool Invocation (HTTP POST /api/chat)
+                    // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
+                    const mismatchRes = await fetch('http://127.0.0.1:8125/api/health?v=v9.9.9', {
+                      headers: { 'X-Client-Version': 'v9.9.9' }
+                    }).then(r => r.json());
+                    assert('Server detects version mismatch and reports versionMatch = false', mismatchRes.versionMatch === false);
+                    assert('Server triggers auto-upgrade on version mismatch', mismatchRes.upgradeTriggered === true);
+
+                    const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ targetVersion: 'v0.6.0' })
+                    }).then(r => r.json());
+                    assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
+
+                    // 14.5 Client-Server Remote Chat & Shared Tool Invocation (HTTP POST /api/chat)
                     AppState.engine = 'remote';
                     AppState.remoteServerUrl = 'http://127.0.0.1:8125';
                     const remoteChatRes = await remoteModule.callRemoteBackend('What time is it right now?');
@@ -800,7 +818,7 @@ async function runTestSuite() {
                     const remoteSpaceRes = await remoteModule.callRemoteBackend('let us go to the zen garden');
                     assert('callRemoteBackend executes tool action on client', AppState.spaceId === 'garden');
 
-                    // 14.5 Unified Engine Routing in generateAIResponse (Both Remote Mode and Merged Mode)
+                    // 14.6 Unified Engine Routing in generateAIResponse (Both Remote Mode and Merged Mode)
                     const genRemote = await genWithTools('Hello virtual friend');
                     assert('generateAIResponse works via remote server', typeof genRemote === 'string' && genRemote.length > 5);
 
@@ -809,7 +827,10 @@ async function runTestSuite() {
                     const genMerged = await genWithTools('Who are you?');
                     assert('generateAIResponse continues to work in merged local mode', typeof genMerged === 'string' && genMerged.length > 5);
 
-                    // 14.6 Version Badge Verification
+                    // Stop heartbeat cleanup
+                    remoteModule.stopRemoteHeartbeat();
+
+                    // 14.7 Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
                     assert('App version badge reflects v0.6.0', badgeElem && badgeElem.textContent.includes('v0.6.0'));
 

@@ -211,9 +211,20 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
         }
       } else if (AppState.engine === 'remote') {
         const isOnline = AppState.remoteServerStatus === 'online';
-        dom.engineBadge.textContent = isSmallScreen ? '🖥️ PC Server' : (isOnline ? '🖥️ PC Server (Online)' : '🖥️ PC Server');
-        dom.engineBadge.style.color = isOnline ? '#10b981' : '#60a5fa';
-        dom.engineBadge.style.borderColor = 'rgba(96, 165, 250, 0.4)';
+        const isUpgrading = AppState.remoteServerStatus === 'upgrading';
+        if (isUpgrading) {
+          dom.engineBadge.textContent = isSmallScreen ? '🔄 Upgrading' : '🔄 PC Server (Upgrading...)';
+          dom.engineBadge.style.color = '#f59e0b';
+          dom.engineBadge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        } else if (isOnline) {
+          dom.engineBadge.textContent = isSmallScreen ? '🖥️ PC Server' : '🖥️ PC Server (Online)';
+          dom.engineBadge.style.color = '#10b981';
+          dom.engineBadge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        } else {
+          dom.engineBadge.textContent = isSmallScreen ? '🖥️ Offline' : '🖥️ PC Server (Offline)';
+          dom.engineBadge.style.color = '#ef4444';
+          dom.engineBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        }
       } else {
         const isReady = AppState.isModelReady;
         const modelLabel = AppState.localModel === 'instant-companion'

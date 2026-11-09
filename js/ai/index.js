@@ -12,7 +12,15 @@ import {
   resetLocalWebLLM 
 } from './local.js';
 import { checkGeminiResponsiveness, callGeminiAPI, transcribeAudioWithGemini } from './gemini.js';
-import { checkRemoteServerResponsiveness, callRemoteBackend, resetRemoteServerMemory } from './remote.js';
+import { 
+  checkRemoteServerResponsiveness, 
+  callRemoteBackend, 
+  resetRemoteServerMemory,
+  startRemoteHeartbeat,
+  stopRemoteHeartbeat,
+  setClientVersion,
+  getClientVersion
+} from './remote.js';
 import {
   classifyUserIntent,
   getConversationHistory,
@@ -200,5 +208,9 @@ export {
   registerSceneHooks,
   checkRemoteServerResponsiveness,
   callRemoteBackend,
-  resetRemoteServerMemory
+  resetRemoteServerMemory,
+  startRemoteHeartbeat,
+  stopRemoteHeartbeat,
+  setClientVersion,
+  getClientVersion
 };
