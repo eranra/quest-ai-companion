@@ -887,13 +887,45 @@ async function runTestSuite() {
                     }).then(r => r.json());
                     assert('Antigravity agent persists continuous multi-turn fact memory', agFactRecallRes.success && agFactRecallRes.reply.toLowerCase().includes('blue dolphin'));
 
-                    // Test counting capability
+                    // Test counting capability & contextual arithmetic chaining
                     const agCountRes = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'Can you count from 1 to 5?', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: 'Can you count from 1 to 10?', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent counts numbers sequentially', agCountRes.success && agCountRes.reply.includes('1, 2, 3, 4, 5'));
+                    assert('Antigravity agent counts numbers sequentially', agCountRes.success && agCountRes.reply.includes('1, 2, 3, 4, 5, 6, 7, 8, 9, 10'));
+
+                    // Test contextual multiplication referencing the last counted number (10 * 3 = 30)
+                    const agMultRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'Now what I wanted you to do is to multiply the last number that you counted with three.', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent executes contextual multiplication on last counted number', agMultRes.success && agMultRes.reply.includes('30') && !agMultRes.reply.includes('Regarding'));
+
+                    // Test phonetic STT variation ('in week three' -> 3)
+                    const agPhoneticRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'Can you multiply the last number in week three?', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent handles phonetic STT math phrases', agPhoneticRes.success && agPhoneticRes.reply.includes('90') || agPhoneticRes.reply.includes('30'));
+
+                    // Test positive feedback dialogue without repetitive canned loops
+                    const agFunRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: "It's really fun. And how are you?", spaceId: 'cafe', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity acknowledges fun remark and answers how are you', agFunRes.success && agFunRes.reply.toLowerCase().includes('fun') && !agFunRes.reply.includes('Regarding'));
+
+                    // Test live weather retrieval without SEO teasers
+                    const agWeatherRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'What is the weather in Israel right now?', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity reports accurate weather without SEO ads', agWeatherRes.success && agWeatherRes.reply.includes('Israel') && !agWeatherRes.reply.includes('Get the Israel weather forecast'));
 
                     // Test spatial & location awareness
                     const agLocRes = await fetch('http://127.0.0.1:8125/api/chat', {

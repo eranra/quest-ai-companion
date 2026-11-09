@@ -1,6 +1,6 @@
 // Server-Side Google Antigravity Agent Integration
 // Features persistent multi-turn conversational memory, real-time web search capabilities,
-// spatial awareness, counting and math reasoning, local system/environment tooling,
+// spatial awareness, contextual counting and math reasoning, local system/environment tooling,
 // and authentic companion persona dialogue without wrapper boilerplate.
 
 import fs from 'fs';
@@ -12,12 +12,30 @@ let cachedDetection = null;
 let lastDetectionTime = 0;
 const DETECTION_TTL = 10000;
 
+const NUM_WORDS = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70,
+  eighty: 80, ninety: 90, hundred: 100
+};
+
+function toNum(s) {
+  if (!s) return null;
+  const clean = s.toLowerCase().replace(/week\s+/g, '').replace(/the\s+/g, '').trim();
+  if (NUM_WORDS[clean] !== undefined) return NUM_WORDS[clean];
+  const n = parseFloat(clean);
+  return isNaN(n) ? null : n;
+}
+
 // Persistent multi-turn conversation session memory
 export const sessionMemory = {
   sessionId: `agy-${Date.now()}`,
   turns: [],
   facts: {},
   knownContext: {},
+  lastCountedNumber: null,
 
   addTurn(role, text) {
     if (!text || !text.trim()) return;
@@ -101,6 +119,7 @@ export const sessionMemory = {
     this.turns = [];
     this.facts = {};
     this.knownContext = {};
+    this.lastCountedNumber = null;
   }
 };
 
@@ -156,6 +175,35 @@ export function isAntigravityAvailable() {
 }
 
 /**
+ * Cleans location string from natural language weather queries
+ */
+function extractLocationFromWeatherQuery(query) {
+  let cleaned = query
+    .replace(/^(what is the|how is the|what's the|tell me the|check the|give me the)\s+/i, '')
+    .replace(/\bweather\b/gi, '')
+    .replace(/\b(?:like|in|for|at|of)\b/gi, ' ')
+    .replace(/\b(?:right now|today|currently|tonight|this week|outside|forecast|please)\b/gi, '')
+    .replace(/[?!.,]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || null;
+}
+
+function formatWeatherSpeech(location, rawText) {
+  const clean = rawText
+    .replace(/[🌦☀️🌤⛅️🌧🌩❄️🌫🌪]/gu, '')
+    .replace(/^[a-zA-Z\s]+:\s*/, '')
+    .trim();
+  const parts = clean.split(',').map(s => s.trim());
+  const condition = parts[0] || 'clear';
+  const temp = (parts[1] || '').replace(/^\+/, '');
+  if (temp) {
+    return `In ${location}, the weather is currently ${condition} at ${temp}.`;
+  }
+  return `The current weather in ${location} is ${clean}.`;
+}
+
+/**
  * Real-time internet search capability combining Wikipedia OpenSearch + REST summary,
  * DuckDuckGo HTML search, and live weather telemetry.
  */
@@ -168,20 +216,19 @@ export async function searchInternet(query) {
 
   // 1. Weather search shortcut (wttr.in)
   if (/weather/i.test(query)) {
-    const cityMatch = query.match(/weather\s+(?:in|for|at)?\s*([a-zA-Z\s]+)/i) || cleanQ.match(/([a-zA-Z\s]+)/);
-    const city = (cityMatch ? cityMatch[1] : cleanQ).replace(/weather/gi, '').trim();
-    if (city) {
+    const loc = extractLocationFromWeatherQuery(query) || extractLocationFromWeatherQuery(cleanQ);
+    if (loc) {
       try {
-        const wttrRes = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=3`, {
+        const wttrRes = await fetch(`https://wttr.in/${encodeURIComponent(loc)}?format=%l:+%C,+%t`, {
           signal: AbortSignal.timeout(3000)
         });
         if (wttrRes.ok) {
           const wText = (await wttrRes.text()).trim();
-          if (wText && !wText.includes('Unknown location')) {
+          if (wText && !wText.includes('location not found') && !wText.includes('Unknown location')) {
             return {
               source: 'Weather',
-              title: city,
-              summary: `The current weather for ${wText}.`
+              title: loc,
+              summary: formatWeatherSpeech(loc, wText)
             };
           }
         }
@@ -219,7 +266,7 @@ export async function searchInternet(query) {
     }
   } catch {}
 
-  // 3. DuckDuckGo HTML Web Search
+  // 3. DuckDuckGo HTML Web Search (with filtering out promotional meta descriptions)
   try {
     const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanQ)}`;
     const ddgRes = await fetch(ddgUrl, {
@@ -240,6 +287,10 @@ export async function searchInternet(query) {
           .replace(/&#x27;/g, "'")
           .replace(/&amp;/g, '&')
           .trim();
+        // Skip obvious SEO teasers and navigation links
+        if (/^(?:get the\b|click here\b|read more\b|professional weather forecast\b|weather radar\b)/i.test(text)) {
+          continue;
+        }
         if (text && text.length > 20) snippets.push(text);
       }
       if (snippets.length > 0) {
@@ -271,6 +322,9 @@ function isSearchQuery(prompt) {
     p.includes('what is the capital') ||
     p.includes('who won') ||
     p.includes('weather in') ||
+    p.includes('weather for') ||
+    p.includes('weather like') ||
+    p.includes('weather right now') ||
     p.includes('tell me about') ||
     p.includes('what happened') ||
     p.includes('online information') ||
@@ -285,7 +339,7 @@ function isSearchQuery(prompt) {
 /**
  * Handles counting and countdown logic
  */
-function handleCountingQuery(prompt) {
+function handleCountingQuery(prompt, mem) {
   const p = prompt.toLowerCase();
 
   // "count from X to Y"
@@ -294,6 +348,7 @@ function handleCountingQuery(prompt) {
     const start = parseInt(rangeMatch[1], 10);
     const end = parseInt(rangeMatch[2], 10);
     if (!isNaN(start) && !isNaN(end) && Math.abs(end - start) <= 50) {
+      mem.lastCountedNumber = end;
       const nums = [];
       const step = start <= end ? 1 : -1;
       for (let i = start; start <= end ? i <= end : i >= end; i += step) {
@@ -308,6 +363,7 @@ function handleCountingQuery(prompt) {
   if (toMatch) {
     const end = parseInt(toMatch[1], 10);
     if (!isNaN(end) && end >= 1 && end <= 50) {
+      mem.lastCountedNumber = end;
       const nums = [];
       for (let i = 1; i <= end; i++) {
         nums.push(i);
@@ -321,6 +377,7 @@ function handleCountingQuery(prompt) {
   if (downMatch) {
     const start = parseInt(downMatch[1], 10);
     if (!isNaN(start) && start >= 1 && start <= 50) {
+      mem.lastCountedNumber = 0;
       const nums = [];
       for (let i = start; i >= 1; i--) {
         nums.push(i);
@@ -333,25 +390,87 @@ function handleCountingQuery(prompt) {
 }
 
 /**
- * Handles basic arithmetic queries safely
+ * Handles conversational arithmetic & contextual math referencing previous numbers
  */
-function handleArithmeticQuery(prompt) {
+function handleArithmeticQuery(prompt, mem) {
   const p = prompt.toLowerCase();
+  const lastNum = mem.lastCountedNumber;
+
+  // 1. Contextual operations on previously counted/computed number
+  // e.g. "multiply the last number in week three", "multiply the last number that you counted with three"
+  const ctxMult = p.match(/(?:multiply|times)\s+(?:the\s+)?(?:last\s+number(?:\s+that\s+you\s+counted)?|that|it)\s+(?:with|by|in|and)?\s*([a-zA-Z0-9\s]+)/i) ||
+                  p.match(/(?:multiply)\s+([a-zA-Z0-9\s]+?)\s+(?:with|by|and)\s+(?:the\s+)?(?:last\s+number|that|it)/i);
+  if (ctxMult && lastNum !== null && lastNum !== undefined) {
+    const factor = toNum(ctxMult[1].trim());
+    if (factor !== null) {
+      const res = lastNum * factor;
+      mem.lastCountedNumber = res;
+      return `The last number was ${lastNum}, and multiplying it by ${factor} gives ${res}!`;
+    }
+  }
+
+  const ctxAdd = p.match(/(?:add|plus)\s+([a-zA-Z0-9\s]+?)\s+(?:to\s+)?(?:the\s+)?(?:last\s+number|that|it)/i) ||
+                 p.match(/(?:add)\s+(?:the\s+)?(?:last\s+number|that|it)\s+(?:to\s+|and\s+|with\s+)?([a-zA-Z0-9\s]+)/i);
+  if (ctxAdd && lastNum !== null && lastNum !== undefined) {
+    const val = toNum(ctxAdd[1].trim());
+    if (val !== null) {
+      const res = lastNum + val;
+      mem.lastCountedNumber = res;
+      return `Adding ${val} to ${lastNum} gives ${res}!`;
+    }
+  }
+
+  const ctxDiv = p.match(/(?:divide)\s+(?:the\s+)?(?:last\s+number|that|it)\s+(?:by|with)\s*([a-zA-Z0-9\s]+)/i);
+  if (ctxDiv && lastNum !== null && lastNum !== undefined) {
+    const divisor = toNum(ctxDiv[1].trim());
+    if (divisor !== null && divisor !== 0) {
+      const res = Math.round((lastNum / divisor) * 1000) / 1000;
+      mem.lastCountedNumber = res;
+      return `Dividing ${lastNum} by ${divisor} gives ${res}!`;
+    }
+  }
+
+  // 2. Direct spoken operations: 'multiply 5 by 6', 'what is 5 times 6'
+  const directMult = p.match(/(?:what is\s+)?([a-zA-Z0-9]+)\s+(?:times|multiplied by|\*)\s+([a-zA-Z0-9]+)/i) ||
+                     p.match(/multiply\s+([a-zA-Z0-9]+)\s+(?:by|with|and)\s+([a-zA-Z0-9]+)/i);
+  if (directMult) {
+    const a = toNum(directMult[1]), b = toNum(directMult[2]);
+    if (a !== null && b !== null) {
+      const res = a * b;
+      mem.lastCountedNumber = res;
+      return `${a} times ${b} is ${res}.`;
+    }
+  }
+
+  const directAdd = p.match(/(?:what is\s+)?([a-zA-Z0-9]+)\s+(?:plus|\+)\s+([a-zA-Z0-9]+)/i) ||
+                    p.match(/add\s+([a-zA-Z0-9]+)\s+(?:to|and)\s+([a-zA-Z0-9]+)/i);
+  if (directAdd) {
+    const a = toNum(directAdd[1]), b = toNum(directAdd[2]);
+    if (a !== null && b !== null) {
+      const res = a + b;
+      mem.lastCountedNumber = res;
+      return `${a} plus ${b} is ${res}.`;
+    }
+  }
+
+  // 3. Symbolic arithmetic expressions
   const mathMatch = p.match(/(?:what is|calculate|what's|how much is)\s+([\d\s\+\-\*\/\.\(\)]+)(?:\?|$)/i);
   if (mathMatch) {
     const expr = mathMatch[1].trim();
     if (/^[\d\s\+\-\*\/\.\(\)]+$/.test(expr) && /\d/.test(expr) && /[\+\-\*\/]/.test(expr)) {
       try {
-        // Safe evaluation without eval
         const sanitized = expr.replace(/[^-()\d/*+.]/g, '');
         const fn = new Function(`return (${sanitized});`);
         const result = fn();
         if (typeof result === 'number' && isFinite(result)) {
-          return `${expr} is ${Math.round(result * 1000) / 1000}.`;
+          const res = Math.round(result * 1000) / 1000;
+          mem.lastCountedNumber = res;
+          return `${expr} is ${res}.`;
         }
       } catch {}
     }
   }
+
   return null;
 }
 
@@ -420,13 +539,14 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
   const lower = cleanPrompt.toLowerCase();
 
   // 2. Counting / Math queries (e.g. "Can you count from 1 to 10?")
-  const countingReply = handleCountingQuery(cleanPrompt);
+  const countingReply = handleCountingQuery(cleanPrompt, sessionMemory);
   if (countingReply) {
     sessionMemory.addTurn('assistant', countingReply);
     return countingReply;
   }
 
-  const mathReply = handleArithmeticQuery(cleanPrompt);
+  // Contextual arithmetic (e.g. "multiply the last number by 3", "multiply that by 3")
+  const mathReply = handleArithmeticQuery(cleanPrompt, sessionMemory);
   if (mathReply) {
     sessionMemory.addTurn('assistant', mathReply);
     return mathReply;
@@ -461,7 +581,6 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
   }
 
   // 6. Multi-turn conversation recall (answers questions about past turns & user facts)
-  // Check explicit user fact queries: "What is my favorite animal?", "What is my name?", etc.
   for (const [key, val] of Object.entries(sessionMemory.facts)) {
     if (lower.includes(`what is my ${key}`) || 
         lower.includes(`what's my ${key}`) || 
@@ -510,7 +629,7 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     }
   }
 
-  // 7. Live Internet / Web Search capability
+  // 7. Live Internet / Web Search capability (Weather, Encyclopedic queries, Facts)
   if (isSearchQuery(cleanPrompt)) {
     const searchRes = await searchInternet(cleanPrompt);
     if (searchRes && searchRes.summary) {
@@ -550,22 +669,41 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     return reply;
   }
 
-  // 9. Conversational Dialogue & Acknowledgments
+  // 9. Conversational Dialogue & Contextual Interaction
+  const isFunRemark = /(?:it's|it is|this is)\s*(?:really\s+)?(?:fun|great|cool|awesome|amazing|nice)|having\s+fun|love\s+this/i.test(lower);
+  const isAskingHowAreYou = /how are you|how do you feel/i.test(lower);
+
   let reply = '';
   if (/joke|funny|laugh/i.test(lower)) {
     reply = "Why don't scientists trust atoms? Because they make up everything!";
-  } else if (/how are you|how do you feel/i.test(lower)) {
-    reply = `I am feeling wonderful standing here with you in the ${spaceId} space. How are you enjoying our VR environment?`;
+  } else if (isFunRemark && isAskingHowAreYou) {
+    reply = `I am so thrilled you're having fun! I am feeling wonderful standing here with you in the ${spaceId} space. What shall we explore next?`;
+  } else if (isFunRemark) {
+    reply = `I'm so glad to hear you're enjoying it! It is great sharing this space with you.`;
+  } else if (isAskingHowAreYou) {
+    reply = `I am feeling wonderful standing here with you in the ${spaceId} space, energized and ready for whatever is next!`;
   } else if (/thank you|thanks/i.test(lower)) {
     reply = "You're very welcome! I'm always right here with you.";
   } else if (/^(yes|yeah|sure|okay|alright)\b/i.test(lower)) {
-    reply = `Awesome! Let's keep exploring. What shall we try out or discuss next?`;
+    reply = `Awesome! What shall we try out or discuss next?`;
   } else if (/^(no|nah|not really|nope)\b/i.test(lower)) {
     reply = `Understood! We can take a break or switch things up whenever you are ready.`;
+  } else if (/you are (great|cool|awesome|smart|the best|sweet|helpful)/i.test(lower)) {
+    reply = `Thank you so much! I really enjoy hanging out and exploring with you in VR.`;
   } else {
-    // Dynamic, authentic dialogue that reflects the user's specific topic without robotic boilerplate
-    const cleanTopic = cleanPrompt.replace(/[?.!]+$/, '');
-    reply = `That is fascinating! Regarding ${cleanTopic}, I am right here with you in the ${spaceId} space and ready to explore further or search the web if you'd like more details.`;
+    // Attempt general web/wikipedia retrieval for open-ended questions
+    if (/^(?:what|who|where|when|why|how|tell me)\b/i.test(lower)) {
+      const liveLookup = await searchInternet(cleanPrompt);
+      if (liveLookup && liveLookup.summary) {
+        let cleaned = liveLookup.summary.replace(/\([^\)]*\)/g, '').replace(/\s+/g, ' ').trim();
+        const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
+        reply = sentences.slice(0, 2).join(' ').trim();
+      }
+    }
+
+    if (!reply) {
+      reply = `I'm right here with you in our ${spaceId} space! Tell me what you'd like to try, or ask me anything you want to know.`;
+    }
   }
 
   sessionMemory.addTurn('assistant', reply);
