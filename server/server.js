@@ -309,7 +309,7 @@ async function generateServerResponse(prompt, persona, spaceId, history, request
   // 1. If Antigravity deep reasoning model is selected
   if (modelId === 'antigravity') {
     try {
-      const agReply = await generateAntigravityResponse(prompt, history, spaceId);
+      const agReply = await generateAntigravityResponse(prompt, history, spaceId, persona);
       if (agReply && agReply.trim()) {
         return { text: agReply.trim(), source: 'antigravity-agent' };
       }
@@ -554,6 +554,16 @@ export function createServer() {
             finalReply = `I have reset our conversation memory. What would you like to discuss next?`;
           } else {
             // 3. Multi-turn context & LLM generation
+            if (Array.isArray(body.history)) {
+              for (const turn of body.history) {
+                if (turn.content && turn.role) {
+                  const exists = getConversationHistory().some(t => t.content === turn.content && t.role === turn.role);
+                  if (!exists) {
+                    recordDialogueTurn(turn.role, turn.content);
+                  }
+                }
+              }
+            }
             const history = getConversationHistory();
             const gen = await generateServerResponse(userPrompt, persona, spaceId, history, requestedModel);
 

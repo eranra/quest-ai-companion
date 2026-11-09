@@ -870,6 +870,30 @@ async function runTestSuite() {
                     }).then(r => r.json());
                     assert('Antigravity agent chat endpoint succeeds', agChatRes.success === true && typeof agChatRes.reply === 'string' && agChatRes.reply.length > 5);
                     assert('Antigravity agent identifies itself or Antigravity engine', agChatRes.reply.toLowerCase().includes('antigravity') || agChatRes.reply.toLowerCase().includes('companion'));
+                    assert('Antigravity output has no robotic wrapper prefix', !agChatRes.reply.includes('Analyzing from Antigravity: regarding'));
+
+                    // Test continuous multi-turn session persistence
+                    await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'My name is Alice', model: 'antigravity' })
+                    });
+
+                    const agRecallRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'What is my name?', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent persists multi-turn conversation memory', agRecallRes.success && agRecallRes.reply.includes('Alice'));
+
+                    // Test real-time internet search capability
+                    const agSearchRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'Search the web for James Webb Space Telescope', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent performs live internet search', agSearchRes.success && typeof agSearchRes.reply === 'string' && agSearchRes.reply.length > 20);
+                    assert('Antigravity search reply has no robotic boilerplate', !agSearchRes.reply.includes('Analyzing from Antigravity: regarding'));
 
                     // Stop heartbeat cleanup
                     remoteModule.stopRemoteHeartbeat();
@@ -968,16 +992,14 @@ async function runTestSuite() {
               console.log(`📊 Summary: ${passed} Passed, ${failed} Failed`);
               console.log('====================================================\n');
 
-              ws.close();
-              chrome.kill();
-              server.close();
+              try { ws.close(); } catch (e) {}
+              try { chrome.kill(); } catch (e) {}
+              try { server.close(); } catch (e) {}
               try { standaloneServer.close(); } catch (e) {}
 
-              if (failed > 0) {
-                process.exit(1);
-              } else {
-                process.exit(0);
-              }
+              setTimeout(() => {
+                process.exit(failed > 0 ? 1 : 0);
+              }, 250);
             }
           };
 
