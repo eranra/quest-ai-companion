@@ -209,6 +209,11 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
           dom.engineBadge.style.color = '#ef4444';
           dom.engineBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
         }
+      } else if (AppState.engine === 'remote') {
+        const isOnline = AppState.remoteServerStatus === 'online';
+        dom.engineBadge.textContent = isSmallScreen ? '🖥️ PC Server' : (isOnline ? '🖥️ PC Server (Online)' : '🖥️ PC Server');
+        dom.engineBadge.style.color = isOnline ? '#10b981' : '#60a5fa';
+        dom.engineBadge.style.borderColor = 'rgba(96, 165, 250, 0.4)';
       } else {
         const isReady = AppState.isModelReady;
         const modelLabel = AppState.localModel === 'instant-companion'

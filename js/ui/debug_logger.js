@@ -4,7 +4,7 @@
 const MAX_LOGS = 250;
 const logs = [];
 
-let currentDebugLevel = localStorage.getItem('quest_debug_level') || 'standard'; // 'standard' | 'verbose'
+let currentDebugLevel = (typeof localStorage !== 'undefined' ? localStorage.getItem('quest_debug_level') : null) || 'standard'; // 'standard' | 'verbose'
 
 export const LatencyMetrics = {
   lastAudioDurationSec: 0,

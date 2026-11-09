@@ -46,6 +46,10 @@ async function runTestSuite() {
   console.log('🧪 Starting Quest AI Companion Automated Test Suite');
   console.log('====================================================\n');
 
+  const STANDALONE_PORT = 8125;
+  const serverModule = await import('../server/server.js');
+  const standaloneServer = await serverModule.startServer(STANDALONE_PORT);
+
   server.listen(TEST_PORT, async () => {
     console.log(`[TEST SERVER] Running at http://127.0.0.1:${TEST_PORT}/`);
 
@@ -768,9 +772,46 @@ async function runTestSuite() {
                     const vadContentionSafe = await vadModule.initMicAnalyser(() => {});
                     assert('vad.js avoids duplicate getUserMedia stream when whisper is active', vadContentionSafe === true);
 
-                    // 13.8 Version Badge Verification
+                    // Test 14: Client-Server Architecture & Standalone Backend Integration (Dual-Mode Testing)
+                    // 14.1 Remote PC Server Settings DOM Elements
+                    assert('group-remote exists in Settings DOM', !!document.getElementById('group-remote'));
+                    assert('cfg-remote-url input exists in Settings DOM', !!document.getElementById('cfg-remote-url'));
+                    assert('btn-test-remote button exists in Settings DOM', !!document.getElementById('btn-test-remote'));
+                    assert('Engine select contains remote option', !!document.querySelector('#cfg-engine-select option[value="remote"]'));
+
+                    // 14.2 Remote Connector Module Exports
+                    const remoteModule = await import('./js/ai/remote.js');
+                    assert('ai/remote.js exports checkRemoteServerResponsiveness', typeof remoteModule.checkRemoteServerResponsiveness === 'function');
+                    assert('ai/remote.js exports callRemoteBackend', typeof remoteModule.callRemoteBackend === 'function');
+                    assert('ai/remote.js exports resetRemoteServerMemory', typeof remoteModule.resetRemoteServerMemory === 'function');
+
+                    // 14.3 Connectivity to Standalone Server (HTTP GET /api/health)
+                    const healthCheck = await remoteModule.checkRemoteServerResponsiveness('http://127.0.0.1:8125');
+                    assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
+                    assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
+
+                    // 14.4 Client-Server Remote Chat & Shared Tool Invocation (HTTP POST /api/chat)
+                    AppState.engine = 'remote';
+                    AppState.remoteServerUrl = 'http://127.0.0.1:8125';
+                    const remoteChatRes = await remoteModule.callRemoteBackend('What time is it right now?');
+                    assert('callRemoteBackend answers query', typeof remoteChatRes === 'string' && remoteChatRes.length > 5);
+
+                    // Remote tool action dispatch: tell server to change space to garden
+                    const remoteSpaceRes = await remoteModule.callRemoteBackend('let us go to the zen garden');
+                    assert('callRemoteBackend executes tool action on client', AppState.spaceId === 'garden');
+
+                    // 14.5 Unified Engine Routing in generateAIResponse (Both Remote Mode and Merged Mode)
+                    const genRemote = await genWithTools('Hello virtual friend');
+                    assert('generateAIResponse works via remote server', typeof genRemote === 'string' && genRemote.length > 5);
+
+                    // Switch back to Merged Mode (Local CPU WASM / Agent) and verify seamless zero-drift operation
+                    AppState.engine = 'local';
+                    const genMerged = await genWithTools('Who are you?');
+                    assert('generateAIResponse continues to work in merged local mode', typeof genMerged === 'string' && genMerged.length > 5);
+
+                    // 14.6 Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.5.4', badgeElem && badgeElem.textContent.includes('v0.5.4'));
+                    assert('App version badge reflects v0.6.0', badgeElem && badgeElem.textContent.includes('v0.6.0'));
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
@@ -826,6 +867,7 @@ async function runTestSuite() {
               ws.close();
               chrome.kill();
               server.close();
+              try { standaloneServer.close(); } catch (e) {}
 
               if (failed > 0) {
                 process.exit(1);
@@ -839,6 +881,7 @@ async function runTestSuite() {
           console.error('Test Suite Setup Error:', err);
           chrome.kill();
           server.close();
+          try { standaloneServer.close(); } catch (e) {}
           process.exit(1);
         }
       });

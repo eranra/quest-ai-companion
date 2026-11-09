@@ -2,7 +2,32 @@
 // Manages multi-turn dialogue history, avatar persona alignment, intent routing, and response validation
 import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
-import { getOfflineCompanionAnswer } from './local.js';
+
+/**
+ * Offline companion responses for common introductory queries
+ */
+export function getOfflineCompanionAnswer(prompt) {
+  const clean = (prompt || '').toLowerCase().trim();
+  if (/what('?s| is) your name|who are you/i.test(clean)) {
+    return "I am your 3D VR companion! I am running locally right here on your device via CPU WebAssembly.";
+  }
+  if (/^(hello|hi|hey|good morning|good afternoon|good evening)/i.test(clean)) {
+    return "Hello! Great to see you in VR. I am your companion running on CPU WebAssembly!";
+  }
+  if (/how are you|are you feeling (okay|fine|good|well)|how do you feel/i.test(clean)) {
+    return "I am feeling wonderful, standing right here with you in VR! How are you doing?";
+  }
+  if (/can you count|count to/i.test(clean)) {
+    return "One, two, three, four, five, six, seven, eight, nine, ten!";
+  }
+  if (/thank(s| you)/i.test(clean)) {
+    return "You are very welcome! I am always here to assist you.";
+  }
+  if (/what can you do|help me|what is this/i.test(clean)) {
+    return "I can listen to your voice, step into 360° virtual spaces, and speak with full-body gestures using local CPU AI!";
+  }
+  return null;
+}
 
 const TRAJECTORY_STORAGE_KEY = 'quest_dialogue_trajectory';
 const MAX_HISTORY_TURNS = 6; // Sliding window of 3 complete user-assistant dialogue pairs

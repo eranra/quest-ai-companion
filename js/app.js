@@ -7,17 +7,21 @@ import {
   flipAvatarOrientation,
   enterVR,
   setXRActionCallbacks,
-  updateVRHUDState
+  updateVRHUDState,
+  resetCameraView
 } from './scene.js';
-import { buildAvatar, cycleAvatar } from './avatars/index.js';
-import { cycleSpace } from './spaces/index.js';
+import { buildAvatar, cycleAvatar, getDefaultVoiceForAvatar } from './avatars/index.js';
+import { switchSpace, cycleSpace } from './spaces/index.js';
 import { 
   generateAIResponse, 
   initLocalWebLLM, 
   checkGeminiResponsiveness,
+  checkRemoteServerResponsiveness,
   checkWebGPUSupport,
-  isQuestBrowser
+  isQuestBrowser,
+  registerSceneHooks
 } from './ai.js';
+import { setActiveVoiceId } from './audio/neural_tts.js';
 import {
   unlockAudio,
   speakReply,
@@ -47,7 +51,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.5.4';
+export const APP_VERSION = 'v0.6.0';
 
 // DOM References
 const dom = {
@@ -98,7 +102,9 @@ async function handleUserSpeech(userText) {
 
   // Step 2: Sent to AI & Analyzing
   setPipelineState('analyzing');
-  const engineDesc = AppState.engine === 'cloud' ? 'Gemini Cloud' : AppState.localModel;
+  const engineDesc = AppState.engine === 'cloud' 
+    ? 'Gemini Cloud' 
+    : (AppState.engine === 'remote' ? 'Local PC Server' : AppState.localModel);
   setActiveStage('analyzing_ai', `AI Query (${engineDesc})...`);
   dom.speechText.textContent = `You: "${userText}"\n\n⚡ Analyzing with AI...`;
   updateVRHUDState({ status: '⚡ Analyzing...', text: `You: "${userText}"` });
@@ -304,6 +310,24 @@ async function checkCloudGemini() {
 }
 
 // -------------------------------------------------------------
+// Remote Standalone PC Server Responsiveness Verification
+// -------------------------------------------------------------
+async function checkRemoteServer() {
+  setPipelineState('analyzing', 'Checking PC Server...');
+  dom.speechText.textContent = `Connecting to Standalone PC Server at ${AppState.remoteServerUrl}...`;
+  
+  const check = await checkRemoteServerResponsiveness();
+  if (check.responsive) {
+    setPipelineState('idle');
+    dom.speechText.textContent = `Connected to PC Server (${check.server}) on ${check.platform} (${check.cores} cores)! Ready for fast responses.`;
+  } else {
+    setPipelineState('idle');
+    dom.speechText.textContent = `⚠️ PC Server not responding at ${AppState.remoteServerUrl}: ${check.reason}. You can verify your IP in Settings (⚙️) or switch to Local CPU WASM.`;
+  }
+  if (dockController) dockController.updateEngineBadge();
+}
+
+// -------------------------------------------------------------
 // Initialize App & UI Event Binding
 // -------------------------------------------------------------
 function initApp() {
@@ -319,6 +343,8 @@ function initApp() {
         if (prevEngine !== 'local' || prevModel !== AppState.localModel || !AppState.isModelReady) {
           startLocalModelLoading();
         }
+      } else if (AppState.engine === 'remote') {
+        checkRemoteServer();
       } else {
         checkCloudGemini();
       }
@@ -488,6 +514,16 @@ function initApp() {
   // 4. Initialize 3D Scene, Avatar, and WebXR Controller Action Handlers
   try {
     initScene(dom.container3d, dom.xrHud);
+    registerSceneHooks({
+      switchSpace,
+      buildAvatar,
+      applyAvatarTransform,
+      getDefaultVoiceForAvatar,
+      setActiveVoiceId,
+      flipAvatarOrientation,
+      resetCameraView,
+      getAvatarGroup: () => avatarGroup
+    });
     buildAvatar(AppState.avatarId, avatarGroup);
     applyAvatarTransform();
 
@@ -562,6 +598,8 @@ function initApp() {
   try {
     if (AppState.engine === 'local') {
       startLocalModelLoading();
+    } else if (AppState.engine === 'remote') {
+      checkRemoteServer();
     } else {
       checkCloudGemini();
     }

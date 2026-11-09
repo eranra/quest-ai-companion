@@ -12,6 +12,7 @@ import {
   resetLocalWebLLM 
 } from './local.js';
 import { checkGeminiResponsiveness, callGeminiAPI, transcribeAudioWithGemini } from './gemini.js';
+import { checkRemoteServerResponsiveness, callRemoteBackend, resetRemoteServerMemory } from './remote.js';
 import {
   classifyUserIntent,
   getConversationHistory,
@@ -32,7 +33,8 @@ import {
   getGeminiToolDeclarations,
   processActionTagsInModelOutput,
   executeChangeSpace,
-  executeChangeAvatar
+  executeChangeAvatar,
+  registerSceneHooks
 } from './tools.js';
 
 let activeAbortController = null;
@@ -135,6 +137,8 @@ export async function generateAIResponse(prompt, onProgress) {
     const t0 = performance.now();
     if (AppState.engine === 'cloud') {
       rawReply = await callGeminiAPI(cleanPrompt, signal, context);
+    } else if (AppState.engine === 'remote') {
+      rawReply = await callRemoteBackend(cleanPrompt, signal, context);
     } else {
       rawReply = await callLocalWebLLM(cleanPrompt, onProgress, signal, context);
     }
@@ -192,5 +196,9 @@ export {
   getGeminiToolDeclarations,
   processActionTagsInModelOutput,
   executeChangeSpace,
-  executeChangeAvatar
+  executeChangeAvatar,
+  registerSceneHooks,
+  checkRemoteServerResponsiveness,
+  callRemoteBackend,
+  resetRemoteServerMemory
 };

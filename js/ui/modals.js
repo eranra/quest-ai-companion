@@ -3,7 +3,7 @@ import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
 import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady, PIPER_VOICE_CONFIGS, getActiveVoiceId, setActiveVoiceId, getDefaultVoiceForAvatar } from '../audio/index.js';
-import { checkGeminiResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport } from '../ai.js';
+import { checkGeminiResponsiveness, checkRemoteServerResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
 export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
@@ -30,6 +30,10 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     groupGemini: document.getElementById('group-gemini'),
     btnTestGemini: document.getElementById('btn-test-gemini'),
     geminiTestStatus: document.getElementById('gemini-test-status'),
+    groupRemote: document.getElementById('group-remote'),
+    cfgRemoteUrl: document.getElementById('cfg-remote-url'),
+    btnTestRemote: document.getElementById('btn-test-remote'),
+    remoteTestStatus: document.getElementById('remote-test-status'),
     engineSummaryHint: document.getElementById('engine-summary-hint'),
     cfgVoiceSelect: document.getElementById('cfg-voice-select'),
     btnTestVoice: document.getElementById('btn-test-voice'),
@@ -239,15 +243,30 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       dom.valScale.textContent = `${AppState.avatarScale.toFixed(2)}x`;
       dom.valDist.textContent = `${(1.5 + AppState.avatarDistance).toFixed(2)}m`;
 
-      if (AppState.engine === 'cloud') {
-        dom.groupGemini.style.display = 'block';
-        dom.groupLocalModel.style.display = 'none';
-        dom.engineSummaryHint.textContent = 'Connects to Google Gemini 2.5 Flash cloud API for fast answers.';
-      } else {
-        dom.groupGemini.style.display = 'none';
-        dom.groupLocalModel.style.display = 'block';
-        dom.engineSummaryHint.textContent = 'Runs 100% offline via CPU WebAssembly (WASM). Zero API keys, completely private.';
+      if (dom.cfgRemoteUrl) {
+        dom.cfgRemoteUrl.value = AppState.remoteServerUrl || 'http://localhost:8080';
       }
+
+      function updateEngineVisibility(engine) {
+        if (engine === 'cloud') {
+          if (dom.groupGemini) dom.groupGemini.style.display = 'block';
+          if (dom.groupLocalModel) dom.groupLocalModel.style.display = 'none';
+          if (dom.groupRemote) dom.groupRemote.style.display = 'none';
+          dom.engineSummaryHint.textContent = 'Connects to Google Gemini 2.5 Flash cloud API for fast answers.';
+        } else if (engine === 'remote') {
+          if (dom.groupGemini) dom.groupGemini.style.display = 'none';
+          if (dom.groupLocalModel) dom.groupLocalModel.style.display = 'none';
+          if (dom.groupRemote) dom.groupRemote.style.display = 'block';
+          dom.engineSummaryHint.textContent = 'Connects to your local PC/Mac server over Wi-Fi for ultra-low latency & 8B models.';
+        } else {
+          if (dom.groupGemini) dom.groupGemini.style.display = 'none';
+          if (dom.groupLocalModel) dom.groupLocalModel.style.display = 'block';
+          if (dom.groupRemote) dom.groupRemote.style.display = 'none';
+          dom.engineSummaryHint.textContent = 'Runs 100% offline via CPU WebAssembly (WASM). Zero API keys, completely private.';
+        }
+      }
+
+      updateEngineVisibility(AppState.engine);
 
       const questNotice = document.getElementById('quest-engine-notice');
       if (questNotice) {
@@ -268,14 +287,54 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
   if (dom.cfgEngineSelect) {
     dom.cfgEngineSelect.onchange = () => {
-      if (dom.cfgEngineSelect.value === 'cloud') {
-        dom.groupGemini.style.display = 'block';
-        dom.groupLocalModel.style.display = 'none';
+      const selected = dom.cfgEngineSelect.value;
+      if (selected === 'cloud') {
+        if (dom.groupGemini) dom.groupGemini.style.display = 'block';
+        if (dom.groupLocalModel) dom.groupLocalModel.style.display = 'none';
+        if (dom.groupRemote) dom.groupRemote.style.display = 'none';
         dom.engineSummaryHint.textContent = 'Connects to Google Gemini 2.5 Flash cloud API for fast answers.';
+      } else if (selected === 'remote') {
+        if (dom.groupGemini) dom.groupGemini.style.display = 'none';
+        if (dom.groupLocalModel) dom.groupLocalModel.style.display = 'none';
+        if (dom.groupRemote) dom.groupRemote.style.display = 'block';
+        dom.engineSummaryHint.textContent = 'Connects to your local PC/Mac server over Wi-Fi for ultra-low latency & 8B models.';
       } else {
-        dom.groupGemini.style.display = 'none';
-        dom.groupLocalModel.style.display = 'block';
+        if (dom.groupGemini) dom.groupGemini.style.display = 'none';
+        if (dom.groupLocalModel) dom.groupLocalModel.style.display = 'block';
+        if (dom.groupRemote) dom.groupRemote.style.display = 'none';
         dom.engineSummaryHint.textContent = 'Runs 100% offline via CPU WebAssembly (WASM). Zero API keys, completely private.';
+      }
+    };
+  }
+
+  if (dom.btnTestRemote) {
+    dom.btnTestRemote.onclick = async () => {
+      unlockAudio();
+      const testUrl = dom.cfgRemoteUrl ? dom.cfgRemoteUrl.value.trim() : '';
+      if (!testUrl) {
+        if (dom.remoteTestStatus) {
+          dom.remoteTestStatus.textContent = '⚠️ Enter Server URL first';
+          dom.remoteTestStatus.style.color = '#f59e0b';
+        }
+        return;
+      }
+      if (dom.remoteTestStatus) {
+        dom.remoteTestStatus.textContent = 'Testing connection...';
+        dom.remoteTestStatus.style.color = '#38bdf8';
+      }
+
+      AppState.remoteServerUrl = testUrl;
+      const check = await checkRemoteServerResponsiveness(testUrl);
+      if (check.responsive) {
+        if (dom.remoteTestStatus) {
+          dom.remoteTestStatus.textContent = `✅ Connected! (${check.cores} cores)`;
+          dom.remoteTestStatus.style.color = '#10b981';
+        }
+      } else {
+        if (dom.remoteTestStatus) {
+          dom.remoteTestStatus.textContent = `❌ ${check.reason}`;
+          dom.remoteTestStatus.style.color = '#ef4444';
+        }
       }
     };
   }
@@ -465,6 +524,9 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
       AppState.geminiKey = dom.cfgGeminiKey.value.trim();
       AppState.engine = dom.cfgEngineSelect.value;
+      if (dom.cfgRemoteUrl) {
+        AppState.remoteServerUrl = dom.cfgRemoteUrl.value.trim() || 'http://localhost:8080';
+      }
       AppState.localModel = dom.cfgLocalModel.value;
       if (dom.cfgSpaceSelect && dom.cfgSpaceSelect.value !== prevSpace) {
         switchSpace(dom.cfgSpaceSelect.value);

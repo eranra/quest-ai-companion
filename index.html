@@ -62,7 +62,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.5.4</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.6.0</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -359,6 +359,7 @@
         <label class="form-label">AI Engine</label>
         <select id="cfg-engine-select" class="form-input">
           <option value="local" selected>🏠 Local CPU WASM (100% Offline - Works on Quest 3, Mobile & PC)</option>
+          <option value="remote">🖥️ Local PC Server (Standalone Mac / PC / Linux on Wi-Fi - Ultra-Fast)</option>
           <option value="cloud">☁️ Google Gemini Cloud API (Ultra-Fast 2.5 Flash)</option>
         </select>
         <p id="engine-summary-hint" class="help-hint" style="margin-top: 4px;">
@@ -379,6 +380,21 @@
           <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen 2.5 0.5B Neural (Deeper Quality, ~350 MB)</option>
         </select>
         <p class="help-hint">Cached automatically in browser storage (IndexedDB) for offline use.</p>
+      </div>
+
+      <!-- Remote PC Server Group -->
+      <div id="group-remote" class="form-group" style="display: none;">
+        <label class="form-label">Local PC / Mac Server Address</label>
+        <input id="cfg-remote-url" type="text" class="form-input" placeholder="http://192.168.1.100:8080" value="http://localhost:8080">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+          <button id="btn-test-remote" type="button" class="action-btn" style="padding: 6px 14px; font-size: 11px;">
+            <span>🔍 Test Server Connection</span>
+          </button>
+          <span id="remote-test-status" style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Not tested</span>
+        </div>
+        <p class="help-hint" style="margin-top: 4px;">
+          Connects over local Wi-Fi to the standalone server running on your Mac/PC/Linux for high-end models & sub-second latency.
+        </p>
       </div>
 
       <!-- Gemini API Key & Responsiveness Group -->
@@ -638,7 +654,7 @@
   <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query -->
   <script type="module">
     const params = new URLSearchParams(window.location.search);
-    const v = params.get('v') || 'v0.5.4';
+    const v = params.get('v') || 'v0.6.0';
     import(`./js/app.js?v=${v}`);
   </script>
 

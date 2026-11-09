@@ -2,10 +2,32 @@
 // Provides browser environment sensing (time, battery, specs) and 3D scene control (spaces, avatars, camera)
 import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
-import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
-import { buildAvatar, getDefaultVoiceForAvatar, AVATAR_IDS } from '../avatars/index.js';
-import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene/index.js';
-import { setActiveVoiceId } from '../audio/neural_tts.js';
+
+export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
+export const SPACE_IDS = ['hall', 'garden', 'penthouse', 'cafe', 'passthrough'];
+export const AVATAR_VOICES = {
+  echo: 'en_US-kathleen-low',
+  spark: 'en_US-ryan-low',
+  pip: 'en_US-amy-low',
+  ollie: 'en_US-ryan-low',
+  maya: 'en_US-amy-low',
+  alex: 'en_US-ryan-low'
+};
+
+const sceneHooks = {
+  switchSpace: null,
+  buildAvatar: null,
+  applyAvatarTransform: null,
+  getDefaultVoiceForAvatar: (id) => AVATAR_VOICES[id] || 'en_US-amy-low',
+  setActiveVoiceId: null,
+  flipAvatarOrientation: null,
+  resetCameraView: null,
+  getAvatarGroup: () => null
+};
+
+export function registerSceneHooks(hooks) {
+  Object.assign(sceneHooks, hooks);
+}
 
 export const TOOL_DEFINITIONS = [
   {
@@ -144,13 +166,16 @@ export function executeChangeAvatar(avatarId) {
   }
   AppState.save();
 
-  if (avatarGroup) {
-    buildAvatar(validId, avatarGroup);
-    applyAvatarTransform();
+  const group = sceneHooks.getAvatarGroup ? sceneHooks.getAvatarGroup() : null;
+  if (sceneHooks.buildAvatar && group) {
+    sceneHooks.buildAvatar(validId, group);
+    if (sceneHooks.applyAvatarTransform) sceneHooks.applyAvatarTransform();
   }
 
-  const defaultVoice = getDefaultVoiceForAvatar(validId);
-  setActiveVoiceId(defaultVoice);
+  const defaultVoice = sceneHooks.getDefaultVoiceForAvatar(validId);
+  if (sceneHooks.setActiveVoiceId) {
+    sceneHooks.setActiveVoiceId(defaultVoice);
+  }
 
   const name = validId.charAt(0).toUpperCase() + validId.slice(1);
   logDebug('TOOL', `Avatar changed to ${name} (${validId}), voice: ${defaultVoice}`);
@@ -174,10 +199,19 @@ export function executeChangeSpace(spaceId) {
   else if (clean.includes('cafe') || clean.includes('bistro') || clean.includes('paris')) target = 'cafe';
   else if (clean.includes('pass') || clean.includes('real') || clean.includes('room') || clean.includes('immerse')) target = 'passthrough';
   else if (clean.includes('hall') || clean.includes('sci')) target = 'hall';
-  else if (SPACE_DEFINITIONS.some(s => s.id === clean)) target = clean;
+  else if (SPACE_IDS.includes(clean)) target = clean;
 
-  const def = switchSpace(target);
-  const spaceName = def ? def.name : target;
+  AppState.spaceId = target;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('quest_space_id', target);
+  }
+  AppState.save();
+
+  let spaceName = target.charAt(0).toUpperCase() + target.slice(1);
+  if (sceneHooks.switchSpace) {
+    const def = sceneHooks.switchSpace(target);
+    if (def && def.name) spaceName = def.name;
+  }
   logDebug('TOOL', `3D space switched to: ${spaceName} (${target})`);
   return {
     spaceId: target,
@@ -255,7 +289,7 @@ export async function executeTool(name, args = {}) {
     }
 
     case 'recenter_view': {
-      resetCameraView();
+      if (sceneHooks.resetCameraView) sceneHooks.resetCameraView();
       return {
         success: true,
         tool: 'recenter_view',
