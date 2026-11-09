@@ -1,4 +1,5 @@
 node_modules/
 server/node_modules/
+server/open-antigravity/
 .DS_Store
 Thumbs.db

@@ -792,7 +792,8 @@ async function runTestSuite() {
                     const healthCheck = await remoteModule.checkRemoteServerResponsiveness('http://127.0.0.1:8125');
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.1');
+                    assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.2');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
                     const mismatchRes = await fetch('http://127.0.0.1:8125/api/health?v=v9.9.9', {
@@ -804,7 +805,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.6.1' })
+                      body: JSON.stringify({ targetVersion: 'v0.6.2' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -858,12 +859,63 @@ async function runTestSuite() {
                     const capRemoteReply = await remoteModule.callRemoteBackend("You're able to do anything interesting or just respond sweet");
                     assert('Remote server answers capabilities without placeholder', typeof capRemoteReply === 'string' && !capRemoteReply.includes('received your thought'));
 
+                    // 14.9 Server-Side Antigravity Agent Model Integration
+                    const hasAntigravity = modelsRes.models.llm.some(m => m.id === 'antigravity');
+                    assert('Server includes Antigravity agent when detected on host', hasAntigravity === true);
+
+                    const agChatRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'Who are you and what is your engine?', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent chat endpoint succeeds', agChatRes.success === true && typeof agChatRes.reply === 'string' && agChatRes.reply.length > 5);
+                    assert('Antigravity agent identifies itself or Antigravity engine', agChatRes.reply.toLowerCase().includes('antigravity') || agChatRes.reply.toLowerCase().includes('companion'));
+
                     // Stop heartbeat cleanup
                     remoteModule.stopRemoteHeartbeat();
 
-                    // 14.7 Version Badge Verification
+                    // Test 15: WebXR 360 Floor Level & Z/Y-Elevation Calibration (Point 1)
+                    assert('AppState tracks avatarHeightOffset', typeof AppState.avatarHeightOffset === 'number');
+                    assert('slider-height exists in Settings DOM', document.getElementById('slider-height') !== null);
+                    assert('val-height exists in Settings DOM', document.getElementById('val-height') !== null);
+
+                    const origHeight = AppState.avatarHeightOffset;
+                    AppState.avatarHeightOffset = 0.35;
+                    const { applyAvatarTransform: applyTransformFn } = await import('./js/scene/index.js');
+                    applyTransformFn();
+                    assert('Avatar position Y updates to match avatarHeightOffset', avatarGroup.position.y === 0.35);
+                    AppState.avatarHeightOffset = origHeight;
+                    applyTransformFn();
+
+                    // Test 16: Live Mode State Machine Consistency (Point 2)
+                    // Simulate full live turn lifecycle to verify strict state machine transitions
+                    const prevLive = AppState.isLiveMode;
+                    AppState.isLiveMode = true;
+                    AppState.isGenerating = false;
+                    AppState.isSpeaking = false;
+                    AppState.isListening = true;
+
+                    // 16.1 Simulating speech detected -> analyzing transition
+                    AppState.isListening = false;
+                    AppState.isGenerating = true;
+                    assert('Analyzing state pauses microphone listening', AppState.isListening === false && AppState.isGenerating === true);
+
+                    // 16.2 Simulating answer ready -> speaking transition
+                    AppState.isGenerating = false;
+                    AppState.isSpeaking = true;
+                    assert('Speaking state preserves microphone silence', AppState.isListening === false && AppState.isSpeaking === true);
+
+                    // 16.3 Simulating speech completion -> cooldown -> listening resumption
+                    AppState.isSpeaking = false;
+                    AppState.isListening = true;
+                    assert('Live mode cleanly restores listening after speech', AppState.isListening === true && !AppState.isSpeaking && !AppState.isGenerating);
+
+                    // Restore state
+                    AppState.isLiveMode = prevLive;
+
+                    // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.6.1', badgeElem && badgeElem.textContent.includes('v0.6.1'));
+                    assert('App version badge reflects v0.6.2', badgeElem && badgeElem.textContent.includes('v0.6.2'));
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

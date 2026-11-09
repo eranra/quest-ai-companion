@@ -4,7 +4,7 @@ import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
 import { executeTool } from './tools.js';
 
-let clientVersion = 'v0.6.1';
+let clientVersion = 'v0.6.2';
 let heartbeatTimer = null;
 let onServerStatusChangeCallback = null;
 let cachedRemoteModels = null;
@@ -81,6 +81,7 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
         server: data.server,
         platform: data.platform,
         cores: data.cores,
+        hardware: data.hardware || null,
         serverVersion: data.version,
         clientVersion: data.clientVersion,
         versionMatch: data.versionMatch,

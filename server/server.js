@@ -28,6 +28,11 @@ import {
   processActionTagsInModelOutput,
   getLiveEnvironmentContext
 } from '../js/ai/tools.js';
+import {
+  isAntigravityAvailable,
+  generateAntigravityResponse,
+  detectAntigravity
+} from './antigravity.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +41,35 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 
 let isUpgrading = false;
+
+const cpuCores = os.cpus().length || 4;
+export const hardwareAcceleration = {
+  cores: cpuCores,
+  device: 'cpu',
+  gpuAccelerated: false,
+  wasmThreads: Math.min(cpuCores, 16)
+};
+
+async function configureHardwareAcceleration(env) {
+  if (env && env.backends && env.backends.onnx) {
+    env.backends.onnx.wasm.numThreads = hardwareAcceleration.wasmThreads;
+    try {
+      if (typeof env.backends.onnx.getSupportedDevices === 'function') {
+        const supported = await env.backends.onnx.getSupportedDevices();
+        if (supported.includes('dml')) {
+          hardwareAcceleration.device = 'dml';
+          hardwareAcceleration.gpuAccelerated = true;
+        } else if (supported.includes('webgpu')) {
+          hardwareAcceleration.device = 'webgpu';
+          hardwareAcceleration.gpuAccelerated = true;
+        }
+      }
+    } catch (e) {
+      hardwareAcceleration.device = 'cpu';
+    }
+  }
+  return hardwareAcceleration;
+}
 
 /**
  * Catalog of available models running locally on the PC Server via WebAssembly (WASM)
@@ -61,6 +95,15 @@ export const AVAILABLE_MODELS = {
   ]
 };
 
+// Add Antigravity Server-Side Deep Reasoning Agent if installed on the host PC
+if (isAntigravityAvailable()) {
+  AVAILABLE_MODELS.llm.push({
+    id: 'antigravity',
+    name: 'Google Antigravity Agent (Server Deep Reasoning)',
+    isServerOnly: true
+  });
+}
+
 export let activeModels = {
   stt: 'whisper-tiny',
   llm: 'instant-companion',
@@ -84,10 +127,20 @@ async function getWasmTextGenerator(modelId) {
   try {
     const { pipeline, env } = await import('@huggingface/transformers');
     env.allowLocalModels = true;
-    activeTextGenerator = await pipeline('text-generation', config.hfId, {
-      dtype: 'q4',
-      device: 'cpu'
-    });
+    await configureHardwareAcceleration(env);
+
+    try {
+      activeTextGenerator = await pipeline('text-generation', config.hfId, {
+        dtype: 'q4',
+        device: hardwareAcceleration.device
+      });
+    } catch (devErr) {
+      console.warn(`[Server] Device ${hardwareAcceleration.device} failed, using multi-core CPU:`, devErr.message);
+      activeTextGenerator = await pipeline('text-generation', config.hfId, {
+        dtype: 'q4',
+        device: 'cpu'
+      });
+    }
     activeLlmModelId = modelId;
     return activeTextGenerator;
   } catch (err) {
@@ -105,10 +158,20 @@ async function getWasmWhisper(modelId) {
   try {
     const { pipeline, env } = await import('@huggingface/transformers');
     env.allowLocalModels = true;
-    activeWhisperPipeline = await pipeline('automatic-speech-recognition', config.hfId, {
-      dtype: 'q4',
-      device: 'cpu'
-    });
+    await configureHardwareAcceleration(env);
+
+    try {
+      activeWhisperPipeline = await pipeline('automatic-speech-recognition', config.hfId, {
+        dtype: 'q4',
+        device: hardwareAcceleration.device
+      });
+    } catch (devErr) {
+      console.warn(`[Server] Device ${hardwareAcceleration.device} failed, using multi-core CPU:`, devErr.message);
+      activeWhisperPipeline = await pipeline('automatic-speech-recognition', config.hfId, {
+        dtype: 'q4',
+        device: 'cpu'
+      });
+    }
     activeSttModelId = config.id;
     return activeWhisperPipeline;
   } catch (err) {
@@ -231,7 +294,19 @@ async function generateServerResponse(prompt, persona, spaceId, history, request
   const modelId = requestedModel || activeModels.llm || 'instant-companion';
   const systemPrompt = buildAgentSystemPrompt({ persona, spaceId });
 
-  // 1. If a WASM LLM model is selected
+  // 1. If Antigravity deep reasoning model is selected
+  if (modelId === 'antigravity') {
+    try {
+      const agReply = await generateAntigravityResponse(prompt, history, spaceId);
+      if (agReply && agReply.trim()) {
+        return { text: agReply.trim(), source: 'antigravity-agent' };
+      }
+    } catch (e) {
+      console.warn('[Server] Antigravity generation error, falling back:', e.message);
+    }
+  }
+
+  // 2. If a WASM LLM model is selected
   if (modelId !== 'instant-companion') {
     const generator = await getWasmTextGenerator(modelId);
     if (generator) {
@@ -346,6 +421,13 @@ export function createServer() {
         platform: os.platform(),
         arch: os.arch(),
         cores: os.cpus().length,
+        hardware: {
+          cores: os.cpus().length,
+          device: hardwareAcceleration.device,
+          gpuAccelerated: hardwareAcceleration.gpuAccelerated,
+          wasmThreads: hardwareAcceleration.wasmThreads
+        },
+        antigravity: detectAntigravity(),
         memoryFreeMb: Math.round(os.freemem() / 1024 / 1024),
         memoryTotalMb: Math.round(os.totalmem() / 1024 / 1024),
         models: AVAILABLE_MODELS,
@@ -625,10 +707,13 @@ export function startServer(port = DEFAULT_PORT) {
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.listen(port, '0.0.0.0', () => {
+      const ag = detectAntigravity();
       console.log(`====================================================`);
       console.log(`🚀 Quest AI Companion Server running on:`);
       console.log(`   Local:   http://localhost:${port}`);
       console.log(`   Network: http://0.0.0.0:${port}`);
+      console.log(`   Hardware: ${hardwareAcceleration.gpuAccelerated ? 'DirectML GPU' : 'Multi-Core CPU'} (${os.cpus().length} cores, ${hardwareAcceleration.wasmThreads} WASM threads)`);
+      console.log(`   Antigravity Agent: ${ag.installed ? `Available (${ag.running ? 'Live Session' : 'Binary Found'})` : 'Not Detected'}`);
       console.log(`====================================================`);
       resolve(server);
     });

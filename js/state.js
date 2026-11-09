@@ -40,6 +40,7 @@ export const AppState = {
   avatarDistance: parseFloat(storage.getItem('quest_avatar_dist') || '0.0'),
   avatarScale: parseFloat(storage.getItem('quest_avatar_scale') || '1.0'),
   avatarRotationY: parseFloat(storage.getItem('quest_avatar_roty') || '0.0'),
+  avatarHeightOffset: parseFloat(storage.getItem('quest_avatar_height_offset') || '0.0'),
   
   // Live Mode Sensitivity / Noise Threshold ('high_filter', 'normal', 'sensitive')
   liveSensitivity: storage.getItem('quest_live_sensitivity') || 'normal',
@@ -62,6 +63,7 @@ export const AppState = {
     storage.setItem('quest_avatar_dist', this.avatarDistance.toFixed(2));
     storage.setItem('quest_avatar_scale', this.avatarScale.toFixed(2));
     storage.setItem('quest_avatar_roty', this.avatarRotationY.toFixed(4));
+    storage.setItem('quest_avatar_height_offset', this.avatarHeightOffset.toFixed(2));
     storage.setItem('quest_live_sensitivity', this.liveSensitivity);
     storage.setItem('quest_echo_guard', this.echoGuardMode);
     storage.setItem('quest_stt_engine', this.sttEngine);

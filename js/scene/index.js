@@ -87,13 +87,16 @@ export function applyAvatarTransform() {
   const isXR = renderer && renderer.xr && renderer.xr.isPresenting;
   const baseZ = isXR ? -1.8 : 0.0;
   avatarGroup.position.z = baseZ - AppState.avatarDistance;
+  avatarGroup.position.y = AppState.avatarHeightOffset || 0.0;
   avatarGroup.rotation.y = AppState.avatarRotationY;
 
   if (hudElement) {
     const scaleVal = hudElement.querySelector('#hud-scale-val');
     const distVal = hudElement.querySelector('#hud-dist-val');
+    const heightVal = hudElement.querySelector('#hud-height-val');
     if (scaleVal) scaleVal.textContent = `${AppState.avatarScale.toFixed(2)}x`;
     if (distVal) distVal.textContent = `${(1.8 + AppState.avatarDistance).toFixed(2)}m`;
+    if (heightVal) heightVal.textContent = `${(AppState.avatarHeightOffset || 0.0).toFixed(2)}m`;
   }
 }
 

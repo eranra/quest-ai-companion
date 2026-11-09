@@ -1,6 +1,6 @@
 {
-  "version": "v0.6.1",
-  "build": 48,
-  "released_at": "2026-11-09T20:52:00Z",
-  "changelog": "v0.6.1: 1) Native WebAssembly (WASM) Standalone Server AI Pipelines: Whisper STT, SmolLM2/Qwen LLMs, and Piper Neural TTS running 100% locally on PC multi-core CPU without external dependencies; 2) Dynamic PC Model Catalog & Quest 3 Selection: UI settings dynamically query PC models (/api/models) and allow selecting STT, LLM, and Voice models; 3) Agentic Process & Tooling Fixes: Fixed speech matching for natural phrasing, eliminated placeholder replies, enabled server-dispatched 3D world actions."
+  "version": "v0.6.2",
+  "build": 49,
+  "released_at": "2026-11-09T22:30:00Z",
+  "changelog": "v0.6.2: 1) WebXR 360 Floor Level & Horizon Alignment: 360 photo equirectangular sky domes centered at 1.6m eye height above physical local-floor, added real-time Avatar Height / Elevation Level Offset (Z/Y) slider and Quest 3 Touch Controller Grip+Stick shortcut; 2) Live Mode State Machine: strict acoustic echo isolation pauses mic during analyzing & speaking with 350ms cooldown before restoring listening, preventing feedback loops and confusion; 3) Multi-Core & DirectML GPU Acceleration: configured ONNX Runtime to use 20 CPU threads and DirectML GPU acceleration; 4) Server-Side Antigravity Agent Model: auto-detects host Antigravity installation/language server and exposes Google Antigravity Agent with deep agentic reasoning in Quest 3 model selection."
 }

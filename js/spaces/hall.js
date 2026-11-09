@@ -17,7 +17,8 @@ export function createStudyHallSpace() {
     depthWrite: false
   });
   const skyDome = new THREE.Mesh(sphereGeo, sphereMat);
-  skyDome.position.set(0, 1.0, 0);
+  // Centered at y = 1.6m (average human eye height in WebXR local-floor) so horizon is perfectly aligned
+  skyDome.position.set(0, 1.6, 0);
   group.add(skyDome);
 
   // 2. Physical 3D Hardwood Floor firmly grounding the avatar at y = 0

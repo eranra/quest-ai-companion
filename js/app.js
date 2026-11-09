@@ -54,7 +54,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.6.1';
+export const APP_VERSION = 'v0.6.2';
 
 // DOM References
 const dom = {
@@ -87,13 +87,13 @@ async function handleUserSpeech(userText) {
     return;
   }
 
-  // In Half-Duplex mode or Regular mode: ensure mic is stopped and closed while AI is analyzing & speaking!
-  if (!AppState.isLiveMode || AppState.echoGuardMode === 'half_duplex') {
-    stopListening();
-    stopMicAnalyser();
-    if (dom.btnMic) dom.btnMic.classList.remove('listening');
-    if (dockController) dockController.updateMicUI(false);
-  }
+  // Always stop mic capturing while AI is analyzing & speaking to prevent speaker audio leakage
+  stopListening();
+  stopMicAnalyser();
+  AppState.isListening = false;
+  AppState.isGenerating = true;
+  if (dom.btnMic) dom.btnMic.classList.remove('listening');
+  if (dockController) dockController.updateMicUI(false);
 
   if (dom.promptInput) {
     dom.promptInput.value = '';
@@ -125,11 +125,13 @@ async function handleUserSpeech(userText) {
     logDebug('AI', `AI response ready in ${aiLatency}ms (${reply.length} chars)`);
 
     // Step 3: Answer Ready
+    AppState.isGenerating = false;
     setPipelineState('ready');
     dom.speechText.textContent = reply;
     updateVRHUDState({ status: 'Ready', text: reply });
 
     // Step 4: Speaking Reply
+    AppState.isSpeaking = true;
     setPipelineState('speaking', '🗣️ Speaking (Tap to stop)...');
     updateVRHUDState({ status: '🗣️ Speaking', text: reply });
     setActiveStage('speaking', `Speaking Reply (${AppState.ttsEngine})...`);
@@ -161,6 +163,8 @@ async function handleUserSpeech(userText) {
       }
     });
   } catch (err) {
+    AppState.isGenerating = false;
+    AppState.isSpeaking = false;
     console.error('Conversation Error:', err);
     dom.speechText.textContent = `Error: ${err.message}`;
     updateVRHUDState({ status: 'Error', text: err.message });
@@ -640,10 +644,17 @@ function initApp() {
   const bubbleElement = document.querySelector('.speech-bubble');
   if (bubbleElement) {
     bubbleElement.addEventListener('click', () => {
-      if (AppState.isSpeaking) {
+      if (AppState.isSpeaking || AppState.isGenerating) {
         stopSpeaking();
+        AppState.isSpeaking = false;
+        AppState.isGenerating = false;
         if (AppState.isLiveMode) {
           setPipelineState('listening', 'Interrupted. Listening...');
+          setTimeout(() => {
+            if (AppState.isLiveMode && !AppState.isSpeaking && !AppState.isGenerating) {
+              startListening();
+            }
+          }, 150);
         } else {
           setPipelineState('idle');
         }

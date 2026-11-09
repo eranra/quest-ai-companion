@@ -212,8 +212,8 @@ export async function startListeningWhisper() {
       // Check if avatar is speaking or generating
       const isAssistantActive = AppState.isSpeaking || AppState.isGenerating;
 
-      // In strict half-duplex mode: drop input while assistant is active
-      if (isAssistantActive && AppState.echoGuardMode === 'half_duplex') {
+      // When assistant is active (generating or speaking): drop input to eliminate acoustic self-echo and confusion
+      if (isAssistantActive) {
         audioChunks = [];
         preSpeechBuffer = [];
         speechDetected = false;

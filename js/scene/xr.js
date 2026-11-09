@@ -157,9 +157,16 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
       const stickX = axes.length >= 4 ? axes[2] : axes[0];
       const stickY = axes.length >= 4 ? axes[3] : axes[1];
 
+      // Check if Grip button is held for height/floor level adjustment
+      const isGripHeld = (gamepad.buttons[1] && gamepad.buttons[1].pressed) || (gamepad.buttons[2] && gamepad.buttons[2].pressed);
+
       // Vertical Stick: Move closer/further (Right) or Scale size (Left)
+      // When Grip is held: adjust Avatar Height / Floor Level Offset (-1.5m to +1.5m)
       if (Math.abs(stickY) > 0.15) {
-        if (handedness === 'right') {
+        if (isGripHeld) {
+          AppState.avatarHeightOffset = Math.max(-1.5, Math.min(1.5, (AppState.avatarHeightOffset || 0.0) - stickY * delta * 0.9));
+          transformChanged = true;
+        } else if (handedness === 'right') {
           AppState.avatarDistance += stickY * delta * 1.5;
           AppState.avatarDistance = Math.max(-1.5, Math.min(2.5, AppState.avatarDistance));
           transformChanged = true;
@@ -238,17 +245,20 @@ export function enterVR(renderer, scene, onSessionChange) {
   setSpaceVisibility(true);
   setVRHUDVisibility(true);
 
-  // Standard Three.js Quest 3 session configuration (verified reliable on Meta Quest 3 HorizonOS)
-  const sessionInit = {
-    optionalFeatures: ['local-floor', 'hit-test', 'hand-tracking']
-  };
+  // Configure session based on selected space:
+  // For 360 photo spaces (hall, garden, cafe, penthouse), use full 'immersive-vr' with required 'local-floor'
+  // For real room passthrough, use 'immersive-ar'
+  const isPassthrough = AppState.spaceId === 'passthrough';
+  const primaryMode = isPassthrough ? 'immersive-ar' : 'immersive-vr';
+  const sessionInit = isPassthrough
+    ? { optionalFeatures: ['local-floor', 'hit-test', 'hand-tracking'] }
+    : { requiredFeatures: ['local-floor'], optionalFeatures: ['hand-tracking'] };
 
-  // Synchronous call inside user gesture:
-  // Meta Quest 3 natively launches via 'immersive-ar' with 360 photo dome and 6DOF tracking!
-  const sessionPromise = navigator.xr.requestSession('immersive-ar', sessionInit)
-    .catch((arErr) => {
-      console.warn('immersive-ar request failed, trying immersive-vr fallback:', arErr);
-      return navigator.xr.requestSession('immersive-vr', {
+  const sessionPromise = navigator.xr.requestSession(primaryMode, sessionInit)
+    .catch((primaryErr) => {
+      console.warn(`${primaryMode} request failed, attempting fallback session:`, primaryErr);
+      const fallbackMode = isPassthrough ? 'immersive-vr' : 'immersive-ar';
+      return navigator.xr.requestSession(fallbackMode, {
         optionalFeatures: ['local-floor', 'hand-tracking']
       });
     });
@@ -271,9 +281,13 @@ export function enterVR(renderer, scene, onSessionChange) {
       });
 
       try {
+        // Enforce physical Guardian floor calibration as reference space
+        if (renderer.xr && typeof renderer.xr.setReferenceSpaceType === 'function') {
+          renderer.xr.setReferenceSpaceType('local-floor');
+        }
         await renderer.xr.setSession(session);
       } catch (xrErr) {
-        console.warn('Primary reference space setSession failed, attempting local fallback:', xrErr);
+        console.warn('Primary local-floor reference space setSession failed, attempting local fallback:', xrErr);
         try {
           renderer.xr.setReferenceSpaceType('local');
           await renderer.xr.setSession(session);

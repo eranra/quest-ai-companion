@@ -43,8 +43,10 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     btnTestVoice: document.getElementById('btn-test-voice'),
     sliderScale: document.getElementById('slider-scale'),
     sliderDist: document.getElementById('slider-dist'),
+    sliderHeight: document.getElementById('slider-height'),
     valScale: document.getElementById('val-scale'),
     valDist: document.getElementById('val-dist'),
+    valHeight: document.getElementById('val-height'),
     cfgSttEngine: document.getElementById('cfg-stt-engine'),
     whisperLoaderBox: document.getElementById('whisper-loader-box'),
     btnDownloadWhisper: document.getElementById('btn-download-whisper'),
@@ -282,8 +284,10 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       populateVoiceList();
       dom.sliderScale.value = AppState.avatarScale;
       dom.sliderDist.value = AppState.avatarDistance;
+      if (dom.sliderHeight) dom.sliderHeight.value = AppState.avatarHeightOffset || 0.0;
       dom.valScale.textContent = `${AppState.avatarScale.toFixed(2)}x`;
       dom.valDist.textContent = `${(1.5 + AppState.avatarDistance).toFixed(2)}m`;
+      if (dom.valHeight) dom.valHeight.textContent = `${(AppState.avatarHeightOffset || 0.0).toFixed(2)}m`;
 
       if (dom.cfgRemoteUrl) {
         dom.cfgRemoteUrl.value = AppState.remoteServerUrl || 'http://localhost:8080';
@@ -497,6 +501,14 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     dom.sliderDist.oninput = (e) => {
       AppState.avatarDistance = parseFloat(e.target.value);
       dom.valDist.textContent = `${(1.5 + AppState.avatarDistance).toFixed(2)}m`;
+      applyAvatarTransform();
+    };
+  }
+
+  if (dom.sliderHeight) {
+    dom.sliderHeight.oninput = (e) => {
+      AppState.avatarHeightOffset = parseFloat(e.target.value);
+      if (dom.valHeight) dom.valHeight.textContent = `${AppState.avatarHeightOffset.toFixed(2)}m`;
       applyAvatarTransform();
     };
   }
