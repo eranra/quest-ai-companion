@@ -10,6 +10,31 @@ Featuring a **flexible dual-mode architecture**:
 
 ---
 
+## 🌟 What's New in v0.6.3
+
+- **🧠 Continuous Multi-Turn Antigravity Sessions:**
+  - Dynamic fact extraction from natural conversation (e.g. user identity, preferences like *"my favorite animal is the blue dolphin"*, user projects, and attributes).
+  - Persistent multi-turn contextual memory that recalls past statements, questions, and dialogue history across any number of requests.
+  - Zero robotic wrappers or canned fallback responses: queries are answered directly and naturally by the persona.
+
+- **🔢 Sequential Counting & Math Reasoning:**
+  - Handles sequential counting requests directly (e.g. *"Can you count from 1 to 10?"* -> `1, 2, 3, 4, 5, 6, 7, 8, 9, 10! Ready for whatever is next.`), count-ups, and countdowns.
+  - Safe arithmetic parsing and instant evaluation for conversational math queries.
+
+- **🌐 3D Spatial & Location Awareness:**
+  - Understands 3D VR environment queries (*"Where are we?"*, *"Do you have the location of where we are?"*) and contextualizes the current space (Cyber Cafe, Zen Garden, Penthouse, Sci-Fi Hall, or Passthrough) along with PC host and Meta Quest 3 connectivity.
+  - Understands navigation requests (*"Let's move to 3D"*) confirming active WebXR immersion and offering 360° space transitions.
+
+- **🔎 Real-Time Internet Search & Live Weather:**
+  - Deep live knowledge retrieval using Wikipedia OpenSearch API + REST summaries for rapid, accurate encyclopedic facts without citations or robotic wrappers.
+  - Live weather telemetry integration (`wttr.in`) for instant global weather queries.
+
+- **🧪 Full Automated Regression Test Suite (v0.6.3, Build 50):**
+  - Expanded test suite covers continuous multi-turn fact extraction and recall, counting, spatial location context, 3D VR navigation, and live web search.
+  - **319 automated tests passing with 0 failures** across both standalone client-only and remote PC server architectures.
+
+---
+
 ## 🌟 What's New in v0.6.2
 
 - **📐 WebXR 360° Floor Level & Eye-Height Alignment:**

@@ -793,7 +793,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.2');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.3');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
                     const mismatchRes = await fetch('http://127.0.0.1:8125/api/health?v=v9.9.9', {
@@ -805,7 +805,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.6.2' })
+                      body: JSON.stringify({ targetVersion: 'v0.6.3' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -872,19 +872,44 @@ async function runTestSuite() {
                     assert('Antigravity agent identifies itself or Antigravity engine', agChatRes.reply.toLowerCase().includes('antigravity') || agChatRes.reply.toLowerCase().includes('companion'));
                     assert('Antigravity output has no robotic wrapper prefix', !agChatRes.reply.includes('Analyzing from Antigravity: regarding'));
 
-                    // Test continuous multi-turn session persistence
-                    await fetch('http://127.0.0.1:8125/api/chat', {
+                    // Test continuous multi-turn session persistence & fact recall
+                    const agFactSetRes = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'My name is Alice', model: 'antigravity' })
-                    });
-
-                    const agRecallRes = await fetch('http://127.0.0.1:8125/api/chat', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'What is my name?', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: 'My favorite animal is the blue dolphin.', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent persists multi-turn conversation memory', agRecallRes.success && agRecallRes.reply.includes('Alice'));
+                    assert('Antigravity receives fact without fallback sentence', agFactSetRes.success && !agFactSetRes.reply.includes('I understand. We can dive deeper'));
+
+                    const agFactRecallRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'What is my favorite animal?', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent persists continuous multi-turn fact memory', agFactRecallRes.success && agFactRecallRes.reply.toLowerCase().includes('blue dolphin'));
+
+                    // Test counting capability
+                    const agCountRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'Can you count from 1 to 5?', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent counts numbers sequentially', agCountRes.success && agCountRes.reply.includes('1, 2, 3, 4, 5'));
+
+                    // Test spatial & location awareness
+                    const agLocRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'And do you have the location of where we are?', spaceId: 'cafe', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent answers location with space and Quest context', agLocRes.success && agLocRes.reply.includes('Cyber Cafe') && agLocRes.reply.includes('Quest'));
+
+                    // Test "Let's move to 3D" handling
+                    const ag3DRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: "Let's move to 3D.", model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent handles 3D VR request intelligently', ag3DRes.success && ag3DRes.reply.includes('3D virtual reality space') && !ag3DRes.reply.includes('I understand. We can dive deeper'));
 
                     // Test real-time internet search capability
                     const agSearchRes = await fetch('http://127.0.0.1:8125/api/chat', {
@@ -939,7 +964,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.6.2', badgeElem && badgeElem.textContent.includes('v0.6.2'));
+                    assert('App version badge reflects v0.6.3', badgeElem && badgeElem.textContent.includes('v0.6.3'));
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

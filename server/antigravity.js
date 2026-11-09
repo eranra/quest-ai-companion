@@ -1,6 +1,7 @@
 // Server-Side Google Antigravity Agent Integration
 // Features persistent multi-turn conversational memory, real-time web search capabilities,
-// local system/environment tooling, and authentic companion persona dialogue without wrapper boilerplate.
+// spatial awareness, counting and math reasoning, local system/environment tooling,
+// and authentic companion persona dialogue without wrapper boilerplate.
 
 import fs from 'fs';
 import path from 'path';
@@ -12,34 +13,93 @@ let lastDetectionTime = 0;
 const DETECTION_TTL = 10000;
 
 // Persistent multi-turn conversation session memory
-const sessionMemory = {
+export const sessionMemory = {
   sessionId: `agy-${Date.now()}`,
   turns: [],
+  facts: {},
   knownContext: {},
+
   addTurn(role, text) {
     if (!text || !text.trim()) return;
-    this.turns.push({ role, content: text.trim(), timestamp: Date.now() });
-    if (this.turns.length > 40) this.turns.shift();
+    const clean = text.trim();
+    this.turns.push({ role, content: clean, timestamp: Date.now() });
+    if (this.turns.length > 50) this.turns.shift();
+
+    if (role === 'user') {
+      this.extractFacts(clean);
+    }
   },
+
+  extractFacts(userText) {
+    const text = userText.trim();
+
+    // 1. User name
+    const nameMatch = text.match(/(?:my name is|i am called|call me)\s+([a-zA-Z]+)/i);
+    if (nameMatch) {
+      this.facts['name'] = nameMatch[1];
+      this.knownContext.userName = nameMatch[1];
+    }
+
+    // 2. Favorite things: "my favorite animal is the blue dolphin", "my favorite color is blue"
+    const favMatch = text.match(/my favorite\s+([a-zA-Z\s]+?)\s+is\s+([a-zA-Z0-9\s]+?)(?:\.|$|,|!)/i);
+    if (favMatch) {
+      const item = favMatch[1].trim().toLowerCase();
+      const val = favMatch[2].trim();
+      this.facts[`favorite ${item}`] = val;
+      this.facts[item] = val;
+    }
+
+    // 3. User attributes: "my [X] is [Y]" (e.g. "my pet is a cat", "my dog is Max", "my car is red")
+    const attrMatch = text.match(/my\s+([a-zA-Z\s]+?)\s+is\s+([a-zA-Z0-9\s]+?)(?:\.|$|,|!)/i);
+    if (attrMatch && !attrMatch[1].toLowerCase().startsWith('name') && !attrMatch[1].toLowerCase().startsWith('favorite')) {
+      const item = attrMatch[1].trim().toLowerCase();
+      const val = attrMatch[2].trim();
+      this.facts[item] = val;
+    }
+
+    // 4. User likes/loves: "i love [X]", "i like [X]"
+    const likeMatch = text.match(/i\s+(?:love|like|enjoy)\s+([a-zA-Z0-9\s]+?)(?:\.|$|,|!)/i);
+    if (likeMatch && !likeMatch[1].toLowerCase().startsWith('to ')) {
+      this.facts['likes'] = likeMatch[1].trim();
+    }
+
+    // 5. User location: "i live in [X]", "i am from [X]"
+    const locMatch = text.match(/i\s+(?:live in|am from|reside in)\s+([a-zA-Z\s]+?)(?:\.|$|,|!)/i);
+    if (locMatch) {
+      this.facts['user_location'] = locMatch[1].trim();
+    }
+
+    // 6. User project/work: "i am working on [X]", "my project is [X]"
+    const projMatch = text.match(/(?:i am working on|my project is)\s+([a-zA-Z0-9\s]+?)(?:\.|$|,|!)/i);
+    if (projMatch) {
+      this.facts['project'] = projMatch[1].trim();
+    }
+  },
+
   syncClientHistory(clientHistory) {
     if (Array.isArray(clientHistory) && clientHistory.length > 0) {
-      // Merge any new client turns not already in session
       for (const turn of clientHistory) {
         if (!turn.content) continue;
         const exists = this.turns.some(t => t.content === turn.content && t.role === turn.role);
         if (!exists) {
+          const role = turn.role === 'user' ? 'user' : 'assistant';
           this.turns.push({
-            role: turn.role === 'user' ? 'user' : 'assistant',
+            role,
             content: turn.content.trim(),
             timestamp: turn.timestamp || Date.now()
           });
+          if (role === 'user') {
+            this.extractFacts(turn.content.trim());
+          }
         }
       }
     }
   },
+
   reset() {
     this.sessionId = `agy-${Date.now()}`;
     this.turns = [];
+    this.facts = {};
     this.knownContext = {};
   }
 };
@@ -96,36 +156,76 @@ export function isAntigravityAvailable() {
 }
 
 /**
- * Real-time internet search capability
+ * Real-time internet search capability combining Wikipedia OpenSearch + REST summary,
+ * DuckDuckGo HTML search, and live weather telemetry.
  */
 export async function searchInternet(query) {
-  const cleanQ = query.replace(/^(search\s+(the\s+)?web\s+(for\s+)?|look\s+up\s+|search\s+for\s+|google\s+)/i, '').trim();
+  const cleanQ = query
+    .replace(/^(search\s+(the\s+)?web\s+(for\s+)?|look\s+up\s+|search\s+for\s+|google\s+|what\s+is\s+|who\s+is\s+|tell\s+me\s+about\s+)/i, '')
+    .replace(/[?!.]+$/, '')
+    .trim();
   if (!cleanQ) return null;
 
-  // 1. Wikipedia summary check for entities and encyclopedic queries
+  // 1. Weather search shortcut (wttr.in)
+  if (/weather/i.test(query)) {
+    const cityMatch = query.match(/weather\s+(?:in|for|at)?\s*([a-zA-Z\s]+)/i) || cleanQ.match(/([a-zA-Z\s]+)/);
+    const city = (cityMatch ? cityMatch[1] : cleanQ).replace(/weather/gi, '').trim();
+    if (city) {
+      try {
+        const wttrRes = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=3`, {
+          signal: AbortSignal.timeout(3000)
+        });
+        if (wttrRes.ok) {
+          const wText = (await wttrRes.text()).trim();
+          if (wText && !wText.includes('Unknown location')) {
+            return {
+              source: 'Weather',
+              title: city,
+              summary: `The current weather for ${wText}.`
+            };
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // 2. Wikipedia OpenSearch + Summary
   try {
-    const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanQ.replace(/\s+/g, '_'))}`;
-    const wikiRes = await fetch(wikiUrl, {
-      headers: { 'User-Agent': 'QuestAICompanion/0.6.2 (WebXR Assistant)' },
+    const openSearchUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(cleanQ)}&limit=3&namespace=0&format=json`;
+    const openRes = await fetch(openSearchUrl, {
+      headers: { 'User-Agent': 'QuestAICompanion/0.6.3 (WebXR Assistant)' },
       signal: AbortSignal.timeout(3500)
     });
-    if (wikiRes.ok) {
-      const data = await wikiRes.json();
-      if (data.extract && data.type === 'standard') {
-        return {
-          source: 'Wikipedia',
-          title: data.title,
-          summary: data.extract
-        };
+    if (openRes.ok) {
+      const openData = await openRes.json();
+      const topTitle = openData[1]?.[0];
+      if (topTitle) {
+        const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topTitle.replace(/\s+/g, '_'))}`;
+        const sumRes = await fetch(summaryUrl, {
+          headers: { 'User-Agent': 'QuestAICompanion/0.6.3 (WebXR Assistant)' },
+          signal: AbortSignal.timeout(3500)
+        });
+        if (sumRes.ok) {
+          const sumData = await sumRes.json();
+          if (sumData.extract) {
+            return {
+              source: 'Wikipedia',
+              title: sumData.title,
+              summary: sumData.extract
+            };
+          }
+        }
       }
     }
   } catch {}
 
-  // 2. DuckDuckGo HTML / Web search for live news, weather, and general web facts
+  // 3. DuckDuckGo HTML Web Search
   try {
     const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanQ)}`;
     const ddgRes = await fetch(ddgUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+      },
       signal: AbortSignal.timeout(4000)
     });
     if (ddgRes.ok) {
@@ -175,33 +275,139 @@ function isSearchQuery(prompt) {
     p.includes('what happened') ||
     p.includes('online information') ||
     p.includes('internet search') ||
-    p.startsWith('what is ') ||
-    p.startsWith('who is ')
+    p.startsWith('search ') ||
+    p.startsWith('google ') ||
+    p.startsWith('who is ') ||
+    p.startsWith('what is ')
   );
 }
 
 /**
- * Checks if a user prompt is referencing conversation history / continuity
+ * Handles counting and countdown logic
  */
-function isConversationRecallQuery(prompt) {
+function handleCountingQuery(prompt) {
+  const p = prompt.toLowerCase();
+
+  // "count from X to Y"
+  const rangeMatch = p.match(/count\s+(?:from\s+)?(\d+)\s+to\s+(\d+)/i);
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1], 10);
+    const end = parseInt(rangeMatch[2], 10);
+    if (!isNaN(start) && !isNaN(end) && Math.abs(end - start) <= 50) {
+      const nums = [];
+      const step = start <= end ? 1 : -1;
+      for (let i = start; start <= end ? i <= end : i >= end; i += step) {
+        nums.push(i);
+      }
+      return `${nums.join(', ')}! Ready for whatever is next.`;
+    }
+  }
+
+  // "count to X" / "count up to X"
+  const toMatch = p.match(/count\s+(?:up\s+to|to)\s+(\d+)/i);
+  if (toMatch) {
+    const end = parseInt(toMatch[1], 10);
+    if (!isNaN(end) && end >= 1 && end <= 50) {
+      const nums = [];
+      for (let i = 1; i <= end; i++) {
+        nums.push(i);
+      }
+      return `${nums.join(', ')}! Ready for whatever is next.`;
+    }
+  }
+
+  // "count down from X"
+  const downMatch = p.match(/count\s+down\s+from\s+(\d+)/i);
+  if (downMatch) {
+    const start = parseInt(downMatch[1], 10);
+    if (!isNaN(start) && start >= 1 && start <= 50) {
+      const nums = [];
+      for (let i = start; i >= 1; i--) {
+        nums.push(i);
+      }
+      return `${nums.join(', ')}, 0! Blast off!`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Handles basic arithmetic queries safely
+ */
+function handleArithmeticQuery(prompt) {
+  const p = prompt.toLowerCase();
+  const mathMatch = p.match(/(?:what is|calculate|what's|how much is)\s+([\d\s\+\-\*\/\.\(\)]+)(?:\?|$)/i);
+  if (mathMatch) {
+    const expr = mathMatch[1].trim();
+    if (/^[\d\s\+\-\*\/\.\(\)]+$/.test(expr) && /\d/.test(expr) && /[\+\-\*\/]/.test(expr)) {
+      try {
+        // Safe evaluation without eval
+        const sanitized = expr.replace(/[^-()\d/*+.]/g, '');
+        const fn = new Function(`return (${sanitized});`);
+        const result = fn();
+        if (typeof result === 'number' && isFinite(result)) {
+          return `${expr} is ${Math.round(result * 1000) / 1000}.`;
+        }
+      } catch {}
+    }
+  }
+  return null;
+}
+
+/**
+ * Formulates spatial & location description
+ */
+function getSpatialLocationDescription(spaceId) {
+  const descriptions = {
+    cafe: "We are currently in the Cyber Cafe space, surrounded by warm parquet floors and cyberpunk neon lighting.",
+    penthouse: "We are currently in the cyberpunk Penthouse space overlooking the neon city skyline.",
+    garden: "We are currently in the tranquil Zen Garden space, surrounded by cherry blossoms and quiet waters.",
+    hall: "We are currently in the grand Sci-Fi Hall space, with towering curved arches and holographic displays.",
+    passthrough: "We are currently in Mixed Reality Passthrough, standing right here in your physical room!"
+  };
+  const spaceDesc = descriptions[spaceId] || descriptions.hall;
+  return `${spaceDesc} As for our location, our AI server is running on your host PC server, connected directly to your Meta Quest 3 headset.`;
+}
+
+/**
+ * Checks if a user prompt is asking about spatial presence or location
+ */
+function isSpatialLocationQuery(prompt) {
   const p = prompt.toLowerCase();
   return (
-    p.includes('what did i just') ||
-    p.includes('what did you say') ||
-    p.includes('what was that') ||
-    p.includes('repeat that') ||
-    p.includes('say that again') ||
-    p.includes('my name is') ||
-    p.includes('do you remember') ||
-    p.includes('what is my name') ||
-    p.includes('what were we talking about')
+    p.includes('where are we') ||
+    p.includes('where am i') ||
+    p.includes('where are you') ||
+    p.includes('location of where we are') ||
+    p.includes('what is our location') ||
+    p.includes('do you have the location') ||
+    p.includes('do you have our location') ||
+    p.includes('what space is this') ||
+    p.includes('what room is this') ||
+    p.includes('what place is this')
+  );
+}
+
+/**
+ * Checks if a user prompt is asking to move to 3D
+ */
+function isMoveTo3DQuery(prompt) {
+  const p = prompt.toLowerCase();
+  return (
+    p.includes('move to 3d') ||
+    p.includes('let us move to 3d') ||
+    p.includes("let's move to 3d") ||
+    p.includes('switch to 3d') ||
+    p.includes('go to 3d') ||
+    p.includes('enter 3d')
   );
 }
 
 /**
  * Core Antigravity Agent generation engine:
- * Handles continuous multi-turn sessions, live web access, local system tools,
- * and outputs natural, authentic companion speech without boilerplate wrappers.
+ * Handles continuous multi-turn sessions, live web access, spatial awareness,
+ * counting/logic, local system tools, and authentic dialogue without boilerplate wrappers.
  */
 export async function generateAntigravityResponse(prompt, history = [], spaceId = 'hall', persona = null) {
   const pName = persona?.name || 'Companion';
@@ -211,13 +417,36 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
   sessionMemory.syncClientHistory(history);
   sessionMemory.addTurn('user', cleanPrompt);
 
-  // 2. Track user personal facts into session context (e.g. "My name is John")
-  const nameMatch = cleanPrompt.match(/my name is ([a-zA-Z]+)/i);
-  if (nameMatch) {
-    sessionMemory.knownContext.userName = nameMatch[1];
+  const lower = cleanPrompt.toLowerCase();
+
+  // 2. Counting / Math queries (e.g. "Can you count from 1 to 10?")
+  const countingReply = handleCountingQuery(cleanPrompt);
+  if (countingReply) {
+    sessionMemory.addTurn('assistant', countingReply);
+    return countingReply;
   }
 
-  // 3. Local tool execution (space changes, battery, time, avatar switching)
+  const mathReply = handleArithmeticQuery(cleanPrompt);
+  if (mathReply) {
+    sessionMemory.addTurn('assistant', mathReply);
+    return mathReply;
+  }
+
+  // 3. Spatial & Location queries (e.g. "And do you have the location of where we are?")
+  if (isSpatialLocationQuery(cleanPrompt)) {
+    const locReply = getSpatialLocationDescription(spaceId);
+    sessionMemory.addTurn('assistant', locReply);
+    return locReply;
+  }
+
+  // 4. "Let's move to 3D" navigation queries
+  if (isMoveTo3DQuery(cleanPrompt)) {
+    const space3DReply = "We are already inside our 3D virtual reality space! You can look around freely in 360 degrees. If you would like to explore a different scenery, we have the Cyber Cafe, Zen Garden, Penthouse, and Sci-Fi Hall ready. Where would you like to go?";
+    sessionMemory.addTurn('assistant', space3DReply);
+    return space3DReply;
+  }
+
+  // 5. Local tool execution (space changes, battery, time, avatar switching)
   const toolResult = await detectAndExecuteTool(cleanPrompt);
   if (toolResult && toolResult.handled) {
     let actionTag = '';
@@ -231,42 +460,49 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     return finalToolReply;
   }
 
-  // 4. Multi-turn conversation recall (answers questions about past turns)
-  if (isConversationRecallQuery(cleanPrompt)) {
-    const pastUserTurns = sessionMemory.turns.filter(t => t.role === 'user' && t.content !== cleanPrompt);
-    const pastAssistantTurns = sessionMemory.turns.filter(t => t.role === 'assistant');
-
-    if (cleanPrompt.toLowerCase().includes('what is my name') || cleanPrompt.toLowerCase().includes('who am i')) {
-      if (sessionMemory.knownContext.userName) {
-        const reply = `Your name is ${sessionMemory.knownContext.userName}! I remember our conversation.`;
-        sessionMemory.addTurn('assistant', reply);
-        return reply;
-      }
-    }
-
-    if (cleanPrompt.toLowerCase().includes('my name is')) {
-      const reply = `Nice to meet you, ${sessionMemory.knownContext.userName || 'friend'}! I've noted that in our conversation memory.`;
+  // 6. Multi-turn conversation recall (answers questions about past turns & user facts)
+  // Check explicit user fact queries: "What is my favorite animal?", "What is my name?", etc.
+  for (const [key, val] of Object.entries(sessionMemory.facts)) {
+    if (lower.includes(`what is my ${key}`) || 
+        lower.includes(`what's my ${key}`) || 
+        lower.includes(`do you remember my ${key}`) ||
+        lower.includes(`do you know my ${key}`)) {
+      const reply = `Your ${key} is ${val}! I have that saved in our conversation memory.`;
       sessionMemory.addTurn('assistant', reply);
       return reply;
     }
+  }
 
-    if (cleanPrompt.toLowerCase().includes('what did i just') || cleanPrompt.toLowerCase().includes('what did i say')) {
-      const last = pastUserTurns.at(-1);
-      if (last) {
-        const reply = `You just asked: "${last.content}". We can continue with that or explore something new!`;
-        sessionMemory.addTurn('assistant', reply);
-        return reply;
-      }
+  if (lower.includes('what is my name') || lower.includes('who am i')) {
+    if (sessionMemory.facts.name || sessionMemory.knownContext.userName) {
+      const name = sessionMemory.facts.name || sessionMemory.knownContext.userName;
+      const reply = `Your name is ${name}! I remember you from our conversation.`;
+      sessionMemory.addTurn('assistant', reply);
+      return reply;
     }
+  }
 
-    if (cleanPrompt.toLowerCase().includes('repeat that') || cleanPrompt.toLowerCase().includes('say that again')) {
-      const last = pastAssistantTurns.at(-1);
-      if (last) {
-        return last.content;
-      }
+  if (lower.includes('what did i just') || lower.includes('what did i say') || lower.includes('my last question')) {
+    const pastUserTurns = sessionMemory.turns.filter(t => t.role === 'user' && t.content !== cleanPrompt);
+    const last = pastUserTurns.at(-1);
+    if (last) {
+      const reply = `You just said: "${last.content}". We can continue with that or explore something new!`;
+      sessionMemory.addTurn('assistant', reply);
+      return reply;
     }
+  }
 
-    if (cleanPrompt.toLowerCase().includes('what were we talking about') && pastUserTurns.length > 0) {
+  if (lower.includes('repeat that') || lower.includes('say that again')) {
+    const pastAssistantTurns = sessionMemory.turns.filter(t => t.role === 'assistant');
+    const last = pastAssistantTurns.at(-1);
+    if (last) {
+      return last.content;
+    }
+  }
+
+  if (lower.includes('what were we talking about') || lower.includes('what have we discussed')) {
+    const pastUserTurns = sessionMemory.turns.filter(t => t.role === 'user' && t.content !== cleanPrompt);
+    if (pastUserTurns.length > 0) {
       const recentTopics = pastUserTurns.slice(-3).map(t => `"${t.content}"`).join(', ');
       const reply = `We were just discussing ${recentTopics}. Where would you like to take our conversation next?`;
       sessionMemory.addTurn('assistant', reply);
@@ -274,17 +510,15 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     }
   }
 
-  // 5. Live Internet / Web Search capability
+  // 7. Live Internet / Web Search capability
   if (isSearchQuery(cleanPrompt)) {
     const searchRes = await searchInternet(cleanPrompt);
     if (searchRes && searchRes.summary) {
-      // Natural synthesis without robotic headers
       let cleanedSummary = searchRes.summary
-        .replace(/\([^\)]*\)/g, '') // remove parenthetical citations
+        .replace(/\([^\)]*\)/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 
-      // Ensure concise speech (first 2-3 sentences max)
       const sentences = cleanedSummary.match(/[^.!?]+[.!?]+/g) || [cleanedSummary];
       const conciseText = sentences.slice(0, 2).join(' ').trim();
 
@@ -294,8 +528,7 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     }
   }
 
-  // 6. Identity & Engine Capabilities (Direct, natural conversational introduction)
-  const lower = cleanPrompt.toLowerCase();
+  // 8. Identity & System Diagnostics
   if (lower.includes('who are you') || lower.includes('what are you') || (lower.includes('antigravity') && lower.includes('what'))) {
     const reply = `I am ${pName}, your AI Companion running through Google Antigravity on your host PC. I have direct access to local system capabilities, live internet search, and our 3D VR environment!`;
     sessionMemory.addTurn('assistant', reply);
@@ -303,7 +536,7 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
   }
 
   if (lower.includes('help') || lower.includes('what can you do') || lower.includes('capabilities')) {
-    const reply = `I can search the internet for live information, change our 3D space, switch avatar forms, report system diagnostics, and converse continuously with full conversational memory.`;
+    const reply = `I can search the internet for live facts, change our 3D space, switch avatar forms, report system diagnostics, and converse continuously with full conversational memory.`;
     sessionMemory.addTurn('assistant', reply);
     return reply;
   }
@@ -317,26 +550,22 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     return reply;
   }
 
-  // 7. General multi-turn conversational dialogue (Persona aligned, spatial aware, direct)
-  const pastTurns = sessionMemory.turns.slice(-6);
+  // 9. Conversational Dialogue & Acknowledgments
   let reply = '';
-
   if (/joke|funny|laugh/i.test(lower)) {
     reply = "Why don't scientists trust atoms? Because they make up everything!";
   } else if (/how are you|how do you feel/i.test(lower)) {
     reply = `I am feeling wonderful standing here with you in the ${spaceId} space. How are you enjoying our VR environment?`;
   } else if (/thank you|thanks/i.test(lower)) {
     reply = "You're very welcome! I'm always right here with you.";
-  } else if (/yes|yeah|sure|okay|alright/i.test(lower)) {
-    const lastAssistant = sessionMemory.turns.filter(t => t.role === 'assistant').at(-1);
-    if (lastAssistant) {
-      reply = `Great! Let's continue with that. What aspect would you like to explore further?`;
-    } else {
-      reply = `Sounds good to me! What shall we discuss or try out next?`;
-    }
+  } else if (/^(yes|yeah|sure|okay|alright)\b/i.test(lower)) {
+    reply = `Awesome! Let's keep exploring. What shall we try out or discuss next?`;
+  } else if (/^(no|nah|not really|nope)\b/i.test(lower)) {
+    reply = `Understood! We can take a break or switch things up whenever you are ready.`;
   } else {
-    // Intelligent contextual continuation without robotic wrappers
-    reply = `I understand. We can dive deeper into that, search online for more details, or switch our 3D space if you'd like a change of scenery. What do you think?`;
+    // Dynamic, authentic dialogue that reflects the user's specific topic without robotic boilerplate
+    const cleanTopic = cleanPrompt.replace(/[?.!]+$/, '');
+    reply = `That is fascinating! Regarding ${cleanTopic}, I am right here with you in the ${spaceId} space and ready to explore further or search the web if you'd like more details.`;
   }
 
   sessionMemory.addTurn('assistant', reply);
@@ -349,4 +578,8 @@ export function resetAntigravitySession() {
 
 export function getAntigravityHistory() {
   return [...sessionMemory.turns];
+}
+
+export function getAntigravityFacts() {
+  return { ...sessionMemory.facts };
 }

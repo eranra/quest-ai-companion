@@ -31,7 +31,8 @@ import {
 import {
   isAntigravityAvailable,
   generateAntigravityResponse,
-  detectAntigravity
+  detectAntigravity,
+  resetAntigravitySession
 } from './antigravity.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -232,9 +233,9 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.6.2';
+    return JSON.parse(raw).version || 'v0.6.3';
   } catch {
-    return 'v0.6.2';
+    return 'v0.6.3';
   }
 }
 
@@ -551,6 +552,7 @@ export function createServer() {
           const intent = classifyUserIntent(userPrompt);
           if (intent === 'reset') {
             clearConversationHistory();
+            resetAntigravitySession();
             finalReply = `I have reset our conversation memory. What would you like to discuss next?`;
           } else {
             // 3. Multi-turn context & LLM generation
@@ -687,6 +689,7 @@ export function createServer() {
     // Route: POST /api/reset
     if (req.method === 'POST' && pathname === '/api/reset') {
       clearConversationHistory();
+      resetAntigravitySession();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, message: 'Conversation memory cleared.' }));
       return;
