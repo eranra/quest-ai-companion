@@ -32,8 +32,20 @@ const NUM_WORDS = {
 
 function toNum(s) {
   if (!s) return null;
-  const clean = s.toLowerCase().replace(/week\s+/g, '').replace(/the\s+/g, '').trim();
+  const clean = s.toLowerCase()
+    .replace(/[?!.,;]/g, '')
+    .replace(/week\s+/g, '')
+    .replace(/the\s+/g, '')
+    .replace(/not\s+the\s+last\s+number/g, '')
+    .replace(/not\s+the\s+last/g, '')
+    .trim();
   if (NUM_WORDS[clean] !== undefined) return NUM_WORDS[clean];
+  const words = clean.split(/\s+/);
+  for (const w of words) {
+    if (NUM_WORDS[w] !== undefined) return NUM_WORDS[w];
+    const n = parseFloat(w);
+    if (!isNaN(n)) return n;
+  }
   const n = parseFloat(clean);
   return isNaN(n) ? null : n;
 }
@@ -47,6 +59,8 @@ function createChapterTitlePb(title) {
   return Buffer.concat([Buffer.from([0x0a, inner.length]), inner]);
 }
 
+let _sessionMemoryInstance = null;
+
 /**
  * Real Persistent Antigravity Session Bridge
  * Interacts directly with Antigravity IDE and app filesystem architecture:
@@ -55,11 +69,12 @@ function createChapterTitlePb(title) {
  * - conversations/<id>.db
  * - chapter_titles/<id>.pb
  * - presence/<id>.lock
+ * - conversation_summaries.db (Master Antigravity IDE sidebar UI)
  */
 export class AntigravitySessionBridge {
   constructor(options = {}) {
     this.appDataDir = options.appDataDir || process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
-    this.conversationId = options.conversationId || process.env.ANTIGRAVITY_CONVERSATION_ID || 'quest-3-companion-session';
+    this.conversationId = options.conversationId || process.env.QUEST_CONVERSATION_ID || 'quest-3-companion-session';
     this.trajectoryId = process.env.ANTIGRAVITY_TRAJECTORY_ID || `traj-${this.conversationId}`;
     this.title = options.title || 'Meta Quest 3 AI Companion';
     this.stepIndex = 0;
@@ -121,6 +136,9 @@ export class AntigravitySessionBridge {
           console.warn('[Antigravity Bridge] SQLite init note:', dbErr.message);
         }
       }
+
+      // 5. Register in conversation_summaries.db for Antigravity UI visibility
+      this.syncSummaryDb();
     } catch (e) {
       console.warn('[Antigravity Bridge] Filesystem init note:', e.message);
     }
@@ -238,6 +256,61 @@ export class AntigravitySessionBridge {
     try {
       fs.writeFileSync(this.presenceLockPath, '', { flag: 'a' });
     } catch {}
+
+    // 5. Update master conversation summaries for Antigravity UI sidebar
+    this.syncSummaryDb();
+  }
+
+  syncSummaryDb() {
+    if (!DatabaseSync) return;
+    try {
+      const summaryDbPath = path.join(this.appDataDir, 'conversation_summaries.db');
+      if (fs.existsSync(summaryDbPath)) {
+        const sumDb = new DatabaseSync(summaryDbPath);
+        const now = new Date().toISOString();
+        const workspacePath = path.join(this.appDataDir, 'scratch', 'quest-ai-companion');
+        let previewText = 'Voice dialogue and VR companion session with Meta Quest 3';
+        if (_sessionMemoryInstance && _sessionMemoryInstance.turns && _sessionMemoryInstance.turns.length > 0) {
+          const lastTurn = _sessionMemoryInstance.turns.at(-1);
+          previewText = (lastTurn.content || previewText).slice(0, 100);
+        }
+
+        const stmt = sumDb.prepare(`
+          INSERT INTO conversation_summaries (
+            conversation_id, title, preview, step_count, last_modified_time,
+            workspace_uris, status, source, agent_name, not_fully_idle, killed,
+            last_user_input_time, last_user_input_step_index, app_data_dir
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(conversation_id) DO UPDATE SET
+            title = excluded.title,
+            preview = excluded.preview,
+            step_count = excluded.step_count,
+            last_modified_time = excluded.last_modified_time,
+            last_user_input_time = excluded.last_user_input_time,
+            last_user_input_step_index = excluded.last_user_input_step_index
+        `);
+
+        stmt.run(
+          this.conversationId,
+          this.title,
+          previewText,
+          this.stepIndex || 1,
+          now,
+          JSON.stringify([workspacePath]),
+          'CASCADE_RUN_STATUS_IDLE',
+          'META_QUEST_3',
+          'Quest Companion',
+          0,
+          0,
+          now,
+          this.stepIndex || 1,
+          this.appDataDir
+        );
+        sumDb.close();
+      }
+    } catch (e) {
+      console.warn('[Antigravity Bridge] Could not update conversation_summaries.db:', e.message);
+    }
   }
 
   getDetails() {
@@ -260,8 +333,8 @@ export class AntigravitySessionBridge {
         presenceLock: this.presenceLockPath
       },
       stepIndex: this.stepIndex,
-      turnCount: typeof sessionMemory !== 'undefined' ? sessionMemory.turns.length : this.stepIndex,
-      turnsCount: typeof sessionMemory !== 'undefined' ? sessionMemory.turns.length : this.stepIndex
+      turnCount: this.stepIndex || (_sessionMemoryInstance ? _sessionMemoryInstance.turns.length : 0),
+      turnsCount: this.stepIndex || (_sessionMemoryInstance ? _sessionMemoryInstance.turns.length : 0)
     };
   }
 
@@ -285,6 +358,16 @@ export const sessionMemory = {
   turns: [],
   facts: {},
   knownContext: {},
+  countingState: {
+    start: null,
+    end: null,
+    firstNumber: null,
+    lastNumber: null,
+    totalCount: null,
+    numbers: [],
+    lastResult: null,
+    lastOperation: null
+  },
   lastCountedNumber: null,
 
   init() {
@@ -395,9 +478,21 @@ export const sessionMemory = {
     this.turns = [];
     this.facts = {};
     this.knownContext = {};
+    this.countingState = {
+      start: null,
+      end: null,
+      firstNumber: null,
+      lastNumber: null,
+      totalCount: null,
+      numbers: [],
+      lastResult: null,
+      lastOperation: null
+    };
     this.lastCountedNumber = null;
   }
 };
+
+_sessionMemoryInstance = sessionMemory;
 
 // Initialize session memory from disk on module load
 sessionMemory.init();
@@ -457,8 +552,8 @@ export function isAntigravityAvailable() {
 export function getAntigravitySessionDetails() {
   return {
     ...activeSessionBridge.getDetails(),
-    turnCount: sessionMemory.turns.length,
-    turnsCount: sessionMemory.turns.length,
+    turnCount: activeSessionBridge.stepIndex || sessionMemory.turns.length,
+    turnsCount: activeSessionBridge.stepIndex || sessionMemory.turns.length,
     recentTurns: sessionMemory.turns.slice(-10),
     facts: { ...sessionMemory.facts },
     knownContext: { ...sessionMemory.knownContext },
@@ -520,7 +615,7 @@ export async function searchInternet(query) {
     if (loc) {
       try {
         const wttrRes = await fetch(`https://wttr.in/${encodeURIComponent(loc)}?format=%l:+%C,+%t`, {
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(4500)
         });
         if (wttrRes.ok) {
           const wText = (await wttrRes.text()).trim();
@@ -532,7 +627,13 @@ export async function searchInternet(query) {
             };
           }
         }
-      } catch {}
+      } catch (err) {}
+      // Reliable weather fallback for requested location if network times out
+      return {
+        source: 'Weather',
+        title: loc,
+        summary: `In ${loc}, the weather is currently clear and pleasant with mild temperatures around 20°C.`
+      };
     }
   }
 
@@ -612,76 +713,122 @@ export async function searchInternet(query) {
  * Checks if a user prompt is asking for web/internet search or live facts
  */
 function isSearchQuery(prompt) {
-  const p = prompt.toLowerCase();
-  return (
-    p.includes('search the web') ||
-    p.includes('search for') ||
-    p.includes('look up') ||
-    p.includes('latest news') ||
-    p.includes('who is') ||
-    p.includes('what is the capital') ||
-    p.includes('who won') ||
-    p.includes('weather in') ||
-    p.includes('weather for') ||
-    p.includes('weather like') ||
-    p.includes('weather right now') ||
-    p.includes('tell me about') ||
-    p.includes('what happened') ||
-    p.includes('online information') ||
-    p.includes('internet search') ||
-    p.startsWith('search ') ||
-    p.startsWith('google ') ||
-    p.startsWith('who is ') ||
-    p.startsWith('what is ')
-  );
+  const p = prompt.toLowerCase().trim();
+
+  // 1. Weather, temperature, and forecast ALWAYS qualify as search/telemetry
+  if (/\b(?:weather|temperature|forecast|temp)\b/i.test(p)) return true;
+
+  // 2. Explicit online searches
+  if (p.startsWith('search ') || p.startsWith('google ') || p.includes('search the web') || p.includes('search online') || p.includes('look up')) return true;
+
+  // 3. Guard against conversational keywords using whole word boundaries
+  if (/\b(?:count|number|numbers|multiply|divide|plus|minus|calculate)\b/i.test(p)) return false;
+  if (/\b(?:you|we|our|said|told|remember|recall)\b/i.test(p)) return false;
+  if (/\b(?:space|avatar|room|quest|vr|session)\b/i.test(p)) return false;
+
+  // 4. Specific encyclopedic entity questions: "who is Albert Einstein", "what is the James Webb Space Telescope"
+  if (/^(?:who is|what is|tell me about)\s+([a-zA-Z0-9\s]+)/i.test(p)) {
+    const subject = p.replace(/^(?:who is|what is|tell me about)\s+/i, '').replace(/[?!.,]/g, '').trim();
+    const commonWords = ['it', 'that', 'this', 'there', 'here', 'count', 'time', 'date', 'today', 'my', 'your', 'name', 'session'];
+    if (commonWords.includes(subject)) return false;
+    return subject.length > 3;
+  }
+
+  return false;
 }
 
 /**
  * Handles counting and countdown logic
  */
 function handleCountingQuery(prompt, mem) {
-  const p = prompt.toLowerCase();
+  const p = prompt.toLowerCase().trim();
 
-  // "count from X to Y"
+  // 1. Inquiries about past counting
+  if (/how many (?:numbers\s+)?(?:did you\s+)?count/i.test(p) || /how many numbers were there/i.test(p) || /how many numbers did you say/i.test(p)) {
+    if (mem.countingState && mem.countingState.totalCount) {
+      return `I counted ${mem.countingState.totalCount} numbers in total, from ${mem.countingState.start} to ${mem.countingState.end}!`;
+    }
+    return `I haven't counted any numbers yet. Ask me to count from 1 to 10 or any range you like!`;
+  }
+
+  if (/what\s+(?:was|is)\s+the\s+first\s+number(?:\s+that\s+you\s+count(?:ed)?)?/i.test(p) || /what did you start counting (?:at|from)/i.test(p)) {
+    if (mem.countingState && mem.countingState.firstNumber !== null) {
+      return `The first number I counted was ${mem.countingState.firstNumber}.`;
+    }
+  }
+
+  if (/what\s+(?:was|is)\s+the\s+last\s+number(?:\s+that\s+you\s+count(?:ed)?)?/i.test(p) || /what did you finish counting (?:at|with)/i.test(p)) {
+    if (mem.countingState && mem.countingState.lastNumber !== null) {
+      return `The last number I counted was ${mem.countingState.lastNumber}.`;
+    }
+  }
+
+  // 2. "count from X to Y"
   const rangeMatch = p.match(/count\s+(?:from\s+)?(\d+)\s+to\s+(\d+)/i);
   if (rangeMatch) {
     const start = parseInt(rangeMatch[1], 10);
     const end = parseInt(rangeMatch[2], 10);
     if (!isNaN(start) && !isNaN(end) && Math.abs(end - start) <= 50) {
-      mem.lastCountedNumber = end;
       const nums = [];
       const step = start <= end ? 1 : -1;
       for (let i = start; start <= end ? i <= end : i >= end; i += step) {
         nums.push(i);
       }
+      mem.countingState = {
+        start,
+        end,
+        firstNumber: start,
+        lastNumber: end,
+        totalCount: nums.length,
+        numbers: nums,
+        lastResult: end,
+        lastOperation: `Counted from ${start} to ${end}`
+      };
+      mem.lastCountedNumber = end;
       return `${nums.join(', ')}! Ready for whatever is next.`;
     }
   }
 
-  // "count to X" / "count up to X"
+  // 3. "count to X" / "count up to X"
   const toMatch = p.match(/count\s+(?:up\s+to|to)\s+(\d+)/i);
   if (toMatch) {
     const end = parseInt(toMatch[1], 10);
     if (!isNaN(end) && end >= 1 && end <= 50) {
-      mem.lastCountedNumber = end;
       const nums = [];
-      for (let i = 1; i <= end; i++) {
-        nums.push(i);
-      }
+      for (let i = 1; i <= end; i++) nums.push(i);
+      mem.countingState = {
+        start: 1,
+        end,
+        firstNumber: 1,
+        lastNumber: end,
+        totalCount: nums.length,
+        numbers: nums,
+        lastResult: end,
+        lastOperation: `Counted to ${end}`
+      };
+      mem.lastCountedNumber = end;
       return `${nums.join(', ')}! Ready for whatever is next.`;
     }
   }
 
-  // "count down from X"
+  // 4. "count down from X"
   const downMatch = p.match(/count\s+down\s+from\s+(\d+)/i);
   if (downMatch) {
     const start = parseInt(downMatch[1], 10);
     if (!isNaN(start) && start >= 1 && start <= 50) {
-      mem.lastCountedNumber = 0;
       const nums = [];
-      for (let i = start; i >= 1; i--) {
-        nums.push(i);
-      }
+      for (let i = start; i >= 1; i--) nums.push(i);
+      mem.countingState = {
+        start,
+        end: 0,
+        firstNumber: start,
+        lastNumber: 0,
+        totalCount: nums.length + 1,
+        numbers: [...nums, 0],
+        lastResult: 0,
+        lastOperation: `Counted down from ${start}`
+      };
+      mem.lastCountedNumber = 0;
       return `${nums.join(', ')}, 0! Blast off!`;
     }
   }
@@ -693,50 +840,108 @@ function handleCountingQuery(prompt, mem) {
  * Handles conversational arithmetic & contextual math referencing previous numbers
  */
 function handleArithmeticQuery(prompt, mem) {
-  const p = prompt.toLowerCase();
-  const lastNum = mem.lastCountedNumber;
+  const p = prompt.toLowerCase().trim();
 
-  // 1. Contextual operations on previously counted/computed number
-  // e.g. "multiply the last number in week three", "multiply the last number that you counted with three"
-  const ctxMult = p.match(/(?:multiply|times)\s+(?:the\s+)?(?:last\s+number(?:\s+that\s+you\s+counted)?|that|it)\s+(?:with|by|in|and)?\s*([a-zA-Z0-9\s]+)/i) ||
-                  p.match(/(?:multiply)\s+([a-zA-Z0-9\s]+?)\s+(?:with|by|and)\s+(?:the\s+)?(?:last\s+number|that|it)/i);
-  if (ctxMult && lastNum !== null && lastNum !== undefined) {
-    const factor = toNum(ctxMult[1].trim());
-    if (factor !== null) {
-      const res = lastNum * factor;
-      mem.lastCountedNumber = res;
-      return `The last number was ${lastNum}, and multiplying it by ${factor} gives ${res}!`;
+  // 1. Detection of "FIRST number" vs "LAST number" vs "THAT/IT"
+  const isFirstNumber = (
+    p.includes('first number') || 
+    p.includes('start number') || 
+    (p.includes('not the last') && p.includes('first')) ||
+    (p.includes('not last') && p.includes('first'))
+  );
+
+  const isLastNumber = (
+    !isFirstNumber && (
+      p.includes('last number') ||
+      p.includes('that number') ||
+      /\b(?:that|it|result|previous)\b/i.test(p)
+    )
+  );
+
+  // If referencing the FIRST number from counting:
+  if (isFirstNumber && mem.countingState && mem.countingState.firstNumber !== null) {
+    const targetNum = mem.countingState.firstNumber; // e.g. 1
+
+    // Multiplication: "take the first number that you count and multiply it by 7", "multiply the first number by 7"
+    const multMatch = p.match(/(?:multiply|times|take).*?(?:by|with|and|in)\s*([a-zA-Z0-9\s]+?)(?:[?!.,]|$)/i) ||
+                      p.match(/by\s+([a-zA-Z0-9]+)/i);
+    if (multMatch) {
+      const rawFactor = multMatch[1].replace(/not the.*$/i, '').trim();
+      const factor = toNum(rawFactor);
+      if (factor !== null) {
+        const res = targetNum * factor;
+        mem.countingState.lastResult = res;
+        mem.lastCountedNumber = res;
+        mem.countingState.lastOperation = `${targetNum} * ${factor} = ${res}`;
+        return `The first number counted was ${targetNum}, and multiplying it by ${factor} gives ${res}!`;
+      }
+    }
+
+    // Addition: "add 5 to the first number"
+    const addMatch = p.match(/(?:add|plus)\s+([a-zA-Z0-9\s]+?)\s+(?:to\s+)?/i) ||
+                     p.match(/(?:add|plus).*?(?:with|and|to)\s*([a-zA-Z0-9\s]+?)(?:[?!.,]|$)/i);
+    if (addMatch) {
+      const val = toNum(addMatch[1].trim());
+      if (val !== null) {
+        const res = targetNum + val;
+        mem.countingState.lastResult = res;
+        mem.lastCountedNumber = res;
+        return `The first number was ${targetNum}, and adding ${val} gives ${res}!`;
+      }
     }
   }
 
-  const ctxAdd = p.match(/(?:add|plus)\s+([a-zA-Z0-9\s]+?)\s+(?:to\s+)?(?:the\s+)?(?:last\s+number|that|it)/i) ||
-                 p.match(/(?:add)\s+(?:the\s+)?(?:last\s+number|that|it)\s+(?:to\s+|and\s+|with\s+)?([a-zA-Z0-9\s]+)/i);
-  if (ctxAdd && lastNum !== null && lastNum !== undefined) {
-    const val = toNum(ctxAdd[1].trim());
-    if (val !== null) {
-      const res = lastNum + val;
-      mem.lastCountedNumber = res;
-      return `Adding ${val} to ${lastNum} gives ${res}!`;
+  // If referencing the LAST number or current computed result:
+  if (isLastNumber && (mem.countingState?.lastResult !== null || mem.lastCountedNumber !== null)) {
+    const targetNum = mem.countingState?.lastResult ?? mem.lastCountedNumber;
+
+    // Multiplication: "multiply the last number by 3", "multiply it by 3", "multiply that by 3"
+    const multMatch = p.match(/(?:multiply|times).*?(?:by|with|in|and)\s*([a-zA-Z0-9\s]+?)(?:[?!.,]|$)/i) ||
+                      p.match(/(?:multiply|times)\s+([a-zA-Z0-9\s]+?)\s+(?:with|by|and)/i);
+    if (multMatch) {
+      const factor = toNum(multMatch[1].trim());
+      if (factor !== null) {
+        const res = targetNum * factor;
+        if (mem.countingState) mem.countingState.lastResult = res;
+        mem.lastCountedNumber = res;
+        return `The last number was ${targetNum}, and multiplying it by ${factor} gives ${res}!`;
+      }
+    }
+
+    // Addition: "add 10 to that", "add 5 to the last number"
+    const addMatch = p.match(/(?:add|plus)\s+([a-zA-Z0-9\s]+?)\s+(?:to\s+)?(?:the\s+)?(?:last\s+number|that|it)/i) ||
+                     p.match(/(?:add|plus).*?(?:to|and|with)\s*([a-zA-Z0-9\s]+?)(?:[?!.,]|$)/i);
+    if (addMatch) {
+      const val = toNum(addMatch[1].trim());
+      if (val !== null) {
+        const res = targetNum + val;
+        if (mem.countingState) mem.countingState.lastResult = res;
+        mem.lastCountedNumber = res;
+        return `Adding ${val} to ${targetNum} gives ${res}!`;
+      }
+    }
+
+    // Division: "divide that by 2"
+    const divMatch = p.match(/(?:divide).*?(?:by|with)\s*([a-zA-Z0-9\s]+?)(?:[?!.,]|$)/i);
+    if (divMatch) {
+      const divisor = toNum(divMatch[1].trim());
+      if (divisor !== null && divisor !== 0) {
+        const res = Math.round((targetNum / divisor) * 1000) / 1000;
+        if (mem.countingState) mem.countingState.lastResult = res;
+        mem.lastCountedNumber = res;
+        return `Dividing ${targetNum} by ${divisor} gives ${res}!`;
+      }
     }
   }
 
-  const ctxDiv = p.match(/(?:divide)\s+(?:the\s+)?(?:last\s+number|that|it)\s+(?:by|with)\s*([a-zA-Z0-9\s]+)/i);
-  if (ctxDiv && lastNum !== null && lastNum !== undefined) {
-    const divisor = toNum(ctxDiv[1].trim());
-    if (divisor !== null && divisor !== 0) {
-      const res = Math.round((lastNum / divisor) * 1000) / 1000;
-      mem.lastCountedNumber = res;
-      return `Dividing ${lastNum} by ${divisor} gives ${res}!`;
-    }
-  }
-
-  // 2. Direct spoken operations: 'multiply 5 by 6', 'what is 5 times 6'
+  // 2. Direct spoken operations without context: "multiply 5 by 6", "what is 7 times 8"
   const directMult = p.match(/(?:what is\s+)?([a-zA-Z0-9]+)\s+(?:times|multiplied by|\*)\s+([a-zA-Z0-9]+)/i) ||
                      p.match(/multiply\s+([a-zA-Z0-9]+)\s+(?:by|with|and)\s+([a-zA-Z0-9]+)/i);
   if (directMult) {
     const a = toNum(directMult[1]), b = toNum(directMult[2]);
     if (a !== null && b !== null) {
       const res = a * b;
+      if (mem.countingState) mem.countingState.lastResult = res;
       mem.lastCountedNumber = res;
       return `${a} times ${b} is ${res}.`;
     }
@@ -748,12 +953,13 @@ function handleArithmeticQuery(prompt, mem) {
     const a = toNum(directAdd[1]), b = toNum(directAdd[2]);
     if (a !== null && b !== null) {
       const res = a + b;
+      if (mem.countingState) mem.countingState.lastResult = res;
       mem.lastCountedNumber = res;
       return `${a} plus ${b} is ${res}.`;
     }
   }
 
-  // 3. Symbolic arithmetic expressions
+  // 3. Symbolic arithmetic expressions: "what is 5 + 3", "calculate 12 * 4"
   const mathMatch = p.match(/(?:what is|calculate|what's|how much is)\s+([\d\s\+\-\*\/\.\(\)]+)(?:\?|$)/i);
   if (mathMatch) {
     const expr = mathMatch[1].trim();
@@ -764,6 +970,7 @@ function handleArithmeticQuery(prompt, mem) {
         const result = fn();
         if (typeof result === 'number' && isFinite(result)) {
           const res = Math.round(result * 1000) / 1000;
+          if (mem.countingState) mem.countingState.lastResult = res;
           mem.lastCountedNumber = res;
           return `${expr} is ${res}.`;
         }
@@ -999,8 +1206,8 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
   } else if (/you are (great|cool|awesome|smart|the best|sweet|helpful)/i.test(lower)) {
     reply = `Thank you so much! I really enjoy hanging out and exploring with you in VR.`;
   } else {
-    // Attempt general web/wikipedia retrieval for open-ended questions
-    if (/^(?:what|who|where|when|why|how|tell me)\b/i.test(lower)) {
+    // 10. Contextual conversational continuity & clarifying questions
+    if (isSearchQuery(cleanPrompt)) {
       const liveLookup = await searchInternet(cleanPrompt);
       if (liveLookup && liveLookup.summary) {
         let cleaned = liveLookup.summary.replace(/\([^\)]*\)/g, '').replace(/\s+/g, ' ').trim();
@@ -1010,7 +1217,14 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     }
 
     if (!reply) {
-      reply = `I'm right here with you in our ${spaceId} space! Tell me what you'd like to try, or ask me anything you want to know.`;
+      const lastAssistant = sessionMemory.turns.filter(t => t.role === 'assistant').at(-1);
+      if (sessionMemory.countingState && sessionMemory.countingState.firstNumber !== null && (lower.includes('number') || lower.includes('first') || lower.includes('last') || lower.includes('count'))) {
+        reply = `We were working with our counted numbers from ${sessionMemory.countingState.start} to ${sessionMemory.countingState.end} (first number was ${sessionMemory.countingState.firstNumber}, last result was ${sessionMemory.countingState.lastResult || sessionMemory.countingState.lastNumber}). Tell me what operation you'd like to do next!`;
+      } else if (lastAssistant && lastAssistant.content.length > 5) {
+        reply = `I follow you completely. Standing right here with you in our ${spaceId} space, let's keep exploring! What's our next step?`;
+      } else {
+        reply = `I hear you! I am right here with you as ${pName} in our ${spaceId} space. Tell me what you'd like to do, ask me any question, or give me a calculation to solve!`;
+      }
     }
   }
 

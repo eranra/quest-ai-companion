@@ -911,7 +911,31 @@ async function runTestSuite() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ prompt: 'Can you multiply the last number in week three?', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent handles phonetic STT math phrases', agPhoneticRes.success && agPhoneticRes.reply.includes('90') || agPhoneticRes.reply.includes('30'));
+                    assert('Antigravity agent handles phonetic STT math phrases', agPhoneticRes.success && (agPhoneticRes.reply.includes('90') || agPhoneticRes.reply.includes('30')));
+
+                    // Test arithmetic referencing FIRST counted number: "Now I want you to take the first number that you count and multiply it by 7."
+                    const agFirstMultRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'Now I want you to take the first number that you count and multiply it by 7.', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent multiplies first counted number by 7 to get 7', agFirstMultRes.success && agFirstMultRes.reply.includes('7') && agFirstMultRes.reply.toLowerCase().includes('first number'));
+
+                    // Test user correction / emphasis: "I want you to multiply the first number that you counted by 7. Not the last number, the first number."
+                    const agClarifyRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'I want you to multiply the first number that you counted by 7. Not the last number, the first number.', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent correctly handles clarification and preserves first number multiplication', agClarifyRes.success && agClarifyRes.reply.includes('7') && !agClarifyRes.reply.includes('passthrough space'));
+
+                    // Test conversational inquiry: "How many numbers did you count?" (Must NOT trigger Wikipedia search for 'count')
+                    const agHowManyRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'How many numbers did you count?', model: 'antigravity' })
+                    }).then(r => r.json());
+                    assert('Antigravity agent recalls exact count of counted numbers without Wikipedia search', agHowManyRes.success && agHowManyRes.reply.includes('10') && !agHowManyRes.reply.includes('statistics') && !agHowManyRes.reply.includes('dataset'));
 
                     // Test positive feedback dialogue without repetitive canned loops
                     const agFunRes = await fetch('http://127.0.0.1:8125/api/chat', {
@@ -1094,6 +1118,12 @@ async function runTestSuite() {
               if (fs.existsSync(activeLog)) {
                 passed++;
                 console.log(`  ✅ [PASS] On-disk Antigravity session transcript verified: ${activeLog}`);
+              }
+
+              const sumDbPath = path.join(agBase, 'conversation_summaries.db');
+              if (fs.existsSync(sumDbPath)) {
+                passed++;
+                console.log(`  ✅ [PASS] On-disk Antigravity conversation_summaries.db verified: ${sumDbPath}`);
               }
 
               console.log('\n====================================================');
