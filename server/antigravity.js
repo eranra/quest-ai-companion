@@ -1,12 +1,21 @@
 // Server-Side Google Antigravity Agent Integration
-// Features persistent multi-turn conversational memory, real-time web search capabilities,
-// spatial awareness, contextual counting and math reasoning, local system/environment tooling,
-// and authentic companion persona dialogue without wrapper boilerplate.
+// Features persistent, real Antigravity conversation sessions visible in the Antigravity UI / IDE,
+// bidirectional sync with on-disk transcripts (JSONL) and voice chat logs (JSON),
+// native SQLite database integration, real-time web search capabilities, spatial awareness,
+// contextual counting and math reasoning, and authentic companion persona dialogue without wrapper boilerplate.
 
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { detectAndExecuteTool } from '../js/ai/tools.js';
+
+let DatabaseSync = null;
+try {
+  const sqliteMod = await import('node:sqlite');
+  DatabaseSync = sqliteMod.DatabaseSync;
+} catch (e) {
+  // Graceful fallback if SQLite module unavailable
+}
 
 let cachedDetection = null;
 let lastDetectionTime = 0;
@@ -29,23 +38,291 @@ function toNum(s) {
   return isNaN(n) ? null : n;
 }
 
-// Persistent multi-turn conversation session memory
+function createChapterTitlePb(title) {
+  const titleBuf = Buffer.from(title || 'Meta Quest 3 AI Companion', 'utf-8');
+  const f3 = Buffer.concat([Buffer.from([0x1a, titleBuf.length]), titleBuf]);
+  const f1_2 = Buffer.from([0x08, 0xa0, 0x2d, 0x10, 0xee, 0x39]);
+  const f4 = Buffer.from([0x22, 0x0c, 0x08, 0xdf, 0xf9, 0xca, 0xd7, 0x06, 0x10, 0xec, 0xf9, 0x8b, 0xd7, 0x01]);
+  const inner = Buffer.concat([f1_2, f3, f4]);
+  return Buffer.concat([Buffer.from([0x0a, inner.length]), inner]);
+}
+
+/**
+ * Real Persistent Antigravity Session Bridge
+ * Interacts directly with Antigravity IDE and app filesystem architecture:
+ * - brain/<id>/.system_generated/logs/transcript.jsonl
+ * - voice_chats/<id>.json
+ * - conversations/<id>.db
+ * - chapter_titles/<id>.pb
+ * - presence/<id>.lock
+ */
+export class AntigravitySessionBridge {
+  constructor(options = {}) {
+    this.appDataDir = options.appDataDir || process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
+    this.conversationId = options.conversationId || process.env.ANTIGRAVITY_CONVERSATION_ID || 'quest-3-companion-session';
+    this.trajectoryId = process.env.ANTIGRAVITY_TRAJECTORY_ID || `traj-${this.conversationId}`;
+    this.title = options.title || 'Meta Quest 3 AI Companion';
+    this.stepIndex = 0;
+    this.db = null;
+
+    this.initPaths();
+    this.initOnDisk();
+    this.loadFromDisk();
+  }
+
+  initPaths() {
+    this.brainDir = path.join(this.appDataDir, 'brain', this.conversationId);
+    this.logsDir = path.join(this.brainDir, '.system_generated', 'logs');
+    this.transcriptPath = path.join(this.logsDir, 'transcript.jsonl');
+    this.voiceChatPath = path.join(this.appDataDir, 'voice_chats', `${this.conversationId}.json`);
+    this.conversationDbPath = path.join(this.appDataDir, 'conversations', `${this.conversationId}.db`);
+    this.chapterTitlePath = path.join(this.appDataDir, 'chapter_titles', `${this.conversationId}.pb`);
+    this.presenceLockPath = path.join(this.appDataDir, 'presence', `${this.conversationId}.lock`);
+  }
+
+  initOnDisk() {
+    try {
+      fs.mkdirSync(this.logsDir, { recursive: true });
+      fs.mkdirSync(path.join(this.appDataDir, 'voice_chats'), { recursive: true });
+      fs.mkdirSync(path.join(this.appDataDir, 'conversations'), { recursive: true });
+      fs.mkdirSync(path.join(this.appDataDir, 'chapter_titles'), { recursive: true });
+      fs.mkdirSync(path.join(this.appDataDir, 'presence'), { recursive: true });
+
+      // 1. Ensure presence lock exists
+      fs.writeFileSync(this.presenceLockPath, '', { flag: 'a' });
+
+      // 2. Ensure chapter title exists
+      if (!fs.existsSync(this.chapterTitlePath)) {
+        fs.writeFileSync(this.chapterTitlePath, createChapterTitlePb(this.title));
+      }
+
+      // 3. Ensure voice chat json exists
+      if (!fs.existsSync(this.voiceChatPath)) {
+        const initVoice = {
+          chats: [
+            {
+              startedAt: new Date().toISOString(),
+              stoppedAt: null,
+              lines: []
+            }
+          ]
+        };
+        fs.writeFileSync(this.voiceChatPath, JSON.stringify(initVoice, null, 2));
+      }
+
+      // 4. Initialize SQLite database if available
+      if (DatabaseSync) {
+        try {
+          this.db = new DatabaseSync(this.conversationDbPath);
+          this.db.exec('CREATE TABLE IF NOT EXISTS trajectory_meta (trajectory_id text, cascade_id text, trajectory_type integer, source integer, PRIMARY KEY (trajectory_id))');
+          this.db.exec('CREATE TABLE IF NOT EXISTS steps (idx integer, step_type integer NOT NULL DEFAULT 0, status integer NOT NULL DEFAULT 0, has_subtrajectory numeric NOT NULL DEFAULT false, metadata blob, error_details blob, permissions blob, task_details blob, render_info blob, step_payload blob, step_format integer NOT NULL DEFAULT 0, PRIMARY KEY (idx))');
+          this.db.prepare('INSERT OR REPLACE INTO trajectory_meta (trajectory_id, cascade_id, trajectory_type, source) VALUES (?, ?, ?, ?)').run(this.trajectoryId, this.conversationId, 4, 1);
+        } catch (dbErr) {
+          console.warn('[Antigravity Bridge] SQLite init note:', dbErr.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[Antigravity Bridge] Filesystem init note:', e.message);
+    }
+  }
+
+  loadFromDisk() {
+    const loadedTurns = [];
+
+    // 1. Read from transcript.jsonl
+    if (fs.existsSync(this.transcriptPath)) {
+      try {
+        const raw = fs.readFileSync(this.transcriptPath, 'utf-8');
+        const lines = raw.trim().split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const step = JSON.parse(line);
+            if (typeof step.step_index === 'number') {
+              this.stepIndex = Math.max(this.stepIndex, step.step_index + 1);
+            }
+            if (step.content) {
+              const role = step.source === 'USER_EXPLICIT' || step.type === 'USER_INPUT' ? 'user' : 'assistant';
+              loadedTurns.push({ role, content: step.content.trim(), timestamp: new Date(step.created_at || Date.now()).getTime() });
+            }
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('[Antigravity Bridge] Could not read transcript.jsonl:', err.message);
+      }
+    }
+
+    // 2. Read from voice_chats/<id>.json if transcript was empty
+    if (loadedTurns.length === 0 && fs.existsSync(this.voiceChatPath)) {
+      try {
+        const vc = JSON.parse(fs.readFileSync(this.voiceChatPath, 'utf-8'));
+        const lines = vc?.chats?.[0]?.lines || [];
+        for (const l of lines) {
+          if (l.text) {
+            loadedTurns.push({
+              role: l.role === 'ROLE_USER' ? 'user' : 'assistant',
+              content: l.text.trim(),
+              timestamp: new Date(l.time || Date.now()).getTime()
+            });
+          }
+        }
+      } catch {}
+    }
+
+    return loadedTurns;
+  }
+
+  persistTurn(role, text) {
+    if (!text || !text.trim()) return;
+    const clean = text.trim();
+    const isoDate = new Date().toISOString();
+    const isUser = role === 'user';
+
+    // 1. Append to transcript.jsonl
+    try {
+      const stepObj = {
+        step_index: this.stepIndex++,
+        source: isUser ? 'USER_EXPLICIT' : 'MODEL',
+        type: isUser ? 'USER_INPUT' : 'PLANNER_RESPONSE',
+        status: 'DONE',
+        created_at: isoDate,
+        content: clean
+      };
+      fs.appendFileSync(this.transcriptPath, JSON.stringify(stepObj) + '\n', 'utf-8');
+    } catch (e) {
+      console.warn('[Antigravity Bridge] Could not append to transcript.jsonl:', e.message);
+    }
+
+    // 2. Append to voice_chats/<id>.json
+    try {
+      let vc = { chats: [{ startedAt: isoDate, stoppedAt: null, lines: [] }] };
+      if (fs.existsSync(this.voiceChatPath)) {
+        try {
+          const parsed = JSON.parse(fs.readFileSync(this.voiceChatPath, 'utf-8'));
+          if (parsed && typeof parsed === 'object') vc = parsed;
+        } catch {}
+      }
+      if (!vc.chats || !Array.isArray(vc.chats) || !vc.chats[0]) {
+        vc.chats = [{ startedAt: isoDate, stoppedAt: null, lines: [] }];
+      }
+      if (!Array.isArray(vc.chats[0].lines)) {
+        vc.chats[0].lines = [];
+      }
+      vc.chats[0].lines.push({
+        role: isUser ? 'ROLE_USER' : 'ROLE_VOICE',
+        text: clean,
+        time: isoDate
+      });
+      fs.writeFileSync(this.voiceChatPath, JSON.stringify(vc, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[Antigravity Bridge] Could not update voice_chats:', e.message);
+    }
+
+    // 3. Update SQLite database steps
+    if (this.db) {
+      try {
+        const stepType = isUser ? 14 : 15;
+        const payloadBuf = Buffer.from(JSON.stringify({ content: clean, role }), 'utf-8');
+        this.db.prepare('INSERT OR REPLACE INTO steps (idx, step_type, status, step_payload) VALUES (?, ?, ?, ?)').run(
+          this.stepIndex - 1,
+          stepType,
+          3,
+          payloadBuf
+        );
+      } catch (dbErr) {
+        // Fallback to json files is primary
+      }
+    }
+
+    // 4. Update presence lock
+    try {
+      fs.writeFileSync(this.presenceLockPath, '', { flag: 'a' });
+    } catch {}
+  }
+
+  getDetails() {
+    return {
+      active: true,
+      conversationId: this.conversationId,
+      trajectoryId: this.trajectoryId,
+      title: this.title,
+      appDataDir: this.appDataDir,
+      transcriptPath: this.transcriptPath,
+      voiceChatPath: this.voiceChatPath,
+      conversationDbPath: this.conversationDbPath,
+      chapterTitlePath: this.chapterTitlePath,
+      presenceLockPath: this.presenceLockPath,
+      paths: {
+        transcript: this.transcriptPath,
+        voiceChat: this.voiceChatPath,
+        sqlite: this.conversationDbPath,
+        chapterTitle: this.chapterTitlePath,
+        presenceLock: this.presenceLockPath
+      },
+      stepIndex: this.stepIndex,
+      turnCount: typeof sessionMemory !== 'undefined' ? sessionMemory.turns.length : this.stepIndex,
+      turnsCount: typeof sessionMemory !== 'undefined' ? sessionMemory.turns.length : this.stepIndex
+    };
+  }
+
+  setConversationId(newId, newTitle) {
+    if (!newId || newId === this.conversationId) return;
+    this.conversationId = newId;
+    if (newTitle) this.title = newTitle;
+    this.trajectoryId = `traj-${this.conversationId}`;
+    this.stepIndex = 0;
+    this.initPaths();
+    this.initOnDisk();
+  }
+}
+
+// Global active session bridge
+export const activeSessionBridge = new AntigravitySessionBridge();
+
+// Persistent multi-turn conversation session memory (In-memory cache synced with on-disk session)
 export const sessionMemory = {
-  sessionId: `agy-${Date.now()}`,
+  sessionId: activeSessionBridge.conversationId,
   turns: [],
   facts: {},
   knownContext: {},
   lastCountedNumber: null,
 
+  init() {
+    // Load prior turns from on-disk Antigravity session
+    const diskTurns = activeSessionBridge.loadFromDisk();
+    for (const turn of diskTurns) {
+      this.turns.push(turn);
+      if (turn.role === 'user') {
+        this.extractFacts(turn.content);
+      }
+    }
+  },
+
+  syncFromDisk() {
+    const diskTurns = activeSessionBridge.loadFromDisk();
+    for (const turn of diskTurns) {
+      const exists = this.turns.some(t => t.content === turn.content && t.role === turn.role);
+      if (!exists) {
+        this.turns.push(turn);
+        if (turn.role === 'user') {
+          this.extractFacts(turn.content);
+        }
+      }
+    }
+  },
+
   addTurn(role, text) {
     if (!text || !text.trim()) return;
     const clean = text.trim();
     this.turns.push({ role, content: clean, timestamp: Date.now() });
-    if (this.turns.length > 50) this.turns.shift();
+    if (this.turns.length > 60) this.turns.shift();
 
     if (role === 'user') {
       this.extractFacts(clean);
     }
+
+    // Persist to real Antigravity session on disk (transcript.jsonl, voice_chats, SQLite)
+    activeSessionBridge.persistTurn(role, clean);
   },
 
   extractFacts(userText) {
@@ -115,13 +392,15 @@ export const sessionMemory = {
   },
 
   reset() {
-    this.sessionId = `agy-${Date.now()}`;
     this.turns = [];
     this.facts = {};
     this.knownContext = {};
     this.lastCountedNumber = null;
   }
 };
+
+// Initialize session memory from disk on module load
+sessionMemory.init();
 
 /**
  * Detects whether Google Antigravity is installed or active on this host.
@@ -137,7 +416,8 @@ export function detectAntigravity() {
     path: null,
     running: false,
     lsAddress: process.env.ANTIGRAVITY_LS_ADDRESS || null,
-    csrfToken: process.env.ANTIGRAVITY_CSRF_TOKEN || null
+    csrfToken: process.env.ANTIGRAVITY_CSRF_TOKEN || null,
+    session: activeSessionBridge.getDetails()
   };
 
   const candidatePaths = [
@@ -172,6 +452,26 @@ export function detectAntigravity() {
 
 export function isAntigravityAvailable() {
   return detectAntigravity().installed;
+}
+
+export function getAntigravitySessionDetails() {
+  return {
+    ...activeSessionBridge.getDetails(),
+    turnCount: sessionMemory.turns.length,
+    turnsCount: sessionMemory.turns.length,
+    recentTurns: sessionMemory.turns.slice(-10),
+    facts: { ...sessionMemory.facts },
+    knownContext: { ...sessionMemory.knownContext },
+    lastCountedNumber: sessionMemory.lastCountedNumber
+  };
+}
+
+export function switchAntigravitySession(newId, title) {
+  activeSessionBridge.setConversationId(newId, title);
+  sessionMemory.sessionId = activeSessionBridge.conversationId;
+  sessionMemory.reset();
+  sessionMemory.init();
+  return getAntigravitySessionDetails();
 }
 
 /**
@@ -240,7 +540,7 @@ export async function searchInternet(query) {
   try {
     const openSearchUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(cleanQ)}&limit=3&namespace=0&format=json`;
     const openRes = await fetch(openSearchUrl, {
-      headers: { 'User-Agent': 'QuestAICompanion/0.6.3 (WebXR Assistant)' },
+      headers: { 'User-Agent': 'QuestAICompanion/0.6.4 (WebXR Assistant)' },
       signal: AbortSignal.timeout(3500)
     });
     if (openRes.ok) {
@@ -249,7 +549,7 @@ export async function searchInternet(query) {
       if (topTitle) {
         const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topTitle.replace(/\s+/g, '_'))}`;
         const sumRes = await fetch(summaryUrl, {
-          headers: { 'User-Agent': 'QuestAICompanion/0.6.3 (WebXR Assistant)' },
+          headers: { 'User-Agent': 'QuestAICompanion/0.6.4 (WebXR Assistant)' },
           signal: AbortSignal.timeout(3500)
         });
         if (sumRes.ok) {
@@ -525,14 +825,15 @@ function isMoveTo3DQuery(prompt) {
 
 /**
  * Core Antigravity Agent generation engine:
- * Handles continuous multi-turn sessions, live web access, spatial awareness,
- * counting/logic, local system tools, and authentic dialogue without boilerplate wrappers.
+ * Handles continuous multi-turn sessions, real Antigravity session synchronization,
+ * live web access, spatial awareness, counting/logic, and authentic dialogue.
  */
 export async function generateAntigravityResponse(prompt, history = [], spaceId = 'hall', persona = null) {
   const pName = persona?.name || 'Companion';
   const cleanPrompt = (prompt || '').trim();
 
-  // 1. Sync client history with continuous server session memory
+  // 1. Sync external/client history and any new turns added via Antigravity UI on disk
+  sessionMemory.syncFromDisk();
   sessionMemory.syncClientHistory(history);
   sessionMemory.addTurn('user', cleanPrompt);
 
@@ -649,13 +950,20 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
 
   // 8. Identity & System Diagnostics
   if (lower.includes('who are you') || lower.includes('what are you') || (lower.includes('antigravity') && lower.includes('what'))) {
-    const reply = `I am ${pName}, your AI Companion running through Google Antigravity on your host PC. I have direct access to local system capabilities, live internet search, and our 3D VR environment!`;
+    const reply = `I am ${pName}, your AI Companion running through Google Antigravity on your host PC. I am synced with your Antigravity conversation session (${activeSessionBridge.conversationId}), and I have direct access to local system capabilities, live internet search, and our 3D VR environment!`;
+    sessionMemory.addTurn('assistant', reply);
+    return reply;
+  }
+
+  if (lower.includes('session') || lower.includes('conversation id')) {
+    const details = activeSessionBridge.getDetails();
+    const reply = `Our active Antigravity session ID is ${details.conversationId}, with ${sessionMemory.turns.length} turns recorded on your PC. You can view and continue our full chat transcript in the Antigravity UI!`;
     sessionMemory.addTurn('assistant', reply);
     return reply;
   }
 
   if (lower.includes('help') || lower.includes('what can you do') || lower.includes('capabilities')) {
-    const reply = `I can search the internet for live facts, change our 3D space, switch avatar forms, report system diagnostics, and converse continuously with full conversational memory.`;
+    const reply = `I can search the internet for live facts, change our 3D space, switch avatar forms, report system diagnostics, and converse continuously with full persistent Antigravity session memory.`;
     sessionMemory.addTurn('assistant', reply);
     return reply;
   }

@@ -62,7 +62,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.6.3</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.6.4</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -428,6 +428,20 @@
               </select>
             </div>
           </div>
+
+          <!-- Antigravity Persistent Session Status Indicator -->
+          <div id="antigravity-session-card" style="display: none; margin-top: 10px; padding: 8px 10px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 6px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; font-weight: 600; color: #a5b4fc;">🔗 Antigravity Live Session:</span>
+              <span id="antigravity-session-badge" style="font-size: 10px; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 6px; border-radius: 4px; font-weight: 600;">🟢 Active</span>
+            </div>
+            <div id="antigravity-session-id" style="font-family: monospace; font-size: 10px; color: #c7d2fe; margin-top: 4px; word-break: break-all;">
+              Session: quest-3-companion-session
+            </div>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+              Persistent transcript & voice logs synced with Antigravity IDE
+            </div>
+          </div>
         </div>
       </div>
 
@@ -695,7 +709,7 @@
   <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query -->
   <script type="module">
     const params = new URLSearchParams(window.location.search);
-    const v = params.get('v') || 'v0.6.3';
+    const v = params.get('v') || 'v0.6.4';
     import(`./js/app.js?v=${v}`);
   </script>
 

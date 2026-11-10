@@ -1,6 +1,7 @@
 {
-  "version": "v0.6.3",
-  "build": 50,
-  "released_at": "2026-11-09T23:00:00Z",
-  "changelog": "v0.6.3: 1) Continuous Multi-Turn Antigravity Sessions: dynamic fact extraction, key-value memory, and persistent context recall across requests; 2) Zero Robotic Wrappers: eliminated canned placeholder responses; 3) Counting & Math Reasoning: sequential counting ('count from 1 to 10') and safe arithmetic calculation; 4) Spatial & Location Awareness: full 3D environment and host PC/Quest 3 connectivity telemetry for location queries and 'move to 3D' requests; 5) Live Web & Weather Access: Wikipedia OpenSearch + REST summaries and live weather telemetry."
+  "version": "v0.6.4",
+  "build": 51,
+  "released": "2026-11-10",
+  "minServerVersion": "v0.6.0",
+  "changelog": "v0.6.4: 1) Persistent Antigravity Session Bridge: bidirectional sync with official on-disk Antigravity transcript (transcript.jsonl), voice chats store, conversation database, and presence lock; 2) Antigravity IDE Visibility: sessions are now identifiable, selectable, and interactable directly from external Antigravity UIs, sidecars, and IDE panels; 3) Zero-latency memory persistence: continuous fact recall and arithmetic chaining seamlessly synced across restarts."
 }

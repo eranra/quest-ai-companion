@@ -32,7 +32,9 @@ import {
   isAntigravityAvailable,
   generateAntigravityResponse,
   detectAntigravity,
-  resetAntigravitySession
+  resetAntigravitySession,
+  getAntigravitySessionDetails,
+  switchAntigravitySession
 } from './antigravity.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -233,9 +235,9 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.6.3';
+    return JSON.parse(raw).version || 'v0.6.4';
   } catch {
-    return 'v0.6.3';
+    return 'v0.6.4';
   }
 }
 
@@ -441,6 +443,7 @@ export function createServer() {
           wasmThreads: hardwareAcceleration.wasmThreads
         },
         antigravity: detectAntigravity(),
+        antigravitySession: getAntigravitySessionDetails(),
         memoryFreeMb: Math.round(os.freemem() / 1024 / 1024),
         memoryTotalMb: Math.round(os.totalmem() / 1024 / 1024),
         models: AVAILABLE_MODELS,
@@ -682,6 +685,57 @@ export function createServer() {
         console.error('[Server Error in /api/tts]:', ttsErr);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: ttsErr.message }));
+      }
+      return;
+    }
+
+    // Route: GET /api/antigravity/session
+    if (req.method === 'GET' && pathname === '/api/antigravity/session') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ...getAntigravitySessionDetails() }));
+      return;
+    }
+
+    // Route: POST /api/antigravity/message (Allows external Antigravity UI, scripts or sidecars to send messages into session)
+    if (req.method === 'POST' && pathname === '/api/antigravity/message') {
+      try {
+        const body = await readJsonBody();
+        const prompt = (body.prompt || body.message || '').trim();
+        if (!prompt) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing prompt parameter' }));
+          return;
+        }
+        const persona = getActiveAvatarPersona(body.avatarId || 'maya');
+        const reply = await generateAntigravityResponse(prompt, [], body.spaceId || 'hall', persona);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          reply,
+          session: getAntigravitySessionDetails()
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
+    // Route: POST /api/antigravity/session/select (Switch active Antigravity conversation)
+    if (req.method === 'POST' && pathname === '/api/antigravity/session/select') {
+      try {
+        const body = await readJsonBody();
+        if (!body.conversationId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing conversationId' }));
+          return;
+        }
+        const updatedSession = switchAntigravitySession(body.conversationId, body.title);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, session: updatedSession }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
       }
       return;
     }

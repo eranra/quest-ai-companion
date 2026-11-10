@@ -10,6 +10,30 @@ Featuring a **flexible dual-mode architecture**:
 
 ---
 
+## 🌟 What's New in v0.6.4
+
+- **🔗 Real Persistent Antigravity Session Bridge:**
+  - Conversations with the Google Antigravity agent on the host PC server are persisted directly into Antigravity's native filesystem architecture:
+    - Full step-by-step logs appended in standard format to `brain/<conversationId>/.system_generated/logs/transcript.jsonl`.
+    - Full voice dialogue history recorded in `voice_chats/<conversationId>.json`.
+    - SQLite trajectory steps logged in `conversations/<conversationId>.db`.
+    - Chapter titles registered in `chapter_titles/<conversationId>.pb` for discovery in the Antigravity session list.
+    - Active session presence lock maintained in `presence/<conversationId>.lock`.
+  - Automatically binds to `process.env.ANTIGRAVITY_CONVERSATION_ID` when launched from within Antigravity or defaults to `quest-3-companion-session`.
+
+- **🔄 Bidirectional Antigravity IDE & External UI Synchronization:**
+  - New server endpoints:
+    - `GET /api/antigravity/session`: returns live session ID, turn counts, and on-disk paths.
+    - `POST /api/antigravity/message`: allows external Antigravity IDE panels, command-line scripts, or sidecars to dispatch user or system messages directly into the conversation.
+    - `POST /api/antigravity/session/select`: allows dynamic switching between distinct Antigravity conversation sessions.
+  - Added real-time **Antigravity Live Session status pill and card** in the Quest 3 Settings UI under Remote PC Server Models.
+
+- **🧪 Full Automated Regression Test Suite (v0.6.4, Build 51):**
+  - **334 automated end-to-end tests passing with 0 failures** in headless Chrome over CDP and Node.js.
+  - Comprehensive verification of on-disk Antigravity transcript creation, external message injection, session switching, version synchronization, 3D WebXR elevation calibration, and standalone mode fallback.
+
+---
+
 ## 🌟 What's New in v0.6.3
 
 - **🧠 Continuous Multi-Turn Antigravity Sessions:**

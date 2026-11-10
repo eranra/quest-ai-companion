@@ -247,6 +247,23 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         dom.cfgRemoteLlmModel.appendChild(opt);
       });
       dom.cfgRemoteLlmModel.value = AppState.remoteLlmModel || active?.llm || models.llm[0].id;
+
+      const agCard = document.getElementById('antigravity-session-card');
+      const agId = document.getElementById('antigravity-session-id');
+      const updateAgCard = () => {
+        if (!agCard) return;
+        const isAg = dom.cfgRemoteLlmModel.value === 'antigravity';
+        agCard.style.display = isAg ? 'block' : 'none';
+        const agSession = AppState.antigravitySession;
+        if (agId && agSession?.conversationId) {
+          agId.textContent = `Session: ${agSession.conversationId} (${agSession.turnsCount || 0} turns synced)`;
+        }
+      };
+      dom.cfgRemoteLlmModel.onchange = () => {
+        AppState.remoteLlmModel = dom.cfgRemoteLlmModel.value;
+        updateAgCard();
+      };
+      updateAgCard();
     }
 
     if (models.tts && dom.cfgRemoteTtsModel) {

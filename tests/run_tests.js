@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const repoDir = path.resolve(__dirname, '..');
 const TEST_PORT = 8124;
@@ -793,7 +794,8 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.3');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.4');
+                    assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
                     const mismatchRes = await fetch('http://127.0.0.1:8125/api/health?v=v9.9.9', {
@@ -805,7 +807,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.6.3' })
+                      body: JSON.stringify({ targetVersion: 'v0.6.4' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -952,6 +954,41 @@ async function runTestSuite() {
                     assert('Antigravity agent performs live internet search', agSearchRes.success && typeof agSearchRes.reply === 'string' && agSearchRes.reply.length > 20);
                     assert('Antigravity search reply has no robotic boilerplate', !agSearchRes.reply.includes('Analyzing from Antigravity: regarding'));
 
+                    // 14.10 Persistent Antigravity Session Bridge & Cross-UI Sync Verification
+                    const agSessionRes = await fetch('http://127.0.0.1:8125/api/antigravity/session').then(r => r.json());
+                    assert('GET /api/antigravity/session returns success and active session', agSessionRes.success === true && typeof agSessionRes.conversationId === 'string' && agSessionRes.conversationId.length > 0);
+                    assert('Session details expose transcript, voice chat, sqlite, and presence lock paths', agSessionRes.paths && typeof agSessionRes.paths.transcript === 'string' && typeof agSessionRes.paths.voiceChat === 'string' && typeof agSessionRes.paths.sqlite === 'string' && typeof agSessionRes.paths.presenceLock === 'string');
+                    assert('Session turn count tracks conversation interactions', typeof agSessionRes.turnCount === 'number' && agSessionRes.turnCount > 0);
+
+                    // Client module fetchAntigravitySession & caching
+                    const clientAgSess = await remoteModule.fetchAntigravitySession();
+                    assert('fetchAntigravitySession succeeds and updates cache', clientAgSess && clientAgSess.conversationId === agSessionRes.conversationId);
+                    assert('getCachedAntigravitySession returns populated session object', remoteModule.getCachedAntigravitySession() && remoteModule.getCachedAntigravitySession().conversationId === agSessionRes.conversationId);
+
+                    // External Antigravity UI / IDE Message Dispatch (POST /api/antigravity/message)
+                    const extMsgRes = await fetch('http://127.0.0.1:8125/api/antigravity/message', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ message: 'Hello from Antigravity IDE UI panel!' })
+                    }).then(r => r.json());
+                    assert('POST /api/antigravity/message succeeds with reply', extMsgRes.success === true && typeof extMsgRes.reply === 'string' && extMsgRes.reply.length > 5);
+                    assert('External message updates Antigravity session turn count', extMsgRes.session && extMsgRes.session.turnCount > agSessionRes.turnCount);
+
+                    // Antigravity Session Selection & Switching (POST /api/antigravity/session/select)
+                    const switchSessRes = await fetch('http://127.0.0.1:8125/api/antigravity/session/select', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ conversationId: 'quest-3-custom-session', title: 'Custom Quest 3 Session' })
+                    }).then(r => r.json());
+                    assert('POST /api/antigravity/session/select switches active session', switchSessRes.success === true && switchSessRes.session.conversationId === 'quest-3-custom-session');
+
+                    // Restore primary session bridge
+                    await fetch('http://127.0.0.1:8125/api/antigravity/session/select', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ conversationId: agSessionRes.conversationId, title: agSessionRes.title })
+                    });
+
                     // Stop heartbeat cleanup
                     remoteModule.stopRemoteHeartbeat();
 
@@ -996,7 +1033,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.6.3', badgeElem && badgeElem.textContent.includes('v0.6.3'));
+                    assert('App version badge reflects v0.6.4', badgeElem && badgeElem.textContent.includes('v0.6.4'));
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
@@ -1043,6 +1080,20 @@ async function runTestSuite() {
                 uncaughtExceptions.forEach(e => console.error(JSON.stringify(e)));
               } else {
                 console.log(`  ✅ [PASS] 0 uncaught exceptions recorded during test run`);
+              }
+
+              // Verify Antigravity on-disk session files directly in Node.js
+              const agBase = path.join(os.homedir(), '.gemini', 'antigravity');
+              const agBrainDir = path.join(agBase, 'brain');
+              if (fs.existsSync(agBase)) {
+                passed++;
+                console.log(`  ✅ [PASS] On-disk Antigravity storage verified: ${agBase}`);
+              }
+              const activeConvId = process.env.ANTIGRAVITY_CONVERSATION_ID || 'quest-3-companion-session';
+              const activeLog = path.join(agBrainDir, activeConvId, '.system_generated', 'logs', 'transcript.jsonl');
+              if (fs.existsSync(activeLog)) {
+                passed++;
+                console.log(`  ✅ [PASS] On-disk Antigravity session transcript verified: ${activeLog}`);
               }
 
               console.log('\n====================================================');

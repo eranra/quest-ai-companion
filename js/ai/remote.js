@@ -4,11 +4,12 @@ import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
 import { executeTool } from './tools.js';
 
-let clientVersion = 'v0.6.3';
+let clientVersion = 'v0.6.4';
 let heartbeatTimer = null;
 let onServerStatusChangeCallback = null;
 let cachedRemoteModels = null;
 let cachedActiveRemoteModels = null;
+let cachedAntigravitySession = null;
 
 export function getCachedRemoteModels() {
   return cachedRemoteModels;
@@ -16,6 +17,10 @@ export function getCachedRemoteModels() {
 
 export function getCachedActiveRemoteModels() {
   return cachedActiveRemoteModels;
+}
+
+export function getCachedAntigravitySession() {
+  return cachedAntigravitySession;
 }
 
 export function setClientVersion(v) {
@@ -68,6 +73,10 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
       if (data.activeModels) {
         cachedActiveRemoteModels = data.activeModels;
       }
+      if (data.antigravitySession) {
+        cachedAntigravitySession = data.antigravitySession;
+        AppState.antigravitySession = data.antigravitySession;
+      }
       if (data.status === 'upgrading' || data.upgradeTriggered) {
         AppState.remoteServerStatus = 'upgrading';
         logDebug('REMOTE', `Server is automatically upgrading to ${clientVersion}...`);
@@ -88,7 +97,8 @@ export async function checkRemoteServerResponsiveness(targetUrl) {
         upgrading: data.status === 'upgrading' || data.upgradeTriggered,
         memoryFreeMb: data.memoryFreeMb,
         models: data.models || null,
-        activeModels: data.activeModels || null
+        activeModels: data.activeModels || null,
+        antigravitySession: data.antigravitySession || null
       };
     } else {
       AppState.remoteServerStatus = 'offline';
@@ -267,6 +277,31 @@ export async function selectRemoteModel({ stt, llm, tts }) {
     }
   } catch (err) {
     console.warn('Could not select remote model:', err);
+  }
+  return null;
+}
+
+/**
+ * Fetches persistent Antigravity session status from the standalone server
+ */
+export async function fetchAntigravitySession() {
+  const url = normalizeServerUrl(AppState.remoteServerUrl);
+  try {
+    const res = await fetch(`${url}/api/antigravity/session`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-Client-Version': clientVersion,
+        'bypass-tunnel-reminder': 'true'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      cachedAntigravitySession = data;
+      return data;
+    }
+  } catch (err) {
+    console.warn('Could not fetch Antigravity session:', err);
   }
   return null;
 }
