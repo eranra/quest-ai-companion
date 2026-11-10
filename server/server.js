@@ -34,7 +34,8 @@ import {
   detectAntigravity,
   resetAntigravitySession,
   getAntigravitySessionDetails,
-  switchAntigravitySession
+  switchAntigravitySession,
+  resolveContextFromHistory
 } from './antigravity.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -328,7 +329,7 @@ async function generateServerResponse(prompt, persona, spaceId, history, request
       try {
         const messages = [
           { role: 'system', content: systemPrompt },
-          ...history.slice(-4).map(t => ({ role: t.role, content: t.content })),
+          ...history.slice(-30).map(t => ({ role: t.role, content: t.content })),
           { role: 'user', content: prompt }
         ];
         const out = await generator(messages, { max_new_tokens: 60, temperature: 0.7 });
@@ -342,7 +343,13 @@ async function generateServerResponse(prompt, persona, spaceId, history, request
     }
   }
 
-  // 2. High-speed built-in agent reasoning (Instant Companion)
+  // 3. Conversational History Resolution across all agent models
+  const historyContext = resolveContextFromHistory(prompt, history);
+  if (historyContext) {
+    return { text: historyContext, source: 'conversation-history' };
+  }
+
+  // 4. High-speed built-in agent reasoning (Instant Companion)
   const intent = classifyUserIntent(prompt);
   let reply = '';
 

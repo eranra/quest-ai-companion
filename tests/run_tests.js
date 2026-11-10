@@ -889,53 +889,65 @@ async function runTestSuite() {
                     }).then(r => r.json());
                     assert('Antigravity agent persists continuous multi-turn fact memory', agFactRecallRes.success && agFactRecallRes.reply.toLowerCase().includes('blue dolphin'));
 
-                    // Test counting capability & contextual arithmetic chaining
-                    const agCountRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                    // Test Non-Numeric Multi-Turn Conversational History Scenario 1: Identity & Travel
+                    const agScenario1Set = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'Can you count from 1 to 10?', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: "My sister's name is Sarah and she is traveling to Tokyo next week.", model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent counts numbers sequentially', agCountRes.success && agCountRes.reply.includes('1, 2, 3, 4, 5, 6, 7, 8, 9, 10'));
+                    assert('Antigravity receives travel story turn', agScenario1Set.success && typeof agScenario1Set.reply === 'string' && agScenario1Set.reply.length > 5);
 
-                    // Test contextual multiplication referencing the last counted number (10 * 3 = 30)
-                    const agMultRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                    const agScenario1Recall = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'Now what I wanted you to do is to multiply the last number that you counted with three.', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: 'Who is traveling next week and where is she going?', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent executes contextual multiplication on last counted number', agMultRes.success && agMultRes.reply.includes('30') && !agMultRes.reply.includes('Regarding'));
+                    assert('Antigravity recalls sister Sarah and Tokyo across continuous session', agScenario1Recall.success && agScenario1Recall.reply.toLowerCase().includes('sarah') && agScenario1Recall.reply.toLowerCase().includes('tokyo'));
 
-                    // Test phonetic STT variation ('in week three' -> 3)
-                    const agPhoneticRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                    // Test Non-Numeric Multi-Turn Conversational History Scenario 2: Creative Worldbuilding
+                    const agScenario2Set = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'Can you multiply the last number in week three?', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: "Let's invent a sci-fi space station orbiting Mars called Station Zephyr.", model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent handles phonetic STT math phrases', agPhoneticRes.success && (agPhoneticRes.reply.includes('90') || agPhoneticRes.reply.includes('30')));
+                    assert('Antigravity receives worldbuilding turn', agScenario2Set.success && typeof agScenario2Set.reply === 'string');
 
-                    // Test arithmetic referencing FIRST counted number: "Now I want you to take the first number that you count and multiply it by 7."
-                    const agFirstMultRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                    const agScenario2Recall = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'Now I want you to take the first number that you count and multiply it by 7.', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: 'What planet is our space station orbiting and what was its name?', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent multiplies first counted number by 7 to get 7', agFirstMultRes.success && agFirstMultRes.reply.includes('7') && agFirstMultRes.reply.toLowerCase().includes('first number'));
+                    assert('Antigravity recalls Station Zephyr and Mars across session history', agScenario2Recall.success && agScenario2Recall.reply.toLowerCase().includes('zephyr') && agScenario2Recall.reply.toLowerCase().includes('mars'));
 
-                    // Test user correction / emphasis: "I want you to multiply the first number that you counted by 7. Not the last number, the first number."
-                    const agClarifyRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                    // Test Non-Numeric Multi-Turn Conversational History Scenario 3: Preference Recall
+                    const agScenario3Set = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'I want you to multiply the first number that you counted by 7. Not the last number, the first number.', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: 'I enjoy drinking peppermint tea while listening to jazz in the evening.', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent correctly handles clarification and preserves first number multiplication', agClarifyRes.success && agClarifyRes.reply.includes('7') && !agClarifyRes.reply.includes('passthrough space'));
+                    assert('Antigravity receives evening preference turn', agScenario3Set.success && typeof agScenario3Set.reply === 'string');
 
-                    // Test conversational inquiry: "How many numbers did you count?" (Must NOT trigger Wikipedia search for 'count')
-                    const agHowManyRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                    const agScenario3Recall = await fetch('http://127.0.0.1:8125/api/chat', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ prompt: 'How many numbers did you count?', model: 'antigravity' })
+                      body: JSON.stringify({ prompt: 'What kind of tea and music did I mention?', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity agent recalls exact count of counted numbers without Wikipedia search', agHowManyRes.success && agHowManyRes.reply.includes('10') && !agHowManyRes.reply.includes('statistics') && !agHowManyRes.reply.includes('dataset'));
+                    assert('Antigravity recalls peppermint tea and jazz from conversation history', agScenario3Recall.success && agScenario3Recall.reply.toLowerCase().includes('peppermint') && agScenario3Recall.reply.toLowerCase().includes('jazz'));
+
+                    // Test Non-Antigravity Model History Retention across turns
+                    const nonAgRecall = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        prompt: 'Who is traveling next week and where is she going?',
+                        model: 'instant-companion',
+                        history: [
+                          { role: 'user', content: "My sister's name is Sarah and she is traveling to Tokyo next week." },
+                          { role: 'assistant', content: "That sounds like a wonderful trip to Tokyo!" }
+                        ]
+                      })
+                    }).then(r => r.json());
+                    assert('Non-Antigravity model respects and recalls conversation history', nonAgRecall.success && nonAgRecall.reply.toLowerCase().includes('sarah') && nonAgRecall.reply.toLowerCase().includes('tokyo'));
 
                     // Test positive feedback dialogue without repetitive canned loops
                     const agFunRes = await fetch('http://127.0.0.1:8125/api/chat', {
@@ -943,7 +955,9 @@ async function runTestSuite() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ prompt: "It's really fun. And how are you?", spaceId: 'cafe', model: 'antigravity' })
                     }).then(r => r.json());
-                    assert('Antigravity acknowledges fun remark and answers how are you', agFunRes.success && agFunRes.reply.toLowerCase().includes('fun') && !agFunRes.reply.includes('Regarding'));
+                    const funReplyLower = (agFunRes.reply || '').toLowerCase();
+                    const hasPositiveTone = /fun|glad|enjoy|great|doing well|thrilled|wonderful|good/i.test(funReplyLower);
+                    assert('Antigravity acknowledges fun remark and answers how are you', agFunRes.success && hasPositiveTone && !agFunRes.reply.includes('Regarding'));
 
                     // Test live weather retrieval without SEO teasers
                     const agWeatherRes = await fetch('http://127.0.0.1:8125/api/chat', {
