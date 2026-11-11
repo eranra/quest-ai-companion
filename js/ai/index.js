@@ -152,7 +152,7 @@ export async function generateAIResponse(prompt, onProgress) {
     if (AppState.engine === 'cloud') {
       rawReply = await callGeminiAPI(cleanPrompt, signal, context);
     } else if (AppState.engine === 'remote') {
-      rawReply = await callRemoteBackend(cleanPrompt, signal, context);
+      rawReply = await callRemoteBackend(cleanPrompt, signal, context, onProgress);
     } else {
       rawReply = await callLocalWebLLM(cleanPrompt, onProgress, signal, context);
     }

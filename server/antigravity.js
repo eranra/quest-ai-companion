@@ -406,6 +406,21 @@ function buildConnectEnvelope(json) {
   return Buffer.concat([header, payload]);
 }
 
+// Live Analysis Status State
+let currentAnalysisStatus = null;
+
+export function setAnalysisStatus(status) {
+  if (!status) {
+    currentAnalysisStatus = null;
+  } else {
+    currentAnalysisStatus = { text: status, timestamp: Date.now() };
+  }
+}
+
+export function getActiveAnalysisStatus() {
+  return currentAnalysisStatus;
+}
+
 export class AntigravityLiveClient {
   constructor() {
     this.port = null;
@@ -433,13 +448,33 @@ export class AntigravityLiveClient {
     }
   }
 
+  async isLanguageServerHealthy() {
+    if (!this.port || !this.csrf || !this.apiKey) return false;
+    return new Promise((resolve) => {
+      const req = https.request({
+        hostname: '127.0.0.1',
+        port: this.port,
+        path: '/',
+        method: 'GET',
+        agent: httpsAgent,
+        timeout: 1200
+      }, res => resolve(res.statusCode === 200 || res.statusCode === 404));
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+      req.end();
+    });
+  }
+
   async discoverLanguageServer() {
+    if (await this.isLanguageServerHealthy()) {
+      return true;
+    }
     try {
-      const cmdLine = execSync('powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \\"Name like \'%language_server%\'\\").CommandLine"', { encoding: 'utf-8', timeout: 3500 });
+      const cmdLine = execSync('powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \\"Name like \'%language_server%\'\\").CommandLine"', { encoding: 'utf-8', timeout: 4000 });
       const match = cmdLine.match(/--csrf_token\s+([a-f0-9\-]+)/i);
       this.csrf = match ? match[1] : null;
 
-      const netOutput = execSync('powershell -NoProfile -Command "Get-NetTCPConnection -State Listen | Where-Object { $_.OwningProcess -in (Get-Process language_server).Id } | Select-Object -ExpandProperty LocalPort"', { encoding: 'utf-8', timeout: 3500 });
+      const netOutput = execSync('powershell -NoProfile -Command "Get-NetTCPConnection -State Listen | Where-Object { $_.OwningProcess -in (Get-Process language_server).Id } | Select-Object -ExpandProperty LocalPort"', { encoding: 'utf-8', timeout: 4000 });
       const candidatePorts = netOutput.trim().split(/\r?\n/).map(p => parseInt(p.trim(), 10)).filter(p => !isNaN(p));
 
       for (const p of candidatePorts) {
@@ -502,6 +537,22 @@ export class AntigravityLiveClient {
 
   async ensureCascadeSession(workspaceUri) {
     if (this.activeCascadeId) return this.activeCascadeId;
+
+    // Check disk storage in activeSessionBridge.brainDir
+    const cascadeFile = path.join(activeSessionBridge.brainDir, 'active_cascade_id.txt');
+    try {
+      if (fs.existsSync(cascadeFile)) {
+        const savedId = fs.readFileSync(cascadeFile, 'utf-8').trim();
+        if (savedId) {
+          this.activeCascadeId = savedId;
+          this.startStreaming();
+          return this.activeCascadeId;
+        }
+      }
+    } catch (e) {
+      console.warn('[Antigravity Live] Could not read active_cascade_id.txt:', e.message);
+    }
+
     const ws = workspaceUri || `file:///${activeSessionBridge.appDataDir.replace(/\\/g, '/')}/scratch/quest-ai-companion`;
     const res = await this.grpcCall('StartCascade', {
       metadata: { ideName: 'antigravity', apiKey: this.apiKey, locale: 'en', ideVersion: '1.20.6', extensionName: 'antigravity' },
@@ -510,6 +561,12 @@ export class AntigravityLiveClient {
     });
     if (res && res.cascadeId) {
       this.activeCascadeId = res.cascadeId;
+      try {
+        fs.mkdirSync(activeSessionBridge.brainDir, { recursive: true });
+        fs.writeFileSync(cascadeFile, this.activeCascadeId, 'utf-8');
+      } catch (e) {
+        console.warn('[Antigravity Live] Could not persist cascade ID:', e.message);
+      }
       this.startStreaming();
     }
     return this.activeCascadeId;
@@ -553,11 +610,17 @@ export class AntigravityLiveClient {
               if (step.plannerResponse) {
                 const resp = step.plannerResponse.modifiedResponse || step.plannerResponse.response;
                 if (resp) latestText = resp;
+                if (step.plannerResponse.thinking) {
+                  setAnalysisStatus('Thinking and reasoning...');
+                } else if (resp) {
+                  setAnalysisStatus('Formulating answer...');
+                }
               }
             }
           }
-          if (msg.update.status === 'CASCADE_RUN_STATUS_IDLE' && msg.update.executorMetadata?.terminationReason) {
-            if (this.pendingResolvers.length > 0) {
+          if (msg.update.status === 'CASCADE_RUN_STATUS_IDLE' || msg.update.executorMetadata?.terminationReason) {
+            setAnalysisStatus('Finalizing reply...');
+            if (this.pendingResolvers.length > 0 && latestText) {
               const resolve = this.pendingResolvers.shift();
               resolve(latestText);
               latestText = '';
@@ -619,6 +682,10 @@ export class AntigravityLiveClient {
           }
         });
       } catch (err) {
+        // If cascade is invalid or expired, clear cached ID on disk and memory
+        const cascadeFile = path.join(activeSessionBridge.brainDir, 'active_cascade_id.txt');
+        try { if (fs.existsSync(cascadeFile)) fs.unlinkSync(cascadeFile); } catch {}
+        this.activeCascadeId = null;
         if (!resolved) {
           resolved = true;
           const idx = this.pendingResolvers.indexOf(resolver);
@@ -886,90 +953,6 @@ function getSpatialLocationDescription(spaceId) {
 }
 
 /**
- * Conversational History Context Resolver
- * When conversational queries reference prior turns, extracts context naturally
- * from the full chronological message array.
- */
-export function resolveContextFromHistory(prompt, history) {
-  const p = prompt.toLowerCase().trim();
-  const pastUserTurns = history.filter(t => t.role === 'user' && t.content.trim() !== prompt.trim());
-  if (pastUserTurns.length === 0) return null;
-
-  // 1. Travel / Trips: "who is traveling", "where is she going", "who is flying"
-  if (p.includes('travel') || p.includes('trip') || p.includes('going') || p.includes('fly')) {
-    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
-      const text = pastUserTurns[i].content;
-      if (/travel|trip|fly|tokyo|paris|japan|london/i.test(text)) {
-        let name = 'Sarah';
-        const nameMatch = text.match(/(?:name is|named)\s+([A-Z][a-z]+)/i) || text.match(/(?:sister|friend|brother)\s+([A-Z][a-z]+)/i) || text.match(/\b([A-Z][a-z]+)\s+is traveling/i);
-        if (nameMatch && nameMatch[1].toLowerCase() !== 'my') {
-          name = nameMatch[1];
-        }
-        let dest = 'Tokyo';
-        const destMatch = text.match(/(?:to|visiting|in)\s+([A-Z][a-z]+)/i);
-        if (destMatch) {
-          dest = destMatch[1];
-        }
-        return `Your sister ${name} is traveling to ${dest}!`;
-      }
-    }
-  }
-
-  // 2. Creative worldbuilding / Space station: "what planet", "what was its name", "space station"
-  if (p.includes('station') || p.includes('planet') || p.includes('orbit')) {
-    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
-      const text = pastUserTurns[i].content;
-      if (/station|zephyr|orbit|mars|space/i.test(text)) {
-        const stationMatch = text.match(/(?:called|named|station)\s+([A-Z][a-zA-Z0-9\s]+?)(?:\.|$|,)/i);
-        const planetMatch = text.match(/(?:orbiting|orbit\s+around|near)\s+([A-Z][a-z]+)/i);
-        const stationName = stationMatch ? stationMatch[1].trim() : 'Station Zephyr';
-        const planet = planetMatch ? planetMatch[1].trim() : 'Mars';
-        return `The space station is named ${stationName}, and it is orbiting ${planet}.`;
-      }
-    }
-  }
-
-  // 3. Preferences / Tea / Music: "what kind of tea", "what music", "what did I mention"
-  if (p.includes('tea') || p.includes('music') || p.includes('drink') || p.includes('listen')) {
-    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
-      const text = pastUserTurns[i].content;
-      if (/tea|jazz|music|coffee|drink/i.test(text)) {
-        const teaMatch = text.match(/([a-zA-Z]+(?:\s+[a-zA-Z]+)?\s+tea)/i);
-        const musicMatch = text.match(/(?:listening to|listen to)\s+([a-zA-Z\s]+?)(?:\s+in\s+the|\s+on|\.|$|,)/i);
-        const tea = teaMatch ? teaMatch[1] : 'peppermint tea';
-        const music = musicMatch ? musicMatch[1].trim() : 'jazz';
-        return `You mentioned drinking ${tea} while listening to ${music}.`;
-      }
-    }
-  }
-
-  // 4. Favorites & Identity: "my favorite animal", "what is my name", "what is my favorite"
-  if (p.includes('favorite') || p.includes('my name') || p.includes('who am i')) {
-    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
-      const text = pastUserTurns[i].content;
-      const favMatch = text.match(/my favorite\s+([a-zA-Z\s]+?)\s+is\s+(?:the\s+)?([a-zA-Z0-9\s]+?)(?:\.|$|,|!)/i);
-      if (favMatch && p.includes(favMatch[1].trim().toLowerCase())) {
-        return `Your favorite ${favMatch[1].trim()} is the ${favMatch[2].trim()}!`;
-      }
-      const nameMatch = text.match(/(?:my name is|call me|i am)\s+([A-Z][a-z]+)/i);
-      if (nameMatch && (p.includes('my name') || p.includes('who am i'))) {
-        return `Your name is ${nameMatch[1]}!`;
-      }
-    }
-  }
-
-  // 5. Direct repetition: "what did I say", "what did I just say"
-  if (p.includes('what did i just') || p.includes('what did i say') || p.includes('repeat that')) {
-    const last = pastUserTurns.at(-1);
-    if (last) {
-      return `You said: "${last.content}".`;
-    }
-  }
-
-  return null;
-}
-
-/**
  * Core Antigravity Agent Generation Engine:
  * - Sends messages into the persistent Antigravity session.
  * - Antigravity maintains and reasons over full conversation history naturally.
@@ -1048,8 +1031,10 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
   let liveReply = '';
 
   try {
+    setAnalysisStatus('Connecting to Antigravity session...');
     const connected = await liveAntigravityClient.discoverLanguageServer();
     if (connected) {
+      setAnalysisStatus('Thinking with Antigravity...');
       const rawReply = await liveAntigravityClient.sendMessage(cleanPrompt);
       if (rawReply && rawReply.trim() && !rawReply.includes('(Timeout')) {
         liveReply = rawReply.trim();
@@ -1057,7 +1042,9 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
       }
     }
   } catch (err) {
-    // Falls through to conversational history resolution
+    console.warn('[Antigravity] Live dispatch note:', err.message);
+  } finally {
+    setAnalysisStatus(null);
   }
 
   if (liveSuccess && liveReply) {
@@ -1065,15 +1052,7 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     return liveReply;
   }
 
-  // 8. Conversational History Context Fallback
-  // When running offline or if language server is busy, resolve context directly from full conversation history
-  const historyContextReply = resolveContextFromHistory(cleanPrompt, sessionMemory.turns);
-  if (historyContextReply) {
-    sessionMemory.addTurn('assistant', historyContextReply);
-    return historyContextReply;
-  }
-
-  // 9. Natural Dialogue Fallback
+  // 8. Natural Conversational Dialogue (No fake mock fallbacks or hallucinated stories!)
   const isFunRemark = /(?:it's|it is|this is)\s*(?:really\s+)?(?:fun|great|cool|awesome|amazing|nice)|having\s+fun|love\s+this/i.test(lower);
   const isAskingHowAreYou = /how are you|how do you feel/i.test(lower);
 
@@ -1093,7 +1072,8 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
   } else if (/^(no|nah|not really|nope)\b/i.test(lower)) {
     reply = `Understood! We can take a break or switch things up whenever you are ready.`;
   } else {
-    reply = `Standing right here with you in our ${spaceId} space as ${pName}, I follow our conversation and am ready for whatever you'd like to explore next!`;
+    // Truthful, clean message if model unavailable - no fake sister stories!
+    reply = "I'm sorry, I wasn't able to process that right now. Could you please say that again?";
   }
 
   sessionMemory.addTurn('assistant', reply);

@@ -37,7 +37,8 @@ import {
   resetAntigravitySession,
   getAntigravitySessionDetails,
   switchAntigravitySession,
-  resolveContextFromHistory
+  getActiveAnalysisStatus,
+  setAnalysisStatus
 } from './antigravity.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -291,9 +292,9 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.7.1';
+    return JSON.parse(raw).version || 'v0.7.2';
   } catch {
-    return 'v0.7.1';
+    return 'v0.7.2';
   }
 }
 
@@ -398,13 +399,7 @@ async function generateServerResponse(prompt, persona, spaceId, history, request
     }
   }
 
-  // 3. Conversational History Resolution across all agent models
-  const historyContext = resolveContextFromHistory(prompt, history);
-  if (historyContext) {
-    return { text: historyContext, source: 'conversation-history' };
-  }
-
-  // 4. High-speed built-in agent reasoning (Instant Companion)
+  // 3. High-speed built-in agent reasoning (Instant Companion)
   const intent = classifyUserIntent(prompt);
   let reply = '';
 
@@ -573,6 +568,18 @@ export function createServer() {
       return;
     }
 
+    // Route: GET /api/chat/status (Live progress indicator during AI reasoning)
+    if (req.method === 'GET' && pathname === '/api/chat/status') {
+      const status = getActiveAnalysisStatus();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        active: !!status,
+        status: status?.text || null,
+        timestamp: status?.timestamp || Date.now()
+      }));
+      return;
+    }
+
     // Route: POST /api/chat
     if (req.method === 'POST' && pathname === '/api/chat') {
       const t0 = performance.now();
@@ -583,6 +590,8 @@ export function createServer() {
         const spaceId = body.spaceId || 'hall';
         const persona = getActiveAvatarPersona(avatarId);
         const requestedModel = body.model || activeModels.llm;
+
+        setAnalysisStatus(`Analyzing with ${requestedModel === 'antigravity' ? 'Antigravity' : requestedModel}...`);
 
         if (!userPrompt) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -662,6 +671,8 @@ export function createServer() {
         console.error('[Server Error in /api/chat]:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
+      } finally {
+        setAnalysisStatus(null);
       }
       return;
     }

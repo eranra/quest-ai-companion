@@ -1,7 +1,7 @@
 {
-  "version": "v0.7.1",
-  "build": 53,
+  "version": "v0.7.2",
+  "build": 54,
   "released": "2026-11-11",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.7.1: 1) Authentic Human Speech TTS on PC Server: replaces synthetic harmonic tone generator with genuine Windows System.Speech synthesis (16-bit 22050Hz PCM WAV) featuring natural phoneme intonation, pitch variation, and gender matching; 2) Non-Blocking Speech-to-Text Multi-Threading: decoupled VU meter UI DOM updates via requestAnimationFrame and cooperative event-loop yielding before/after audio resampling; 3) Quest 3 / PC Remote STT Offloading: routes microphone audio directly to PC Server /api/stt in remote mode to reduce headset CPU to 0% during transcription; 4) Quest 3 Split Architecture Automated Verification Suite."
+  "changelog": "v0.7.2: 1) Elimination of mock fallbacks: completely removed hardcoded mock stories and canned responses, ensuring only authentic model reasoning or clear, truthful communication; 2) Single Persistent Antigravity Session: persists cascade ID to active_cascade_id.txt in the session directory, guaranteeing that all conversation turns route to one continuous Cascade visible in the Antigravity UI across turns and server restarts; 3) Live Analysis Progress Indicator: real-time GET /api/chat/status polling and streaming progress updates showing concise HUD progress (e.g. 'Thinking with Antigravity...', 'Formulating answer...') during analysis; 4) Accelerated Language Server Discovery: fast HTTP liveness check and discovery caching, eliminating multi-second latency overhead."
 }

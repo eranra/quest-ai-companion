@@ -4,7 +4,7 @@ import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
 import { executeTool } from './tools.js';
 
-let clientVersion = 'v0.7.1';
+let clientVersion = 'v0.7.2';
 let heartbeatTimer = null;
 let onServerStatusChangeCallback = null;
 let cachedRemoteModels = null;
@@ -150,11 +150,29 @@ export function stopRemoteHeartbeat() {
 /**
  * Dispatch prompt to the Standalone PC Server over local Wi-Fi
  */
-export async function callRemoteBackend(prompt, signal, context = {}) {
+export async function callRemoteBackend(prompt, signal, context = {}, onProgress = null) {
   const url = normalizeServerUrl(AppState.remoteServerUrl);
   const cleanPrompt = (prompt || '').trim();
 
   logDebug('REMOTE', `Sending prompt to PC server (${url}): "${cleanPrompt}"`);
+
+  let progressTimer = null;
+  if (typeof onProgress === 'function') {
+    progressTimer = setInterval(async () => {
+      try {
+        const sRes = await fetch(`${url}/api/chat/status`, {
+          signal,
+          headers: { 'bypass-tunnel-reminder': 'true' }
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          if (sData.status) {
+            onProgress({ text: sData.status });
+          }
+        }
+      } catch {}
+    }, 600);
+  }
 
   try {
     const payload = {
@@ -200,6 +218,8 @@ export async function callRemoteBackend(prompt, signal, context = {}) {
     console.error('Remote server request error:', err);
     logDebug('REMOTE', `Remote request failed: ${err.message}`, 'error');
     throw new Error(`PC Server Connection Error (${url}): ${err.message}. Ensure the server is running on your computer.`);
+  } finally {
+    if (progressTimer) clearInterval(progressTimer);
   }
 }
 
