@@ -36,11 +36,117 @@ function createChapterTitlePb(title) {
 
 let _sessionMemoryInstance = null;
 
+export const testCascadeIds = new Set();
+
+/**
+ * Permanently deletes an Antigravity session from conversation_summaries.db and disk.
+ */
+export function deleteAntigravitySession(conversationId) {
+  if (!conversationId) return false;
+  const appDataDir = process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
+
+  // If this session is currently opened in activeSessionBridge, close the sqlite db connection first
+  if (typeof activeSessionBridge !== 'undefined' && activeSessionBridge && activeSessionBridge.conversationId === conversationId && activeSessionBridge.db) {
+    try { activeSessionBridge.db.close(); } catch {}
+    activeSessionBridge.db = null;
+  }
+
+  // 1. Remove from SQLite conversation_summaries.db
+  if (DatabaseSync) {
+    try {
+      const summaryDbPath = path.join(appDataDir, 'conversation_summaries.db');
+      if (fs.existsSync(summaryDbPath)) {
+        const sumDb = new DatabaseSync(summaryDbPath);
+        try { sumDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
+        sumDb.prepare('DELETE FROM conversation_summaries WHERE conversation_id = ?').run(conversationId);
+        sumDb.close();
+      }
+    } catch (e) {
+      console.warn('[Antigravity Bridge] Could not delete session from DB:', e.message);
+    }
+  }
+
+  // 2. Remove on-disk session files
+  try {
+    const brainDir = path.join(appDataDir, 'brain', conversationId);
+    if (fs.existsSync(brainDir)) fs.rmSync(brainDir, { recursive: true, force: true });
+
+    const voicePath = path.join(appDataDir, 'voice_chats', `${conversationId}.json`);
+    if (fs.existsSync(voicePath)) fs.rmSync(voicePath, { force: true });
+
+    const convDbPath = path.join(appDataDir, 'conversations', `${conversationId}.db`);
+    if (fs.existsSync(convDbPath)) fs.rmSync(convDbPath, { force: true });
+
+    const chapterPath = path.join(appDataDir, 'chapter_titles', `${conversationId}.pb`);
+    if (fs.existsSync(chapterPath)) fs.rmSync(chapterPath, { force: true });
+
+    const lockPath = path.join(appDataDir, 'presence', `${conversationId}.lock`);
+    if (fs.existsSync(lockPath)) fs.rmSync(lockPath, { force: true });
+  } catch (e) {
+    console.warn('[Antigravity Bridge] Could not delete on-disk session files:', e.message);
+  }
+
+  return true;
+}
+
+/**
+ * Cleans up temporary or dangling test Antigravity sessions from conversation_summaries.db and disk.
+ * Preserves the user's primary companion session ('quest-3-companion-session') and personal sessions.
+ */
+export function cleanupTestSessions() {
+  const deletedIds = [];
+  const appDataDir = process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
+
+  if (DatabaseSync) {
+    try {
+      const summaryDbPath = path.join(appDataDir, 'conversation_summaries.db');
+      if (fs.existsSync(summaryDbPath)) {
+        const sumDb = new DatabaseSync(summaryDbPath);
+        try { sumDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
+
+        const rows = sumDb.prepare(`
+          SELECT conversation_id, title FROM conversation_summaries
+          WHERE conversation_id = 'quest-3-custom-session'
+             OR conversation_id LIKE 'quest-test%'
+             OR title = 'Custom Quest 3 Session'
+             OR title LIKE '%test session%'
+             OR source = 'META_QUEST_3_TEST'
+             OR conversation_id = '84812cba-ffda-4089-be92-e09ad1b78f0f'
+        `).all();
+        sumDb.close();
+
+        for (const row of rows) {
+          if (row.conversation_id !== 'quest-3-companion-session') {
+            deleteAntigravitySession(row.conversation_id);
+            deletedIds.push(row.conversation_id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Antigravity Bridge] Could not clean test sessions:', e.message);
+    }
+  }
+
+  // Also clean up any recorded in-memory test cascade IDs
+  for (const cid of testCascadeIds) {
+    if (cid && cid !== 'quest-3-companion-session') {
+      deleteAntigravitySession(cid);
+      deletedIds.push(cid);
+    }
+  }
+  testCascadeIds.clear();
+
+  return deletedIds;
+}
+
 /**
  * Normalizes all Antigravity session titles on disk to clean, readable names (e.g. 'AI Conversation')
- * Eliminates awkward mock titles like 'Favorite Animal Blue Dolphin'.
+ * Eliminates awkward mock titles like 'Favorite Animal Blue Dolphin' and purges dangling test sessions.
  */
 export function cleanSessionTitles() {
+  // First clean up any dangling test sessions
+  cleanupTestSessions();
+
   if (!DatabaseSync) return;
   try {
     const appDataDir = process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
@@ -289,6 +395,9 @@ export class AntigravitySessionBridge {
             last_user_input_step_index = excluded.last_user_input_step_index
         `);
 
+        const isTestSession = process.env.QUEST_TEST_MODE === '1' || this.conversationId === 'quest-3-custom-session' || this.conversationId.startsWith('quest-test');
+        const sessionSource = isTestSession ? 'META_QUEST_3_TEST' : 'META_QUEST_3';
+
         stmt.run(
           this.conversationId,
           this.title,
@@ -297,7 +406,7 @@ export class AntigravitySessionBridge {
           now,
           JSON.stringify([workspacePath]),
           'CASCADE_RUN_STATUS_IDLE',
-          'META_QUEST_3',
+          sessionSource,
           'Quest Companion',
           0,
           0,
@@ -339,6 +448,10 @@ export class AntigravitySessionBridge {
 
   setConversationId(newId, newTitle) {
     if (!newId || newId === this.conversationId) return;
+    if (this.db) {
+      try { this.db.close(); } catch {}
+      this.db = null;
+    }
     this.conversationId = newId;
     if (newTitle) this.title = newTitle;
     this.trajectoryId = `traj-${this.conversationId}`;
@@ -582,12 +695,13 @@ export class AntigravityLiveClient {
         try { sumDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
         const now = new Date().toISOString();
         const workspacePath = path.join(activeSessionBridge.appDataDir, 'scratch', 'quest-ai-companion');
+        const sessionSource = process.env.QUEST_TEST_MODE === '1' ? 'META_QUEST_3_TEST' : 'META_QUEST_3';
         const stmt = sumDb.prepare(`
           INSERT INTO conversation_summaries (
             conversation_id, title, preview, step_count, last_modified_time,
             workspace_uris, status, source, agent_name, not_fully_idle, killed,
             last_user_input_time, last_user_input_step_index, app_data_dir
-          ) VALUES (?, ?, 'Voice dialogue and companion session with Meta Quest 3', 1, ?, ?, 'CASCADE_RUN_STATUS_IDLE', 'META_QUEST_3', 'Quest Companion', 0, 0, ?, 1, ?)
+          ) VALUES (?, ?, 'Voice dialogue and companion session with Meta Quest 3', 1, ?, ?, 'CASCADE_RUN_STATUS_IDLE', ?, 'Quest Companion', 0, 0, ?, 1, ?)
           ON CONFLICT(conversation_id) DO UPDATE SET
             title = excluded.title,
             last_modified_time = excluded.last_modified_time
@@ -597,6 +711,7 @@ export class AntigravityLiveClient {
           title,
           now,
           JSON.stringify([workspacePath]),
+          sessionSource,
           now,
           activeSessionBridge.appDataDir
         );
@@ -642,6 +757,9 @@ export class AntigravityLiveClient {
     });
     if (res && res.cascadeId) {
       this.activeCascadeId = res.cascadeId;
+      if (process.env.QUEST_TEST_MODE === '1') {
+        testCascadeIds.add(this.activeCascadeId);
+      }
       try {
         fs.mkdirSync(activeSessionBridge.brainDir, { recursive: true });
         fs.writeFileSync(cascadeFile, this.activeCascadeId, 'utf-8');

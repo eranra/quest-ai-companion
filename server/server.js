@@ -39,7 +39,9 @@ import {
   switchAntigravitySession,
   getActiveAnalysisStatus,
   setAnalysisStatus,
-  cleanSessionTitles
+  cleanSessionTitles,
+  deleteAntigravitySession,
+  cleanupTestSessions
 } from './antigravity.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -856,6 +858,38 @@ export function createServer() {
         const updatedSession = switchAntigravitySession(body.conversationId, body.title);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, session: updatedSession }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
+    // Route: POST /api/antigravity/session/delete (Delete an Antigravity conversation)
+    if (req.method === 'POST' && pathname === '/api/antigravity/session/delete') {
+      try {
+        const body = await readJsonBody();
+        if (!body.conversationId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing conversationId' }));
+          return;
+        }
+        deleteAntigravitySession(body.conversationId);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, deleted: body.conversationId }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+
+    // Route: POST /api/antigravity/session/cleanup-tests (Purge all dangling test sessions)
+    if (req.method === 'POST' && pathname === '/api/antigravity/session/cleanup-tests') {
+      try {
+        const cleaned = cleanupTestSessions();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, cleaned }));
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));

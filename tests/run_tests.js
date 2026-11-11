@@ -48,6 +48,7 @@ async function runTestSuite() {
   console.log('🧪 Starting Quest AI Companion Automated Test Suite');
   console.log('====================================================\n');
 
+  process.env.QUEST_TEST_MODE = '1';
   const STANDALONE_PORT = 8125;
   const serverModule = await import('../server/server.js');
   const standaloneServer = await serverModule.startServer(STANDALONE_PORT);
@@ -1028,6 +1029,14 @@ async function runTestSuite() {
                       body: JSON.stringify({ conversationId: agSessionRes.conversationId, title: agSessionRes.title })
                     });
 
+                    // Clean up the temporary test session immediately!
+                    const delTestSessRes = await fetch('http://127.0.0.1:8125/api/antigravity/session/delete', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ conversationId: 'quest-3-custom-session' })
+                    }).then(r => r.json());
+                    assert('POST /api/antigravity/session/delete cleans up test session', delTestSessRes.success === true && delTestSessRes.deleted === 'quest-3-custom-session');
+
                     // Stop heartbeat cleanup
                     remoteModule.stopRemoteHeartbeat();
 
@@ -1215,7 +1224,7 @@ async function runTestSuite() {
             }));
           };
 
-          ws.onmessage = (event) => {
+          ws.onmessage = async (event) => {
             const msg = JSON.parse(event.data);
 
             if (msg.method === 'Runtime.exceptionThrown') {
@@ -1283,6 +1292,21 @@ async function runTestSuite() {
                     if (strangeRows.count === 0) {
                       passed++;
                       console.log('  ✅ [PASS] All Antigravity session titles cleaned of Blue Dolphin mock artifacts');
+                    }
+
+                    // Verify automated cleanup of all test Antigravity sessions so none are left dangling
+                    await fetch('http://127.0.0.1:8125/api/antigravity/session/cleanup-tests', { method: 'POST' });
+                    const checkDb = new dbSyncModule.DatabaseSync(sumDbPath, { readOnly: true });
+                    const remainingTestSessions = checkDb.prepare(`
+                      SELECT count(*) as count FROM conversation_summaries
+                      WHERE conversation_id = 'quest-3-custom-session'
+                         OR title = 'Custom Quest 3 Session'
+                         OR source = 'META_QUEST_3_TEST'
+                    `).get();
+                    checkDb.close();
+                    if (remainingTestSessions.count === 0) {
+                      passed++;
+                      console.log('  ✅ [PASS] All test Antigravity sessions cleaned up and zero dangling test sessions in UI');
                     }
                   }
                 } catch (e) {}
