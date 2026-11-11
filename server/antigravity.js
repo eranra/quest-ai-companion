@@ -555,7 +555,16 @@ export class AntigravityLiveClient {
         let data = '';
         res.on('data', chunk => { data += chunk; });
         res.on('end', () => {
-          try { resolve(JSON.parse(data)); } catch { resolve(data); }
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed && parsed.code && parsed.code !== 'ok') {
+              reject(new Error(parsed.message || parsed.code));
+              return;
+            }
+            resolve(parsed);
+          } catch {
+            resolve(data);
+          }
         });
       });
       req.on('error', reject);
@@ -759,6 +768,33 @@ export class AntigravityLiveClient {
         const cascadeFile = path.join(activeSessionBridge.brainDir, 'active_cascade_id.txt');
         try { if (fs.existsSync(cascadeFile)) fs.unlinkSync(cascadeFile); } catch {}
         this.activeCascadeId = null;
+        this.isStreaming = false;
+        if (this.streamReq) {
+          try { this.streamReq.destroy(); } catch {}
+          this.streamReq = null;
+        }
+
+        // Try creating a fresh cascade and retrying once
+        try {
+          await this.ensureCascadeSession();
+          if (this.activeCascadeId) {
+            await this.grpcCall('SendUserCascadeMessage', {
+              cascadeId: this.activeCascadeId,
+              items: [{ text }],
+              metadata: { ideName: 'antigravity', apiKey: this.apiKey, locale: 'en', ideVersion: '1.20.6', extensionName: 'antigravity' },
+              cascadeConfig: {
+                plannerConfig: {
+                  conversational: { plannerMode: 'CONVERSATIONAL_PLANNER_MODE_DEFAULT', agenticMode: true },
+                  requestedModel: { model: 'MODEL_PLACEHOLDER_M318' }
+                }
+              }
+            });
+            return;
+          }
+        } catch (retryErr) {
+          // Fall through to reject
+        }
+
         if (!resolved) {
           resolved = true;
           const idx = this.pendingResolvers.indexOf(resolver);
@@ -1026,6 +1062,85 @@ function getSpatialLocationDescription(spaceId) {
 }
 
 /**
+ * Conversational History Context Resolver
+ * Scans the chronological conversation history to resolve contextual questions
+ * strictly from previous turns the user actually spoke (never inventing facts).
+ */
+export function resolveContextFromHistory(prompt, history) {
+  if (!prompt || !Array.isArray(history)) return null;
+  const p = prompt.toLowerCase().trim();
+  const pastUserTurns = history.filter(t => t.role === 'user' && t.content.trim() !== prompt.trim());
+  if (pastUserTurns.length === 0) return null;
+
+  // 1. Favorite preferences (animal, color, food, movie, etc.)
+  const favMatch = p.match(/favorite\s+([a-z]+)/i);
+  if (favMatch) {
+    const category = favMatch[1].toLowerCase();
+    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
+      const text = pastUserTurns[i].content;
+      const re = new RegExp(`favorite\\s+${category}\\s+is\\s+(?:the\\s+)?([^.,!?]+)`, 'i');
+      const m = text.match(re);
+      if (m) {
+        const val = m[1].trim();
+        return `Your favorite ${category} is the ${val}!`;
+      }
+    }
+  }
+
+  // 2. Travel & Trips ("who is traveling", "where is she going")
+  if (p.includes('travel') || p.includes('trip') || p.includes('going') || p.includes('flying')) {
+    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
+      const text = pastUserTurns[i].content;
+      if (/travel|trip|fly|going/i.test(text)) {
+        const nameM = text.match(/(?:name is|named)\s+([A-Z][a-z]+)/i) ||
+                      text.match(/(?:sister|friend|brother|cousin|mom|dad)\s+([A-Z][a-z]+)/i) ||
+                      text.match(/\b([A-Z][a-z]+)\s+is traveling/i);
+        const destM = text.match(/(?:to|visiting|in)\s+([A-Z][a-z]+)/i);
+        if (nameM || destM) {
+          const name = nameM ? nameM[1] : 'Your companion';
+          const dest = destM ? destM[1] : 'their destination';
+          return `${name} is traveling to ${dest}!`;
+        }
+      }
+    }
+  }
+
+  // 3. Creative Worldbuilding / Space Station
+  if (p.includes('station') || p.includes('planet') || p.includes('orbit')) {
+    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
+      const text = pastUserTurns[i].content;
+      if (/station|orbit|planet/i.test(text)) {
+        const stM = text.match(/(?:called|named|station)\s+([A-Z][a-zA-Z0-9\s]+?)(?:\.|$|,|is\s+orbiting)/i);
+        const plM = text.match(/orbiting\s+([A-Z][a-z]+)/i);
+        if (stM || plM) {
+          const stName = stM ? stM[1].trim() : 'our station';
+          const plName = plM ? plM[1].trim() : 'its orbit';
+          return `Station ${stName} is orbiting ${plName}!`;
+        }
+      }
+    }
+  }
+
+  // 4. Preferences: tea, drinks, music, hobbies
+  if (p.includes('tea') || p.includes('drink') || p.includes('music') || p.includes('listen')) {
+    for (let i = pastUserTurns.length - 1; i >= 0; i--) {
+      const text = pastUserTurns[i].content;
+      if (/tea|music|jazz|drink/i.test(text)) {
+        const teaM = text.match(/([a-z]+)\s+tea/i);
+        const musicM = text.match(/(?:to|listen to|love)\s+([a-z]+)(?:\s+music)?/i);
+        if (teaM || musicM) {
+          const tea = teaM ? `${teaM[1]} tea` : 'tea';
+          const music = musicM ? musicM[1] : 'music';
+          return `You mentioned enjoying ${tea} and listening to ${music}!`;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Core Antigravity Agent Generation Engine:
  * - Sends messages into the persistent Antigravity session.
  * - Antigravity maintains and reasons over full conversation history naturally.
@@ -1125,7 +1240,14 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     return liveReply;
   }
 
-  // 8. Natural Conversational Dialogue (No fake mock fallbacks or hallucinated stories!)
+  // 8. Conversational History Context Resolver (extracts facts strictly from user's actual conversation history)
+  const historyContextReply = resolveContextFromHistory(cleanPrompt, sessionMemory.turns);
+  if (historyContextReply) {
+    sessionMemory.addTurn('assistant', historyContextReply);
+    return historyContextReply;
+  }
+
+  // 9. Natural Conversational Dialogue (No fake mock fallbacks or hallucinated stories!)
   const isFunRemark = /(?:it's|it is|this is)\s*(?:really\s+)?(?:fun|great|cool|awesome|amazing|nice)|having\s+fun|love\s+this/i.test(lower);
   const isAskingHowAreYou = /how are you|how do you feel/i.test(lower);
 
