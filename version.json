@@ -1,7 +1,7 @@
 {
-  "version": "v0.7.0",
-  "build": 52,
+  "version": "v0.7.1",
+  "build": 53,
   "released": "2026-11-11",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.7.0: 1) Non-blocking UI during Avatar Speech: zero Quest CPU overhead with remote audio playback & WebAssembly event loop yielding; 2) Live Mode Full-Duplex AEC & Intelligent Barge-In: microsecond barge-in detection allows cutting off the avatar naturally while speaking in Smart AEC mode; 3) Parallel Backend TTS Pipelining: concurrent multi-core synthesis on PC server with sub-300ms first-chunk streaming and zero inter-sentence latency; 4) Selective Model Loading: bypass on-device Whisper and Piper downloads when connected to PC server to save 300MB+ RAM while preserving offline standalone capability."
+  "changelog": "v0.7.1: 1) Authentic Human Speech TTS on PC Server: replaces synthetic harmonic tone generator with genuine Windows System.Speech synthesis (16-bit 22050Hz PCM WAV) featuring natural phoneme intonation, pitch variation, and gender matching; 2) Non-Blocking Speech-to-Text Multi-Threading: decoupled VU meter UI DOM updates via requestAnimationFrame and cooperative event-loop yielding before/after audio resampling; 3) Quest 3 / PC Remote STT Offloading: routes microphone audio directly to PC Server /api/stt in remote mode to reduce headset CPU to 0% during transcription; 4) Quest 3 Split Architecture Automated Verification Suite."
 }

@@ -6,6 +6,7 @@ import { abortActiveGeneration } from '../ai.js';
 import { encodeWAV, blobToBase64 } from './wav.js';
 import { transcribeAudioWithGemini } from '../ai/index.js';
 import { logDebug, setStageTiming, setActiveStage } from '../ui/debug_logger.js';
+import { normalizeServerUrl, getClientVersion } from '../ai/remote.js';
 
 let whisperTranscriber = null;
 let isWhisperLoading = false;
@@ -16,6 +17,9 @@ let mediaStream = null;
 let scriptProcessor = null;
 let audioSource = null;
 let muteGain = null;
+
+let pendingVolume = 0;
+let volumeRafScheduled = false;
 
 let isRecording = false;
 let audioChunks = [];
@@ -205,8 +209,16 @@ export async function startListeningWhisper() {
       const rms = Math.sqrt(sum / input.length);
       const volume = Math.min(1.0, Math.max(0.0, rms * 15));
 
-      if (onVolumeCallback) {
-        onVolumeCallback(volume);
+      // Decouple volume UI updates via requestAnimationFrame so DOM updates never lock the audio thread or 3D render loop
+      pendingVolume = volume;
+      if (!volumeRafScheduled && onVolumeCallback) {
+        volumeRafScheduled = true;
+        requestAnimationFrame(() => {
+          volumeRafScheduled = false;
+          if (onVolumeCallback) {
+            onVolumeCallback(pendingVolume);
+          }
+        });
       }
 
       // Check if avatar is generating AI text or in strict half-duplex speech
@@ -355,40 +367,77 @@ async function finalizeWhisperTranscription() {
     offset += c.length;
   }
 
+  // Cooperative event-loop yield so UI frame completes before CPU processing
+  await new Promise(r => setTimeout(r, 0));
   const resampled = downsampleTo16k(merged, sampleRate);
+  await new Promise(r => setTimeout(r, 0));
+
   setActiveStage('transcribing_whisper', `Whisper Transcribing (${audioDurationSec.toFixed(1)}s)...`);
-  logDebug('STT', `Captured ${totalLength} samples (~${audioDurationSec.toFixed(2)}s). Resampled to 16kHz (${resampled.length} samples). Transcribing with Whisper...`);
+  logDebug('STT', `Captured ${totalLength} samples (~${audioDurationSec.toFixed(2)}s). Resampled to 16kHz (${resampled.length} samples). Transcribing...`);
 
   if (onStatusChangeCallback) {
-    onStatusChangeCallback('analyzing', 'Transcribing speech with Whisper...');
+    onStatusChangeCallback('analyzing', 'Transcribing speech...');
   }
 
   try {
     let transcript = '';
 
-    // Route 1: Local Whisper-tiny on-device execution
-    if (!whisperTranscriber) {
-      await initWhisper();
+    // Route 0: Remote PC Server STT (Offloads Whisper entirely to the host PC, Quest CPU at 0%!)
+    if (AppState.engine === 'remote' && AppState.remoteServerStatus === 'online') {
+      try {
+        logDebug('STT', `🚀 Sending audio (${audioDurationSec.toFixed(1)}s) to PC Server /api/stt...`);
+        const url = normalizeServerUrl(AppState.remoteServerUrl);
+        const t0 = performance.now();
+        const wavBlob = encodeWAV(resampled, 16000);
+        const base64Wav = await blobToBase64(wavBlob);
+        const sttRes = await fetch(`${url}/api/stt`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Version': getClientVersion(),
+            'bypass-tunnel-reminder': 'true'
+          },
+          body: JSON.stringify({ audioBase64: base64Wav })
+        }).then(r => r.json());
+
+        if (sttRes && sttRes.success && sttRes.text) {
+          transcript = sttRes.text.trim();
+          const sttMs = Math.round(performance.now() - t0);
+          setStageTiming('stt', sttMs);
+          logDebug('STT', `PC Server STT completed in ${sttMs}ms: "${transcript}"`);
+        }
+      } catch (remoteSttErr) {
+        logDebug('STT', `PC Server STT error (${remoteSttErr.message}), falling back to local...`, 'warn');
+      }
     }
 
-    if (whisperTranscriber) {
-      const t0 = performance.now();
-      const isShortClip = resampled.length < 16000 * 30;
-      const whisperOpts = isShortClip
-        ? { return_timestamps: false }
-        : { chunk_length_s: 30, stride_length_s: 5, return_timestamps: false };
-      const output = await whisperTranscriber(resampled, whisperOpts);
-      const sttMs = Math.round(performance.now() - t0);
-      setStageTiming('stt', sttMs);
-
-      if (Array.isArray(output)) {
-        transcript = (output[0]?.text || '').trim();
-      } else if (typeof output === 'string') {
-        transcript = output.trim();
-      } else {
-        transcript = (output?.text || '').trim();
+    // Route 1: Local Whisper-tiny on-device execution (if offline or remote returned empty)
+    if (!transcript) {
+      if (!whisperTranscriber) {
+        await initWhisper();
       }
-      logDebug('STT', `Whisper completed in ${sttMs}ms: "${transcript}"`);
+
+      if (whisperTranscriber) {
+        await new Promise(r => setTimeout(r, 0)); // Cooperative yield before local inference
+        const t0 = performance.now();
+        const isShortClip = resampled.length < 16000 * 30;
+        const whisperOpts = isShortClip
+          ? { return_timestamps: false }
+          : { chunk_length_s: 30, stride_length_s: 5, return_timestamps: false };
+        const output = await whisperTranscriber(resampled, whisperOpts);
+        const sttMs = Math.round(performance.now() - t0);
+        setStageTiming('stt', sttMs);
+
+        if (Array.isArray(output)) {
+          transcript = (output[0]?.text || '').trim();
+        } else if (typeof output === 'string') {
+          transcript = output.trim();
+        } else {
+          transcript = (output?.text || '').trim();
+        }
+        logDebug('STT', `Whisper completed in ${sttMs}ms: "${transcript}"`);
+        await new Promise(r => setTimeout(r, 0)); // Cooperative yield after local inference
+      }
     }
 
     // Route 2 Fallback: Cloud Gemini Multimodal Audio if local transcription was empty and key is present

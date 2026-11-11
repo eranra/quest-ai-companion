@@ -4,7 +4,7 @@ import { AppState } from '../state.js';
 import { logDebug } from '../ui/debug_logger.js';
 import { executeTool } from './tools.js';
 
-let clientVersion = 'v0.7.0';
+let clientVersion = 'v0.7.1';
 let heartbeatTimer = null;
 let onServerStatusChangeCallback = null;
 let cachedRemoteModels = null;

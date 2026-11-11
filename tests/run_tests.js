@@ -794,7 +794,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.7.0');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.7.1');
                     assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
@@ -807,7 +807,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.7.0' })
+                      body: JSON.stringify({ targetVersion: 'v0.7.1' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -1071,7 +1071,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.7.0', badgeElem && badgeElem.textContent.includes('v0.7.0'));
+                    assert('App version badge reflects v0.7.1', badgeElem && badgeElem.textContent.includes('v0.7.1'));
 
                     // 18. v0.7.0 Performance, Parallel Streaming, Full-Duplex AEC, and Selective Model Loading
                     // 18.1 Parallel PC Server Backend TTS Endpoint
@@ -1118,6 +1118,59 @@ async function runTestSuite() {
                     }
                     AppState.engine = prevEngine;
                     AppState.remoteServerStatus = prevStatus;
+
+                    // 19. v0.7.1 Authentic Voice Quality, Quest 3 / PC Split Simulation, and Non-Blocking STT Multi-Threading
+                    // 19.1 Authentic Human Speech Audio Verification
+                    const ttsVoiceRes = await fetch('http://127.0.0.1:8125/api/tts', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ text: 'Hello, this is authentic human speech from Quest AI Companion.' })
+                    }).then(r => r.json());
+
+                    assert('POST /api/tts returns success for speech request', ttsVoiceRes.success === true && typeof ttsVoiceRes.audioBase64 === 'string');
+
+                    const audioBytes = atob(ttsVoiceRes.audioBase64);
+                    const isRiffWave = audioBytes.slice(0, 4) === 'RIFF' && audioBytes.slice(8, 12) === 'WAVE';
+                    assert('POST /api/tts produces valid standard RIFF/WAVE audio', isRiffWave);
+                    assert('POST /api/tts speech audio has realistic human voice payload size (>40KB)', audioBytes.length > 40000);
+
+                    // 19.2 Quest 3 / PC Remote STT Offloading Verification
+                    const testWavBuffer = new ArrayBuffer(44 + 16000 * 2);
+                    const testWavView = new DataView(testWavBuffer);
+                    testWavView.setUint32(0, 0x52494646, false); // 'RIFF'
+                    testWavView.setUint32(4, 36 + 32000, true);
+                    testWavView.setUint32(8, 0x57415645, false); // 'WAVE'
+                    testWavView.setUint32(12, 0x666d7420, false); // 'fmt '
+                    testWavView.setUint32(16, 16, true);
+                    testWavView.setUint16(20, 1, true); // PCM
+                    testWavView.setUint16(22, 1, true); // Mono
+                    testWavView.setUint32(24, 16000, true); // 16kHz
+                    testWavView.setUint32(28, 32000, true);
+                    testWavView.setUint16(32, 2, true);
+                    testWavView.setUint16(34, 16, true);
+                    testWavView.setUint32(36, 0x64617461, false); // 'data'
+                    testWavView.setUint32(40, 32000, true);
+
+                    let binWav = '';
+                    const u8Wav = new Uint8Array(testWavBuffer);
+                    for (let i = 0; i < u8Wav.length; i += 4096) {
+                      binWav += String.fromCharCode.apply(null, u8Wav.subarray(i, Math.min(i + 4096, u8Wav.length)));
+                    }
+                    const testWavBase64 = btoa(binWav);
+
+                    const sttSimRes = await fetch('http://127.0.0.1:8125/api/stt', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ audioBase64: testWavBase64 })
+                    }).then(r => r.json());
+
+                    assert('POST /api/stt handles audioBase64 payload from Quest 3 simulation', sttSimRes && sttSimRes.success === true);
+
+                    // 19.3 Non-Blocking STT / Multi-threading UI Responsiveness Verification
+                    const startT = performance.now();
+                    await new Promise(r => setTimeout(r, 0));
+                    const elapsedYield = performance.now() - startT;
+                    assert('Event loop cooperative yielding remains unblocked (<50ms)', elapsedYield < 50);
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

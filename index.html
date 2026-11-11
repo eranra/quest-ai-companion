@@ -62,7 +62,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.7.0</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.7.1</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -709,7 +709,7 @@
   <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query -->
   <script type="module">
     const params = new URLSearchParams(window.location.search);
-    const v = params.get('v') || 'v0.7.0';
+    const v = params.get('v') || 'v0.7.1';
     import(`./js/app.js?v=${v}`);
   </script>
 

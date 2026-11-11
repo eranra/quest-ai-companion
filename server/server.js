@@ -9,7 +9,9 @@ import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { exec, spawn } from 'child_process';
+import { exec, execFile, spawn } from 'child_process';
+import util from 'util';
+const execFilePromise = util.promisify(execFile);
 import {
   AVATAR_PERSONAS,
   getActiveAvatarPersona,
@@ -222,9 +224,31 @@ export function generateSyntheticWav(text, sampleRate = 22050) {
   return buffer;
 }
 
+const SAPI_SCRIPT = path.join(ROOT_DIR, 'server', 'tts_sapi.ps1');
+
 export async function synthesizeServerSpeech(text, voiceId) {
   if (!text || !text.trim()) return '';
-  return generateSyntheticWav(text).toString('base64');
+  const clean = text.trim();
+
+  // 1. On Windows, use real System.Speech synthesis for authentic natural human voice
+  if (process.platform === 'win32' && fs.existsSync(SAPI_SCRIPT)) {
+    try {
+      const { stdout } = await execFilePromise(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SAPI_SCRIPT, '-Text', clean, '-VoiceId', voiceId || ''],
+        { maxBuffer: 10 * 1024 * 1024, timeout: 6000 }
+      );
+      const b64 = (stdout || '').trim();
+      if (b64 && b64.startsWith('UklGR') && b64.length > 500) {
+        return b64;
+      }
+    } catch (sapiErr) {
+      console.warn('[Server TTS] SAPI error:', sapiErr.message);
+    }
+  }
+
+  // Fallback if not on Windows
+  return generateSyntheticWav(clean).toString('base64');
 }
 
 function getAvatarWelcomeSpeech(avatarName) {
@@ -267,9 +291,9 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.7.0';
+    return JSON.parse(raw).version || 'v0.7.1';
   } catch {
-    return 'v0.7.0';
+    return 'v0.7.1';
   }
 }
 
@@ -654,7 +678,17 @@ export function createServer() {
           audioData = new Float32Array(body.audio);
         } else if (body.audioBase64) {
           const buf = Buffer.from(body.audioBase64, 'base64');
-          audioData = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+          if (buf.length > 44 && buf.toString('ascii', 0, 4) === 'RIFF') {
+            const pcm16 = new Int16Array(buf.buffer, buf.byteOffset + 44, Math.floor((buf.length - 44) / 2));
+            audioData = new Float32Array(pcm16.length);
+            for (let i = 0; i < pcm16.length; i++) {
+              audioData[i] = pcm16[i] / 32768.0;
+            }
+          } else {
+            const ab = new ArrayBuffer(buf.length);
+            new Uint8Array(ab).set(buf);
+            audioData = new Float32Array(ab, 0, Math.floor(buf.length / 4));
+          }
         }
 
         if (!audioData || audioData.length === 0) {
