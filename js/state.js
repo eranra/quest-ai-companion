@@ -18,7 +18,7 @@ export const AppState = {
   geminiKey: storage.getItem('quest_gemini_key') || '',
   avatarId: storage.getItem('quest_avatar_id') || 'echo',
   spaceId: storage.getItem('quest_space_id') || 'hall',
-  isLiveMode: storage.getItem('quest_live_mode') === 'true',
+  isLiveMode: false, // Always starts disabled on website entry
   
   // Standalone PC Server Remote Models (WASM)
   remoteSttModel: storage.getItem('quest_remote_stt_model') || 'whisper-tiny',

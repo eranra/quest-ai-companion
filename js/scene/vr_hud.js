@@ -223,6 +223,8 @@ function renderHUDCanvas() {
   }
 }
 
+let lastActionTriggerTime = 0;
+
 /**
  * Handles raycast pointer intersection against the In-VR Console
  */
@@ -260,6 +262,12 @@ export function testVRHUDIntersection(raycaster, isTriggerClick, callbacks = {})
   }
 
   if (matched && isTriggerClick) {
+    const now = Date.now();
+    if (now - lastActionTriggerTime < 350) {
+      return { point: intersects[0].point, buttonKey: hoveredButtonKey };
+    }
+    lastActionTriggerTime = now;
+
     if (matched.key === 'exit' && callbacks.onExitVR) {
       callbacks.onExitVR();
     } else if (matched.key === 'mic' && callbacks.onToggleMic) {

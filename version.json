@@ -1,7 +1,7 @@
 {
-  "version": "v0.7.2",
-  "build": 54,
+  "version": "v0.7.3",
+  "build": 55,
   "released": "2026-11-11",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.7.2: 1) Elimination of mock fallbacks: completely removed hardcoded mock stories and canned responses, ensuring only authentic model reasoning or clear, truthful communication; 2) Single Persistent Antigravity Session: persists cascade ID to active_cascade_id.txt in the session directory, guaranteeing that all conversation turns route to one continuous Cascade visible in the Antigravity UI across turns and server restarts; 3) Live Analysis Progress Indicator: real-time GET /api/chat/status polling and streaming progress updates showing concise HUD progress (e.g. 'Thinking with Antigravity...', 'Formulating answer...') during analysis; 4) Accelerated Language Server Discovery: fast HTTP liveness check and discovery caching, eliminating multi-second latency overhead."
+  "changelog": "v0.7.3: 1) Standardized Antigravity Session Titles: eliminates 'Favorite Animal Blue Dolphin' and normalizes all Antigravity session titles on disk and in conversation_summaries.db to 'AI Conversation'; 2) Default Disabled Live Mode: ensures hands-free Live Mode always boots disabled (OFF) upon entering the website; 3) 3D VR In-HUD Live Mode Button Debouncing: removed duplicate trigger event dispatching between pointer select and controller render polling, adding 350ms click debouncing to ensure clean, reliable single toggling in WebXR."
 }

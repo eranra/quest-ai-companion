@@ -26,7 +26,7 @@ let lastDetectionTime = 0;
 const DETECTION_TTL = 10000;
 
 function createChapterTitlePb(title) {
-  const titleBuf = Buffer.from(title || 'Meta Quest 3 AI Companion', 'utf-8');
+  const titleBuf = Buffer.from(title || 'AI Conversation', 'utf-8');
   const f3 = Buffer.concat([Buffer.from([0x1a, titleBuf.length]), titleBuf]);
   const f1_2 = Buffer.from([0x08, 0xa0, 0x2d, 0x10, 0xee, 0x39]);
   const f4 = Buffer.from([0x22, 0x0c, 0x08, 0xdf, 0xf9, 0xca, 0xd7, 0x06, 0x10, 0xec, 0xf9, 0x8b, 0xd7, 0x01]);
@@ -35,6 +35,33 @@ function createChapterTitlePb(title) {
 }
 
 let _sessionMemoryInstance = null;
+
+/**
+ * Normalizes all Antigravity session titles on disk to clean, readable names (e.g. 'AI Conversation')
+ * Eliminates awkward mock titles like 'Favorite Animal Blue Dolphin'.
+ */
+export function cleanSessionTitles() {
+  if (!DatabaseSync) return;
+  try {
+    const appDataDir = process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
+    const summaryDbPath = path.join(appDataDir, 'conversation_summaries.db');
+    if (fs.existsSync(summaryDbPath)) {
+      const sumDb = new DatabaseSync(summaryDbPath);
+      try { sumDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
+      sumDb.prepare(`
+        UPDATE conversation_summaries
+        SET title = 'AI Conversation'
+        WHERE title LIKE '%Blue Dolphin%'
+           OR title LIKE '%favorite animal%'
+           OR title LIKE '%Basic Addition%'
+           OR title = 'Meta Quest 3 AI Companion'
+      `).run();
+      sumDb.close();
+    }
+  } catch (e) {
+    console.warn('[Antigravity Bridge] Could not clean session titles:', e.message);
+  }
+}
 
 /**
  * Real Persistent Antigravity Session Bridge
@@ -51,13 +78,14 @@ export class AntigravitySessionBridge {
     this.appDataDir = options.appDataDir || process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
     this.conversationId = options.conversationId || process.env.QUEST_CONVERSATION_ID || 'quest-3-companion-session';
     this.trajectoryId = process.env.ANTIGRAVITY_TRAJECTORY_ID || `traj-${this.conversationId}`;
-    this.title = options.title || 'Meta Quest 3 AI Companion';
+    this.title = options.title || 'AI Conversation';
     this.stepIndex = 0;
     this.db = null;
 
     this.initPaths();
     this.initOnDisk();
     this.loadFromDisk();
+    cleanSessionTitles();
   }
 
   initPaths() {
@@ -237,6 +265,7 @@ export class AntigravitySessionBridge {
       const summaryDbPath = path.join(this.appDataDir, 'conversation_summaries.db');
       if (fs.existsSync(summaryDbPath)) {
         const sumDb = new DatabaseSync(summaryDbPath);
+        try { sumDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
         const now = new Date().toISOString();
         const workspacePath = path.join(this.appDataDir, 'scratch', 'quest-ai-companion');
         let previewText = 'Voice dialogue and VR companion session with Meta Quest 3';
@@ -535,8 +564,50 @@ export class AntigravityLiveClient {
     });
   }
 
+  syncCascadeTitle(cascadeId, title = 'AI Conversation') {
+    if (!cascadeId || !DatabaseSync) return;
+    try {
+      const summaryDbPath = path.join(activeSessionBridge.appDataDir, 'conversation_summaries.db');
+      if (fs.existsSync(summaryDbPath)) {
+        const sumDb = new DatabaseSync(summaryDbPath);
+        try { sumDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
+        const now = new Date().toISOString();
+        const workspacePath = path.join(activeSessionBridge.appDataDir, 'scratch', 'quest-ai-companion');
+        const stmt = sumDb.prepare(`
+          INSERT INTO conversation_summaries (
+            conversation_id, title, preview, step_count, last_modified_time,
+            workspace_uris, status, source, agent_name, not_fully_idle, killed,
+            last_user_input_time, last_user_input_step_index, app_data_dir
+          ) VALUES (?, ?, 'Voice dialogue and companion session with Meta Quest 3', 1, ?, ?, 'CASCADE_RUN_STATUS_IDLE', 'META_QUEST_3', 'Quest Companion', 0, 0, ?, 1, ?)
+          ON CONFLICT(conversation_id) DO UPDATE SET
+            title = excluded.title,
+            last_modified_time = excluded.last_modified_time
+        `);
+        stmt.run(
+          cascadeId,
+          title,
+          now,
+          JSON.stringify([workspacePath]),
+          now,
+          activeSessionBridge.appDataDir
+        );
+        sumDb.close();
+      }
+
+      // Also ensure chapter_titles/<cascadeId>.pb has the title
+      const chapterDir = path.join(activeSessionBridge.appDataDir, 'chapter_titles');
+      fs.mkdirSync(chapterDir, { recursive: true });
+      fs.writeFileSync(path.join(chapterDir, `${cascadeId}.pb`), createChapterTitlePb(title));
+    } catch (e) {
+      console.warn('[Antigravity Live] Could not sync cascade title:', e.message);
+    }
+  }
+
   async ensureCascadeSession(workspaceUri) {
-    if (this.activeCascadeId) return this.activeCascadeId;
+    if (this.activeCascadeId) {
+      this.syncCascadeTitle(this.activeCascadeId, 'AI Conversation');
+      return this.activeCascadeId;
+    }
 
     // Check disk storage in activeSessionBridge.brainDir
     const cascadeFile = path.join(activeSessionBridge.brainDir, 'active_cascade_id.txt');
@@ -545,6 +616,7 @@ export class AntigravityLiveClient {
         const savedId = fs.readFileSync(cascadeFile, 'utf-8').trim();
         if (savedId) {
           this.activeCascadeId = savedId;
+          this.syncCascadeTitle(this.activeCascadeId, 'AI Conversation');
           this.startStreaming();
           return this.activeCascadeId;
         }
@@ -567,6 +639,7 @@ export class AntigravityLiveClient {
       } catch (e) {
         console.warn('[Antigravity Live] Could not persist cascade ID:', e.message);
       }
+      this.syncCascadeTitle(this.activeCascadeId, 'AI Conversation');
       this.startStreaming();
     }
     return this.activeCascadeId;

@@ -55,13 +55,7 @@ export function setupXRControllers(scene, renderer) {
   for (let i = 0; i < 2; i++) {
     const controller = renderer.xr.getController(i);
     controller.addEventListener('selectstart', () => unlockAudio());
-    controller.addEventListener('select', () => {
-      unlockAudio();
-      tempMatrix.identity().extractRotation(controller.matrixWorld);
-      raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-      testVRHUDIntersection(raycaster, true, registeredActionCallbacks);
-    });
+    controller.addEventListener('select', () => unlockAudio());
 
     // Laser pointer beam
     controller.add(createControllerLaser());

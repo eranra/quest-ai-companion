@@ -38,7 +38,8 @@ import {
   getAntigravitySessionDetails,
   switchAntigravitySession,
   getActiveAnalysisStatus,
-  setAnalysisStatus
+  setAnalysisStatus,
+  cleanSessionTitles
 } from './antigravity.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -292,9 +293,9 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.7.2';
+    return JSON.parse(raw).version || 'v0.7.3';
   } catch {
-    return 'v0.7.2';
+    return 'v0.7.3';
   }
 }
 
@@ -905,6 +906,7 @@ export function createServer() {
  * Starts the server instance
  */
 export function startServer(port = DEFAULT_PORT) {
+  cleanSessionTitles();
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.listen(port, '0.0.0.0', () => {

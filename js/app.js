@@ -54,7 +54,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.7.2';
+export const APP_VERSION = 'v0.7.3';
 
 // DOM References
 const dom = {
@@ -470,8 +470,13 @@ function initApp() {
     }
   })();
 
-  async function handleToggleLiveMode() {
-    const nextMode = !AppState.isLiveMode;
+  let lastToggleLiveTime = 0;
+  async function handleToggleLiveMode(forceState = null) {
+    const now = Date.now();
+    if (now - lastToggleLiveTime < 350) return;
+    lastToggleLiveTime = now;
+
+    const nextMode = forceState !== null ? forceState : !AppState.isLiveMode;
     setLiveMode(nextMode);
     if (dockController) dockController.updateLiveModeUI();
     updateVRHUDState({ status: nextMode ? 'Live Mode: Listening...' : 'Ready' });
@@ -672,15 +677,6 @@ function initApp() {
     }
   } catch (err) {
     console.error('Engine start error:', err);
-  }
-
-  // 7. If Live Mode was previously active, resume smoothly
-  if (AppState.isLiveMode) {
-    try {
-      setLiveMode(true);
-      initMicAnalyser((level) => updateMicLevel(level));
-      setPipelineState('listening');
-    } catch (err) {}
   }
 
   // Tap-to-Interrupt: Clicking speech bubble or status pill immediately interrupts speaking avatar

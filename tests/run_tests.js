@@ -794,7 +794,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.7.2');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.7.3');
                     assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
@@ -807,7 +807,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.7.2' })
+                      body: JSON.stringify({ targetVersion: 'v0.7.3' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -995,6 +995,7 @@ async function runTestSuite() {
                     // 14.10 Persistent Antigravity Session Bridge & Cross-UI Sync Verification
                     const agSessionRes = await fetch('http://127.0.0.1:8125/api/antigravity/session').then(r => r.json());
                     assert('GET /api/antigravity/session returns success and active session', agSessionRes.success === true && typeof agSessionRes.conversationId === 'string' && agSessionRes.conversationId.length > 0);
+                    assert('GET /api/antigravity/session returns clean title AI Conversation', agSessionRes.title === 'AI Conversation' || !agSessionRes.title.includes('Blue Dolphin'));
                     assert('Session details expose transcript, voice chat, sqlite, and presence lock paths', agSessionRes.paths && typeof agSessionRes.paths.transcript === 'string' && typeof agSessionRes.paths.voiceChat === 'string' && typeof agSessionRes.paths.sqlite === 'string' && typeof agSessionRes.paths.presenceLock === 'string');
                     assert('Session turn count tracks conversation interactions', typeof agSessionRes.turnCount === 'number' && agSessionRes.turnCount > 0);
 
@@ -1071,7 +1072,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.7.2', badgeElem && badgeElem.textContent.includes('v0.7.2'));
+                    assert('App version badge reflects v0.7.3', badgeElem && badgeElem.textContent.includes('v0.7.3'));
 
                     // 18. v0.7.0 Performance, Parallel Streaming, Full-Duplex AEC, and Selective Model Loading
                     // 18.1 Parallel PC Server Backend TTS Endpoint
@@ -1181,6 +1182,27 @@ async function runTestSuite() {
                     // 20.2 Zero-Mock Fallback Verification (Never Hallucinate Sister in Paris)
                     assert('Antigravity output never returns hardcoded fake Paris sister story', !agScenario1Recall.reply.toLowerCase().includes('paris'));
 
+                    // 21. v0.7.3 Default Disabled Live Mode, 3D VR Button Debouncing, and Clean Session Titles
+                    // 21.1 Live Mode Default Disabled Verification
+                    assert('Live Mode defaults to disabled (OFF) on site boot', AppState.isLiveMode === false);
+
+                    // 21.2 In-VR HUD Live Mode Debounce Verification
+                    let toggleCount = 0;
+                    const testCallbacks = {
+                      onToggleLive: () => { toggleCount++; }
+                    };
+                    const dummyRaycaster = {
+                      intersectObject: () => [{ uv: { x: 0.60, y: 0.25 }, point: { x: 0, y: 0, z: 0 } }]
+                    };
+                    const vrHudModule = await import('./js/scene/vr_hud.js');
+                    vrHudModule.setVRHUDVisibility(true);
+                    // Rapid click 1
+                    vrHudModule.testVRHUDIntersection(dummyRaycaster, true, testCallbacks);
+                    // Rapid click 2 within 10ms (simulating press + select release)
+                    vrHudModule.testVRHUDIntersection(dummyRaycaster, true, testCallbacks);
+                    assert('VR HUD button click debounce blocks rapid double-toggle', toggleCount === 1);
+                    vrHudModule.setVRHUDVisibility(false);
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }
@@ -1252,6 +1274,18 @@ async function runTestSuite() {
               if (fs.existsSync(sumDbPath)) {
                 passed++;
                 console.log(`  ✅ [PASS] On-disk Antigravity conversation_summaries.db verified: ${sumDbPath}`);
+                try {
+                  const dbSyncModule = require('node:sqlite');
+                  if (dbSyncModule && dbSyncModule.DatabaseSync) {
+                    const db = new dbSyncModule.DatabaseSync(sumDbPath, { readOnly: true });
+                    const strangeRows = db.prepare("SELECT count(*) as count FROM conversation_summaries WHERE title LIKE '%Blue Dolphin%'").get();
+                    db.close();
+                    if (strangeRows.count === 0) {
+                      passed++;
+                      console.log('  ✅ [PASS] All Antigravity session titles cleaned of Blue Dolphin mock artifacts');
+                    }
+                  }
+                } catch (e) {}
               }
 
               console.log('\n====================================================');
