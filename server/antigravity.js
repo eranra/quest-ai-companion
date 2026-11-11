@@ -35,6 +35,7 @@ function createChapterTitlePb(title) {
 }
 
 let _sessionMemoryInstance = null;
+let _activeBridge = null;
 
 export const testCascadeIds = new Set();
 
@@ -45,10 +46,10 @@ export function deleteAntigravitySession(conversationId) {
   if (!conversationId) return false;
   const appDataDir = process.env.ANTIGRAVITY_APP_DATA_DIR || path.join(os.homedir(), '.gemini', 'antigravity');
 
-  // If this session is currently opened in activeSessionBridge, close the sqlite db connection first
-  if (typeof activeSessionBridge !== 'undefined' && activeSessionBridge && activeSessionBridge.conversationId === conversationId && activeSessionBridge.db) {
-    try { activeSessionBridge.db.close(); } catch {}
-    activeSessionBridge.db = null;
+  // If this session is currently opened in active bridge, close the sqlite db connection first
+  if (_activeBridge && _activeBridge.conversationId === conversationId && _activeBridge.db) {
+    try { _activeBridge.db.close(); } catch {}
+    _activeBridge.db = null;
   }
 
   // 1. Remove from SQLite conversation_summaries.db
@@ -70,21 +71,27 @@ export function deleteAntigravitySession(conversationId) {
   try {
     const brainDir = path.join(appDataDir, 'brain', conversationId);
     if (fs.existsSync(brainDir)) fs.rmSync(brainDir, { recursive: true, force: true });
+  } catch {}
 
+  try {
     const voicePath = path.join(appDataDir, 'voice_chats', `${conversationId}.json`);
     if (fs.existsSync(voicePath)) fs.rmSync(voicePath, { force: true });
+  } catch {}
 
+  try {
     const convDbPath = path.join(appDataDir, 'conversations', `${conversationId}.db`);
     if (fs.existsSync(convDbPath)) fs.rmSync(convDbPath, { force: true });
+  } catch {}
 
+  try {
     const chapterPath = path.join(appDataDir, 'chapter_titles', `${conversationId}.pb`);
     if (fs.existsSync(chapterPath)) fs.rmSync(chapterPath, { force: true });
+  } catch {}
 
+  try {
     const lockPath = path.join(appDataDir, 'presence', `${conversationId}.lock`);
     if (fs.existsSync(lockPath)) fs.rmSync(lockPath, { force: true });
-  } catch (e) {
-    console.warn('[Antigravity Bridge] Could not delete on-disk session files:', e.message);
-  }
+  } catch {}
 
   return true;
 }
@@ -110,6 +117,8 @@ export function cleanupTestSessions() {
              OR conversation_id LIKE 'quest-test%'
              OR title = 'Custom Quest 3 Session'
              OR title LIKE '%test session%'
+             OR title LIKE '%Blue Dolphin%'
+             OR title LIKE '%favorite animal%'
              OR source = 'META_QUEST_3_TEST'
              OR conversation_id = '84812cba-ffda-4089-be92-e09ad1b78f0f'
         `).all();
@@ -155,12 +164,15 @@ export function cleanSessionTitles() {
       const sumDb = new DatabaseSync(summaryDbPath);
       try { sumDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
       sumDb.prepare(`
-        UPDATE conversation_summaries
-        SET title = 'AI Conversation'
+        DELETE FROM conversation_summaries
         WHERE title LIKE '%Blue Dolphin%'
            OR title LIKE '%favorite animal%'
            OR title LIKE '%Basic Addition%'
-           OR title = 'Meta Quest 3 AI Companion'
+      `).run();
+      sumDb.prepare(`
+        UPDATE conversation_summaries
+        SET title = 'AI Conversation'
+        WHERE title = 'Meta Quest 3 AI Companion'
       `).run();
       sumDb.close();
     }
@@ -187,6 +199,7 @@ export class AntigravitySessionBridge {
     this.title = options.title || 'AI Conversation';
     this.stepIndex = 0;
     this.db = null;
+    _activeBridge = this;
 
     this.initPaths();
     this.initOnDisk();

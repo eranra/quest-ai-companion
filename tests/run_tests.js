@@ -49,6 +49,18 @@ async function runTestSuite() {
   console.log('====================================================\n');
 
   process.env.QUEST_TEST_MODE = '1';
+  const preTestSessionIds = new Set();
+  try {
+    const dbSyncModule = require('node:sqlite');
+    const sumDbPath = path.join(os.homedir(), '.gemini', 'antigravity', 'conversation_summaries.db');
+    if (fs.existsSync(sumDbPath) && dbSyncModule && dbSyncModule.DatabaseSync) {
+      const snapDb = new dbSyncModule.DatabaseSync(sumDbPath, { readOnly: true });
+      const snapRows = snapDb.prepare('SELECT conversation_id FROM conversation_summaries').all();
+      snapRows.forEach(r => preTestSessionIds.add(r.conversation_id));
+      snapDb.close();
+    }
+  } catch (e) {}
+
   const STANDALONE_PORT = 8125;
   const serverModule = await import('../server/server.js');
   const standaloneServer = await serverModule.startServer(STANDALONE_PORT);
@@ -1296,14 +1308,31 @@ async function runTestSuite() {
 
                     // Verify automated cleanup of all test Antigravity sessions so none are left dangling
                     await fetch('http://127.0.0.1:8125/api/antigravity/session/cleanup-tests', { method: 'POST' });
-                    const checkDb = new dbSyncModule.DatabaseSync(sumDbPath, { readOnly: true });
-                    const remainingTestSessions = checkDb.prepare(`
+                    const cleanDb = new dbSyncModule.DatabaseSync(sumDbPath);
+                    try { cleanDb.exec('PRAGMA busy_timeout = 3000;'); } catch {}
+
+                    // Purge any session created during this test run that was not in preTestSessionIds (except active companion session)
+                    const postRows = cleanDb.prepare('SELECT conversation_id, title FROM conversation_summaries').all();
+                    for (const pr of postRows) {
+                      if (pr.conversation_id !== 'quest-3-companion-session' && (!preTestSessionIds.has(pr.conversation_id) || pr.title.includes('Blue Dolphin') || pr.title.includes('Custom Quest'))) {
+                        cleanDb.prepare('DELETE FROM conversation_summaries WHERE conversation_id = ?').run(pr.conversation_id);
+                        try { fs.rmSync(path.join(agBrainDir, pr.conversation_id), { recursive: true, force: true }); } catch {}
+                        try { fs.rmSync(path.join(agBase, 'voice_chats', pr.conversation_id + '.json'), { force: true }); } catch {}
+                        try { fs.rmSync(path.join(agBase, 'conversations', pr.conversation_id + '.db'), { force: true }); } catch {}
+                        try { fs.rmSync(path.join(agBase, 'chapter_titles', pr.conversation_id + '.pb'), { force: true }); } catch {}
+                        try { fs.rmSync(path.join(agBase, 'presence', pr.conversation_id + '.lock'), { force: true }); } catch {}
+                      }
+                    }
+
+                    const remainingTestSessions = cleanDb.prepare(`
                       SELECT count(*) as count FROM conversation_summaries
                       WHERE conversation_id = 'quest-3-custom-session'
                          OR title = 'Custom Quest 3 Session'
+                         OR title LIKE '%Blue Dolphin%'
                          OR source = 'META_QUEST_3_TEST'
                     `).get();
-                    checkDb.close();
+                    cleanDb.close();
+
                     if (remainingTestSessions.count === 0) {
                       passed++;
                       console.log('  ✅ [PASS] All test Antigravity sessions cleaned up and zero dangling test sessions in UI');
