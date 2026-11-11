@@ -236,11 +236,14 @@ export function splitIntoSentences(text) {
 }
 
 /**
- * Synthesizes a single sentence chunk via Piper
+ * Synthesizes a single sentence chunk via Piper with main-thread yielding
  */
 async function synthesizeSentenceChunk(sentence, voiceId) {
   const piper = await getPiper();
   const t0 = performance.now();
+
+  // Yield to browser event loop before inference to keep UI and Three.js rendering unblocked
+  await new Promise(r => setTimeout(r, 0));
 
   const predictTask = runSerializedInference(() => piper.predict({
     text: sentence.trim(),
@@ -252,17 +255,24 @@ async function synthesizeSentenceChunk(sentence, voiceId) {
   });
 
   const wavBlob = await Promise.race([predictTask, timeoutTask]);
+
+  // Yield to browser event loop after inference
+  await new Promise(r => setTimeout(r, 0));
+
   const elapsedMs = Math.round(performance.now() - t0);
   return { wavBlob, elapsedMs };
 }
 
+let lipSyncRafId = null;
+
 /**
  * Starts rhythmic viseme lip-sync mouth animation during audio playback
+ * Uses requestAnimationFrame tied directly to the render frame instead of setInterval
  */
 function startVisemeAnimation() {
-  if (lipSyncInterval) clearInterval(lipSyncInterval);
+  stopVisemeAnimation();
   let step = 0;
-  lipSyncInterval = setInterval(() => {
+  const tick = () => {
     if (!AppState.isSpeaking) {
       stopVisemeAnimation();
       return;
@@ -271,13 +281,15 @@ function startVisemeAnimation() {
     step += 0.28;
     const openness = 0.25 + 0.45 * Math.abs(Math.sin(step));
     if (onLipSyncCallback) onLipSyncCallback(openness);
-  }, 60);
+    lipSyncRafId = requestAnimationFrame(tick);
+  };
+  lipSyncRafId = requestAnimationFrame(tick);
 }
 
 function stopVisemeAnimation() {
-  if (lipSyncInterval) {
-    clearInterval(lipSyncInterval);
-    lipSyncInterval = null;
+  if (lipSyncRafId) {
+    cancelAnimationFrame(lipSyncRafId);
+    lipSyncRafId = null;
   }
   if (onLipSyncCallback) onLipSyncCallback(0);
 }

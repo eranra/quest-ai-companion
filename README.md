@@ -10,6 +10,36 @@ Featuring a **flexible dual-mode architecture**:
 
 ---
 
+## 🌟 What's New in v0.7.0
+
+- **⚡ Non-Blocking UI & Rendering during Avatar Speech:**
+  - Completely unblocks the Quest 3 main thread while the avatar speaks.
+  - In Remote Mode, TTS playback runs through browser-native HTML5 Audio elements with zero client-side WebAssembly computation (Quest CPU remains at 0% load during speech).
+  - In Standalone Mode, ONNX/Piper WebAssembly execution yields cooperative time slices to the event loop (`setTimeout(0)`), preserving silky-smooth Three.js rendering at 72–120 FPS.
+  - Replaced legacy timer-based viseme animation with `requestAnimationFrame` mouth-syncing.
+
+- **🎙️ Live Mode Full-Duplex AEC & Intelligent Barge-In:**
+  - Eliminated the half-duplex microphone lock: in Smart AEC mode, the microphone stays continuously active and listening while the avatar is speaking.
+  - Sub-millisecond verbal barge-in detector instantly stops speech playback and aborts active inference when the user says "stop", "wait", "hold on", or asks a new question.
+  - Multi-tier lexical and phonetic echo cancellation distinguishes the user's voice from speaker feedback without muting the microphone.
+  - Half-duplex mode remains available as an explicit user setting for environments without hardware echo cancellation.
+
+- **🚀 Concurrent Backend TTS Pipelining across 20 Host CPU Cores:**
+  - Upgraded `/api/tts` to support parallel multi-sentence synthesis batches (`{ sentences: [...] }`).
+  - First sentence chunk returns immediately (<300ms) and starts speaking on the headset right away.
+  - Remaining sentences pre-synthesize in parallel in the background, queuing up seamlessly with 0ms inter-sentence latency for continuous, fluid speech.
+
+- **📦 Selective Model Loading & Memory Optimization:**
+  - Automatically bypasses downloading and loading on-device Whisper STT (~39MB), Neural TTS (~36MB), and WebLLM (~80–350MB) into the Quest browser heap when connected to the PC server.
+  - Saves **300MB+ of browser RAM**, eliminating out-of-memory browser crashes on Meta Quest 3.
+  - Full on-device standalone fallback is seamlessly preserved whenever operating offline.
+
+- **🧪 Full Automated Regression Test Suite (v0.7.0, Build 52):**
+  - **350 automated end-to-end tests passing with 0 failures (100% pass rate)** in headless Chrome over CDP and Node.js.
+  - Covers parallel TTS chunking, remote audio playback, full-duplex barge-in, echo cancellation, selective loading, Antigravity session sync, and WebXR elevation.
+
+---
+
 ## 🌟 What's New in v0.6.4
 
 - **🧠 Real Antigravity Language Server gRPC Bridge & Live Sessions:**

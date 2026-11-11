@@ -91,7 +91,10 @@ export function getSpokenRegistry() {
  * Multi-Tier Acoustic Echo Cancellation (AEC) detector.
  * Tests whether candidate transcript is an acoustic feedback loop of assistant's speech.
  */
-export function isSelfEcho(transcript) {
+export function isSelfEcho(transcript, referenceText) {
+  if (referenceText) {
+    recordSpokenText(referenceText);
+  }
   if (AppState.echoGuardMode === 'off') return false;
   if (!transcript || !transcript.trim()) return false;
 
@@ -103,7 +106,7 @@ export function isSelfEcho(transcript) {
   const candWords = extractWordTokens(candNorm);
   if (candWords.length === 0) return false;
 
-  const isAssistantActive = AppState.isSpeaking || AppState.isGenerating || now < echoCooldownUntil;
+  const isAssistantActive = referenceText || AppState.isSpeaking || AppState.isGenerating || now < echoCooldownUntil;
 
   // Echo detection: physical speaker sound can ONLY reach microphone while assistant is active or in cooldown!
   if (isAssistantActive) {
@@ -158,7 +161,10 @@ export function isSelfEcho(transcript) {
  * Distinguishes true user interruption from speaker echo while avatar is talking.
  * Returns: { isInterruption: boolean, isStopCommand: boolean, novelWords: string[] }
  */
-export function detectUserInterruption(transcript) {
+export function detectUserInterruption(transcript, referenceText) {
+  if (referenceText) {
+    recordSpokenText(referenceText);
+  }
   if (!transcript || !transcript.trim()) {
     return { isInterruption: false, isStopCommand: false, novelWords: [] };
   }

@@ -36,6 +36,11 @@ import {
   AVATAR_DEFAULT_VOICES,
   getDefaultVoiceForAvatar
 } from './neural_tts.js';
+import {
+  speakRemoteTTS,
+  stopRemoteTTS,
+  setRemoteLipSyncCallback
+} from './remote_tts.js';
 
 let audioUnlocked = false;
 
@@ -111,6 +116,20 @@ export function setLiveMode(enabled) {
  * Speaks AI reply using active TTS engine with automatic fallback
  */
 export function speakReply(text, onComplete) {
+  // 1. If connected to Standalone PC Server, use accelerated parallel remote TTS
+  if (AppState.engine === 'remote' && AppState.remoteServerStatus === 'online') {
+    speakRemoteTTS(text, (err) => {
+      if (err) {
+        console.warn('Remote TTS fallback to Neural/Native:', err);
+        speakNeuralTTS(text, onComplete);
+      } else if (onComplete) {
+        onComplete();
+      }
+    });
+    return;
+  }
+
+  // 2. Local Neural TTS vs Browser Native Speech
   const hasNativeVoices = ('speechSynthesis' in window) && window.speechSynthesis.getVoices().length > 0;
   if (AppState.ttsEngine === 'neural' || !hasNativeVoices) {
     speakNeuralTTS(text, onComplete);
@@ -127,9 +146,10 @@ export function speakReply(text, onComplete) {
 }
 
 /**
- * Halts speaking immediately across both Native and Neural TTS engines
+ * Halts speaking immediately across Remote, Neural, and Native TTS engines
  */
 export function stopSpeaking() {
+  stopRemoteTTS();
   stopNeuralTTS();
   nativeStopSpeaking();
 }
@@ -140,6 +160,7 @@ export function stopSpeaking() {
 export function setLipSyncCallback(cb) {
   setNativeLipSyncCallback(cb);
   setNeuralLipSyncCallback(cb);
+  setRemoteLipSyncCallback(cb);
 }
 
 export {
@@ -159,5 +180,7 @@ export {
   setActiveVoiceId,
   PIPER_VOICE_CONFIGS,
   AVATAR_DEFAULT_VOICES,
-  getDefaultVoiceForAvatar
+  getDefaultVoiceForAvatar,
+  speakRemoteTTS,
+  stopRemoteTTS
 };

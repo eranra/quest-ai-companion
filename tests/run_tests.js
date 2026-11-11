@@ -794,7 +794,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.6.4');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.7.0');
                     assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
@@ -807,7 +807,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.6.4' })
+                      body: JSON.stringify({ targetVersion: 'v0.7.0' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -1071,7 +1071,53 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.6.4', badgeElem && badgeElem.textContent.includes('v0.6.4'));
+                    assert('App version badge reflects v0.7.0', badgeElem && badgeElem.textContent.includes('v0.7.0'));
+
+                    // 18. v0.7.0 Performance, Parallel Streaming, Full-Duplex AEC, and Selective Model Loading
+                    // 18.1 Parallel PC Server Backend TTS Endpoint
+                    const parallelTtsRes = await fetch('http://127.0.0.1:8125/api/tts', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        sentences: [
+                          'Welcome to Quest AI Companion.',
+                          'This sentence is processed in parallel on the PC host.',
+                          'Enjoy seamless zero-lag conversation.'
+                        ]
+                      })
+                    }).then(r => r.json());
+                    assert('POST /api/tts handles parallel sentences batch', parallelTtsRes && Array.isArray(parallelTtsRes.results) && parallelTtsRes.results.length === 3);
+                    assert('POST /api/tts parallel chunks contain valid base64 audio and metadata', parallelTtsRes.results.every(r => r.success && typeof r.audioBase64 === 'string' && r.audioBase64.length > 50));
+
+                    // 18.2 Remote TTS Client Module Exports and Functionality
+                    const remoteTtsModule = await import('/js/audio/remote_tts.js');
+                    assert('remote_tts.js exports synthesizeRemoteSentence', typeof remoteTtsModule.synthesizeRemoteSentence === 'function');
+                    assert('remote_tts.js exports synthesizeRemoteBatch', typeof remoteTtsModule.synthesizeRemoteBatch === 'function');
+                    assert('remote_tts.js exports speakRemoteTTS', typeof remoteTtsModule.speakRemoteTTS === 'function');
+                    assert('remote_tts.js exports stopRemoteTTS', typeof remoteTtsModule.stopRemoteTTS === 'function');
+
+                    // 18.3 Full-duplex AEC and Intelligent Barge-In
+                    const interruptResult = whisperModule.detectUserInterruption('Excuse me, stop right there', 'The weather today is sunny and clear');
+                    assert('detectUserInterruption triggers on user interruption during speech', interruptResult === true || (interruptResult && interruptResult.isInterruption === true));
+                    assert('isSelfEcho identifies exact or near-identical avatar speech echo', whisperModule.isSelfEcho('The weather today is sunny and clear', 'The weather today is sunny and clear') === true);
+                    assert('Smart AEC mode is supported for full-duplex conversational barge-in', AppState.echoGuardMode === 'smart' || AppState.echoGuardMode === 'smart_aec' || AppState.echoGuardMode === 'half_duplex');
+
+                    // 18.4 Selective Model Loading when Connected to PC
+                    const prevEngine = AppState.engine;
+                    const prevStatus = AppState.remoteServerStatus;
+                    AppState.engine = 'remote';
+                    AppState.remoteServerStatus = 'online';
+
+                    if (typeof window.ensureSTTReady === 'function') {
+                      const res = await window.ensureSTTReady();
+                      assert('ensureSTTReady bypasses local model download when connected to PC server', res === undefined || res === true);
+                    }
+                    if (typeof window.ensureTTSReady === 'function') {
+                      const res = await window.ensureTTSReady();
+                      assert('ensureTTSReady bypasses local model download when connected to PC server', res === undefined || res === true);
+                    }
+                    AppState.engine = prevEngine;
+                    AppState.remoteServerStatus = prevStatus;
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

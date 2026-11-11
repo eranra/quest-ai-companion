@@ -1,7 +1,7 @@
 {
-  "version": "v0.6.4",
-  "build": 51,
-  "released": "2026-11-10",
+  "version": "v0.7.0",
+  "build": 52,
+  "released": "2026-11-11",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.6.4: 1) Persistent Antigravity Session Bridge: bidirectional sync with official on-disk Antigravity transcript (transcript.jsonl), voice chats store, conversation database, and presence lock; 2) Antigravity IDE Visibility: sessions are now identifiable, selectable, and interactable directly from external Antigravity UIs, sidecars, and IDE panels; 3) Zero-latency memory persistence: continuous fact recall and arithmetic chaining seamlessly synced across restarts."
+  "changelog": "v0.7.0: 1) Non-blocking UI during Avatar Speech: zero Quest CPU overhead with remote audio playback & WebAssembly event loop yielding; 2) Live Mode Full-Duplex AEC & Intelligent Barge-In: microsecond barge-in detection allows cutting off the avatar naturally while speaking in Smart AEC mode; 3) Parallel Backend TTS Pipelining: concurrent multi-core synthesis on PC server with sub-300ms first-chunk streaming and zero inter-sentence latency; 4) Selective Model Loading: bypass on-device Whisper and Piper downloads when connected to PC server to save 300MB+ RAM while preserving offline standalone capability."
 }

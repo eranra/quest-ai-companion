@@ -54,7 +54,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.6.4';
+export const APP_VERSION = 'v0.7.0';
 
 // DOM References
 const dom = {
@@ -132,27 +132,47 @@ async function handleUserSpeech(userText) {
 
     // Step 4: Speaking Reply
     AppState.isSpeaking = true;
-    setPipelineState('speaking', '🗣️ Speaking (Tap to stop)...');
+    setPipelineState('speaking', '🗣️ Speaking (Tap or speak to interrupt)...');
     updateVRHUDState({ status: '🗣️ Speaking', text: reply });
     setActiveStage('speaking', `Speaking Reply (${AppState.ttsEngine})...`);
     logDebug('TTS', `Speaking reply via ${AppState.ttsEngine}...`);
+
+    // In Live Mode with Smart AEC, keep microphone listening so user can barge-in and interrupt anytime!
+    if (AppState.isLiveMode && AppState.echoGuardMode !== 'half_duplex') {
+      startListening();
+      initMicAnalyser((level) => {
+        updateMicLevel(level);
+        updateVRHUDState({ volume: level });
+      });
+      if (dom.btnMic) dom.btnMic.classList.add('listening');
+      if (dockController) dockController.updateMicUI(true);
+    }
+
     speakReply(reply, () => {
       // Completed speaking reply:
       if (AppState.isLiveMode) {
-        // Small acoustic cooldown (350ms) to ensure speaker audio is completely silent
-        setTimeout(() => {
-          if (AppState.isLiveMode) {
-            setPipelineState('listening', 'Live Mode: Listening...');
-            updateVRHUDState({ status: 'Live Mode: Listening...' });
-            if (dom.btnMic) dom.btnMic.classList.add('listening');
-            if (dockController) dockController.updateMicUI(true);
-            initMicAnalyser((level) => {
-              updateMicLevel(level);
-              updateVRHUDState({ volume: level });
-            });
-            startListening();
-          }
-        }, 350);
+        if (AppState.echoGuardMode === 'half_duplex') {
+          // Half-duplex mode: wait 350ms acoustic cooldown before reopening microphone
+          setTimeout(() => {
+            if (AppState.isLiveMode && !AppState.isSpeaking && !AppState.isGenerating) {
+              setPipelineState('listening', 'Live Mode: Listening...');
+              updateVRHUDState({ status: 'Live Mode: Listening...' });
+              if (dom.btnMic) dom.btnMic.classList.add('listening');
+              if (dockController) dockController.updateMicUI(true);
+              initMicAnalyser((level) => {
+                updateMicLevel(level);
+                updateVRHUDState({ volume: level });
+              });
+              startListening();
+            }
+          }, 350);
+        } else {
+          // Full-duplex AEC mode: microphone was already active for barge-in, seamlessly transition state
+          setPipelineState('listening', 'Live Mode: Listening...');
+          updateVRHUDState({ status: 'Live Mode: Listening...' });
+          if (dom.btnMic) dom.btnMic.classList.add('listening');
+          if (dockController) dockController.updateMicUI(true);
+        }
       } else {
         // In Regular Mode (Live Mode OFF): return to idle and KEEP MIC CLOSED!
         setPipelineState('idle');
@@ -251,7 +271,10 @@ async function startLocalModelLoading() {
 // -------------------------------------------------------------
 // On-Device Whisper Speech-to-Text Loader & Main Screen Progress
 // -------------------------------------------------------------
-async function ensureSTTReady() {
+export async function ensureSTTReady() {
+  if (AppState.engine === 'remote' && AppState.remoteServerStatus === 'online') {
+    return; // Remote PC server handles STT
+  }
   if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
     showMainProgress(true, 'Downloading Whisper STT (~39 MB)...', 0);
     setPipelineState('analyzing', 'Loading Whisper STT...');
@@ -272,11 +295,15 @@ async function ensureSTTReady() {
     }
   }
 }
+window.ensureSTTReady = ensureSTTReady;
 
 // -------------------------------------------------------------
 // On-Device Neural Text-to-Speech Loader & Main Screen Progress
 // -------------------------------------------------------------
-async function ensureTTSReady() {
+export async function ensureTTSReady() {
+  if (AppState.engine === 'remote' && AppState.remoteServerStatus === 'online') {
+    return; // Remote PC server handles TTS
+  }
   if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
     showMainProgress(true, 'Downloading Neural Voice (~36 MB)...', 0);
     setPipelineState('analyzing', 'Loading Neural Voice...');
@@ -297,6 +324,7 @@ async function ensureTTSReady() {
     }
   }
 }
+window.ensureTTSReady = ensureTTSReady;
 
 // -------------------------------------------------------------
 // Google Gemini API Responsiveness Verification
@@ -373,11 +401,13 @@ function initApp() {
         checkCloudGemini();
       }
 
-      if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
-        await ensureSTTReady();
-      }
-      if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
-        await ensureTTSReady();
+      if (AppState.engine !== 'remote' || AppState.remoteServerStatus !== 'online') {
+        if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
+          await ensureSTTReady();
+        }
+        if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+          await ensureTTSReady();
+        }
       }
     },
     onVoiceModelProgress: (visible, text, pct) => {
@@ -398,6 +428,10 @@ function initApp() {
   // Quest Browser includes speechSynthesis in window, but getVoices() is empty, causing silence.
   // Auto-route to on-device Neural TTS (WASM) so the avatar speaks out loud!
   function checkAndRouteTTS() {
+    // If using PC Server remote mode, PC server handles TTS
+    if (AppState.engine === 'remote' && AppState.remoteServerStatus === 'online') {
+      return;
+    }
     const hasNativeVoices = ('speechSynthesis' in window) && window.speechSynthesis.getVoices().length > 0;
     if ((isQuestBrowser() || !hasNativeVoices) && AppState.ttsEngine === 'native') {
       console.log('Quest/Browser has no native speech synthesis voices. Auto-enabling Neural TTS (WASM).');
@@ -423,6 +457,11 @@ function initApp() {
 
   // Preload configured voice models in background sequentially to avoid CPU lockup
   (async () => {
+    // If connected to remote PC Server, skip downloading on-device models to conserve Quest memory!
+    if (AppState.engine === 'remote' && AppState.remoteServerStatus === 'online') {
+      console.log('[ModelLoader] PC Server online: skipping local on-device model preload to conserve memory.');
+      return;
+    }
     if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
       await ensureSTTReady();
     }
@@ -442,9 +481,11 @@ function initApp() {
       if (dom.btnMic) dom.btnMic.classList.add('listening');
       if (dockController) dockController.updateMicUI(true);
       try {
-        await ensureSTTReady();
-        if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
-          ensureTTSReady();
+        if (AppState.engine !== 'remote' || AppState.remoteServerStatus !== 'online') {
+          await ensureSTTReady();
+          if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+            ensureTTSReady();
+          }
         }
       } catch (err) {
         dom.speechText.textContent = `Voice load error: ${err.message}`;
@@ -496,9 +537,11 @@ function initApp() {
       if (dom.btnMic) dom.btnMic.classList.add('listening');
       if (dockController) dockController.updateMicUI(true);
       try {
-        await ensureSTTReady();
-        if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
-          ensureTTSReady();
+        if (AppState.engine !== 'remote' || AppState.remoteServerStatus !== 'online') {
+          await ensureSTTReady();
+          if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
+            ensureTTSReady();
+          }
         }
       } catch (err) {
         dom.speechText.textContent = `Voice model load error: ${err.message}`;

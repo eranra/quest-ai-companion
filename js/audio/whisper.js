@@ -209,11 +209,12 @@ export async function startListeningWhisper() {
         onVolumeCallback(volume);
       }
 
-      // Check if avatar is speaking or generating
-      const isAssistantActive = AppState.isSpeaking || AppState.isGenerating;
+      // Check if avatar is generating AI text or in strict half-duplex speech
+      const isGenerating = AppState.isGenerating;
+      const isStrictHalfDuplex = AppState.isSpeaking && (AppState.echoGuardMode === 'half_duplex' || !AppState.isLiveMode);
 
-      // When assistant is active (generating or speaking): drop input to eliminate acoustic self-echo and confusion
-      if (isAssistantActive) {
+      // During active LLM generation or in strict half-duplex speech: drop input to eliminate acoustic loopback
+      if (isGenerating || isStrictHalfDuplex) {
         audioChunks = [];
         preSpeechBuffer = [];
         speechDetected = false;
@@ -538,3 +539,5 @@ export function stopListeningWhisper(finalizeIfAudioPresent = false) {
     }
   }
 }
+
+export { isSelfEcho, detectUserInterruption };
