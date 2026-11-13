@@ -1,7 +1,7 @@
 {
-  "version": "v0.7.3",
-  "build": 55,
-  "released": "2026-11-11",
+  "version": "v0.8.0",
+  "build": 56,
+  "released": "2026-11-13",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.7.3: 1) Standardized Antigravity Session Titles: eliminates 'Favorite Animal Blue Dolphin' and normalizes all Antigravity session titles on disk and in conversation_summaries.db to 'AI Conversation'; 2) Default Disabled Live Mode: ensures hands-free Live Mode always boots disabled (OFF) upon entering the website; 3) 3D VR In-HUD Live Mode Button Debouncing: removed duplicate trigger event dispatching between pointer select and controller render polling, adding 350ms click debouncing to ensure clean, reliable single toggling in WebXR."
+  "changelog": "v0.8.0: 1) Expressive Full-Body Avatar Gestures & Locomotion: rich kinematics including wave, dance, stand on one leg balance, celebratory hands up, bow, think, clap, laugh, jump, and locomotion (walk, run, jump, step, left, right, forward, backward); 2) Dual Direct & Agentic Control: direct control via Meta Quest 3 controller thumbsticks and In-VR 3D HUD console, alongside Android/mobile touch floating action toolbar and desktop keyboard shortcuts; 3) Agentic Movement Tools: registered avatar_gesture, avatar_move, and avatar_freestyle tools in agentic tool registry for autonomous AI decision-making; 4) Autonomous Freestyle Mode: allows the avatar to explore the scene, wander around, jump, and spontaneously gesture organically."
 }

@@ -295,9 +295,9 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.7.3';
+    return JSON.parse(raw).version || 'v0.8.0';
   } catch {
-    return 'v0.7.3';
+    return 'v0.8.0';
   }
 }
 
@@ -621,6 +621,12 @@ export function createServer() {
             finalReply = `It is currently ${timeStr} on ${dateStr}.`;
           } else if (toolMatch.tool === 'recenter_view') {
             finalReply = "I have re-centered our 3D view and squared our alignment.";
+          } else if (toolMatch.tool === 'avatar_gesture') {
+            finalReply = `I am now performing the ${toolMatch.gesture.replace(/_/g, ' ')} gesture for you in our 3D space!`;
+          } else if (toolMatch.tool === 'avatar_move') {
+            finalReply = `Moving ${toolMatch.direction} now!`;
+          } else if (toolMatch.tool === 'avatar_freestyle') {
+            finalReply = toolMatch.result || (toolMatch.enabled ? "Freestyle mode activated!" : "Freestyle mode paused.");
           } else {
             finalReply = toolMatch.result || `Executed ${toolMatch.tool}.`;
           }

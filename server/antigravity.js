@@ -1302,14 +1302,20 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     return space3DReply;
   }
 
-  // 4. Local tool execution (spatial, battery, avatar switching)
+  // 4. Local tool execution (spatial, battery, avatar switching, gestures, locomotion)
   const toolResult = await detectAndExecuteTool(cleanPrompt);
-  if (toolResult && toolResult.handled) {
+  if (toolResult && (toolResult.handled || toolResult.success)) {
     let actionTag = '';
     if (toolResult.tool === 'change_space') {
       actionTag = ` [ACTION: change_space(${toolResult.spaceId})]`;
     } else if (toolResult.tool === 'change_avatar') {
       actionTag = ` [ACTION: change_avatar(${toolResult.avatarId})]`;
+    } else if (toolResult.tool === 'avatar_gesture') {
+      actionTag = ` [ACTION: avatar_gesture(${toolResult.gesture})]`;
+    } else if (toolResult.tool === 'avatar_move') {
+      actionTag = ` [ACTION: avatar_move(${toolResult.direction},${toolResult.style || 'walk'})]`;
+    } else if (toolResult.tool === 'avatar_freestyle') {
+      actionTag = ` [ACTION: avatar_freestyle(${toolResult.enabled ? 'true' : 'false'})]`;
     }
     const finalToolReply = `${toolResult.result}${actionTag}`;
     sessionMemory.addTurn('assistant', toolResult.result);

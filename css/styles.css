@@ -478,6 +478,53 @@
       color: var(--text);
     }
 
+    /* Avatar Motion & Gestures Floating Toolbar */
+    .avatar-motion-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      max-width: 100%;
+      padding: 2px 4px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .avatar-motion-bar::-webkit-scrollbar {
+      display: none;
+    }
+    .motion-btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      color: #e2e8f0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.18s ease;
+      backdrop-filter: blur(8px);
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .motion-btn:hover {
+      background: rgba(99, 102, 241, 0.35);
+      border-color: rgba(99, 102, 241, 0.6);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    .motion-btn:active {
+      transform: scale(0.95);
+    }
+    .motion-btn.active {
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-color: rgba(16, 185, 129, 0.8);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+    }
+
     .input-bar {
       display: flex;
       width: 100%;

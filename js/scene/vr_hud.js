@@ -1,6 +1,7 @@
 // In-VR 3D Floating Control Console & Subtitle HUD (WebXR Interactive Panel)
 import * as THREE from 'three';
 import { AppState } from '../state.js';
+import { triggerAvatarGesture, setFreestyleMode, motionState } from '../avatars/rig.js';
 
 let hudMesh = null;
 let hudCanvas = null;
@@ -14,12 +15,22 @@ let currentVolumeLevel = 0;
 let hoveredButtonKey = null;
 
 // Button bounding boxes in canvas pixel coordinates (1024 x 512)
+// Row 1: Core Navigation & Audio Controls
+// Row 2: Direct Expressive Gestures & Freestyle Mode
 const HUD_BUTTONS = [
-  { key: 'exit', label: '🚪 Exit VR (Back to Regular Mode)', x: 40, y: 350, w: 280, h: 64, color: '#ef4444', activeColor: '#dc2626' },
-  { key: 'mic', label: '🎙️ Talk (Button A/X)', x: 340, y: 350, w: 200, h: 64, color: '#6366f1', activeColor: '#4f46e5' },
-  { key: 'live', label: '⚡ Live Mode', x: 560, y: 350, w: 180, h: 64, color: '#10b981', activeColor: '#059669' },
-  { key: 'space', label: '🏛️ Next Space', x: 760, y: 350, w: 105, h: 64, color: '#38bdf8', activeColor: '#0284c7' },
-  { key: 'avatar', label: '👤 Next Avatar', x: 880, y: 350, w: 105, h: 64, color: '#a855f7', activeColor: '#9333ea' }
+  // Row 1
+  { key: 'exit', label: '🚪 Exit VR', x: 40, y: 340, w: 230, h: 58, color: '#ef4444', activeColor: '#dc2626' },
+  { key: 'mic', label: '🎙️ Talk (A/X)', x: 285, y: 340, w: 240, h: 58, color: '#6366f1', activeColor: '#4f46e5' },
+  { key: 'live', label: '⚡ Live Mode', x: 540, y: 340, w: 200, h: 58, color: '#10b981', activeColor: '#059669' },
+  { key: 'space', label: '🏛️ Space', x: 755, y: 340, w: 110, h: 58, color: '#38bdf8', activeColor: '#0284c7' },
+  { key: 'avatar', label: '👤 Avatar', x: 880, y: 340, w: 104, h: 58, color: '#a855f7', activeColor: '#9333ea' },
+
+  // Row 2: Gesture & Movement Actions
+  { key: 'wave', label: '👋 Wave', x: 40, y: 418, w: 170, h: 58, color: '#ec4899', activeColor: '#db2777' },
+  { key: 'dance', label: '🕺 Dance', x: 225, y: 418, w: 170, h: 58, color: '#f59e0b', activeColor: '#d97706' },
+  { key: 'balance', label: '🤸 Balance', x: 410, y: 418, w: 180, h: 58, color: '#8b5cf6', activeColor: '#7c3aed' },
+  { key: 'jump', label: '🦘 Jump', x: 605, y: 418, w: 170, h: 58, color: '#06b6d4', activeColor: '#0891b2' },
+  { key: 'freestyle', label: '🎲 Freestyle', x: 790, y: 418, w: 194, h: 58, color: '#14b8a6', activeColor: '#0d9488' }
 ];
 
 export function initVRHUD(scene) {
@@ -207,6 +218,8 @@ function renderHUDCanvas() {
       displayLabel = `🏛️ ${AppState.spaceId || 'Space'}`;
     } else if (btn.key === 'avatar') {
       displayLabel = `👤 ${AppState.avatarId || 'Avatar'}`;
+    } else if (btn.key === 'freestyle') {
+      displayLabel = motionState.freestyle ? '🎲 Free: ON' : '🎲 Free: OFF';
     }
 
     ctx.fillText(displayLabel, btn.x + btn.w / 2, btn.y + btn.h / 2 + 6);
@@ -214,9 +227,9 @@ function renderHUDCanvas() {
 
   // 5. Quest Controller Cheat Sheet
   ctx.textAlign = 'center';
-  ctx.font = '15px sans-serif';
+  ctx.font = '13px sans-serif';
   ctx.fillStyle = '#94a3b8';
-  ctx.fillText('🎮 Shortcuts: B or Y = Exit VR to Regular Mode | A or X = Talk | Grip = Live Mode | Sticks = Move / Scale Avatar', w / 2, 455);
+  ctx.fillText('🎮 Shortcuts: B/Y = Exit VR | A/X = Talk | Grip = Live Mode | Left Stick = Move in Scene | Trigger = Buttons', w / 2, 498);
 
   if (hudTexture) {
     hudTexture.needsUpdate = true;
@@ -278,6 +291,22 @@ export function testVRHUDIntersection(raycaster, isTriggerClick, callbacks = {})
       callbacks.onCycleSpace(1);
     } else if (matched.key === 'avatar' && callbacks.onCycleAvatar) {
       callbacks.onCycleAvatar(1);
+    } else if (matched.key === 'wave') {
+      if (callbacks.onTriggerGesture) callbacks.onTriggerGesture('wave');
+      else triggerAvatarGesture('wave');
+    } else if (matched.key === 'dance') {
+      if (callbacks.onTriggerGesture) callbacks.onTriggerGesture('dance');
+      else triggerAvatarGesture('dance');
+    } else if (matched.key === 'balance') {
+      if (callbacks.onTriggerGesture) callbacks.onTriggerGesture('stand_on_one_leg');
+      else triggerAvatarGesture('stand_on_one_leg');
+    } else if (matched.key === 'jump') {
+      if (callbacks.onTriggerGesture) callbacks.onTriggerGesture('jump');
+      else triggerAvatarGesture('jump');
+    } else if (matched.key === 'freestyle') {
+      if (callbacks.onToggleFreestyle) callbacks.onToggleFreestyle();
+      else setFreestyleMode(!motionState.freestyle);
+      renderHUDCanvas();
     }
   }
 

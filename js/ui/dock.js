@@ -2,6 +2,7 @@
 import { AppState } from '../state.js';
 import { toggleWebXR, enterVR, enterAR, toggleFullscreen } from '../scene.js';
 import { unlockAudio } from '../audio/index.js';
+import { triggerAvatarGesture, moveAvatar, setFreestyleMode, motionState } from '../avatars/rig.js';
 
 let latestDetectedVersion = null;
 
@@ -49,6 +50,50 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
       if (onSendPrompt) onSendPrompt(chip.dataset.query);
     };
   });
+
+  // Avatar Direct Motion & Gestures Toolbar (Android, Mobile & Desktop)
+  document.querySelectorAll('.motion-btn').forEach(btn => {
+    btn.onclick = () => {
+      unlockAudio();
+      if (btn.dataset.gesture) {
+        triggerAvatarGesture(btn.dataset.gesture);
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 600);
+      } else if (btn.dataset.move) {
+        moveAvatar(btn.dataset.move, 'walk', 0.8);
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 600);
+      } else if (btn.dataset.freestyle) {
+        const nextState = !motionState.freestyle;
+        setFreestyleMode(nextState);
+        btn.textContent = nextState ? '🎲 Freestyle: ON' : '🎲 Freestyle: OFF';
+        btn.classList.toggle('active', nextState);
+      }
+    };
+  });
+
+  // Desktop Keyboard Shortcuts (Arrow keys / WASD for locomotion, G for Wave, J for Jump)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', (e) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        return;
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        moveAvatar('left', 'walk', 0.5);
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        moveAvatar('right', 'walk', 0.5);
+      } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+        moveAvatar('forward', 'walk', 0.5);
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        moveAvatar('backward', 'walk', 0.5);
+      } else if (e.key === 'j' || e.key === 'J') {
+        triggerAvatarGesture('jump', 1.2);
+      } else if (e.key === 'g' || e.key === 'G') {
+        triggerAvatarGesture('wave', 3.0);
+      }
+    });
+  }
 
   // Mic Button (Push-to-Talk)
   if (dom.btnMic) {

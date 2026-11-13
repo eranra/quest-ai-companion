@@ -1,7 +1,14 @@
 // Three.js Scene, WebXR Session, Camera Framing, and Meta Quest 3 Controller Manipulation
 import * as THREE from 'three';
 import { AppState } from '../state.js';
-import { animateRig } from '../avatars/rig.js';
+import {
+  animateRig,
+  motionState,
+  triggerAvatarGesture,
+  moveAvatar,
+  setFreestyleMode,
+  getAvatarMotionStatus
+} from '../avatars/rig.js';
 import { initSpaces, updateCurrentSpace, setSpaceVisibility } from '../spaces/index.js';
 import { createCamera, createOrbitControls, applyResponsiveFraming as applyCameraFraming } from './camera.js';
 import {
@@ -86,9 +93,11 @@ export function applyAvatarTransform() {
   // In 2D: Camera is at +2.2m looking at (0, 1, 0), so avatar stands at 0.0m + adjustment.
   const isXR = renderer && renderer.xr && renderer.xr.isPresenting;
   const baseZ = isXR ? -1.8 : 0.0;
-  avatarGroup.position.z = baseZ - AppState.avatarDistance;
-  avatarGroup.position.y = AppState.avatarHeightOffset || 0.0;
-  avatarGroup.rotation.y = AppState.avatarRotationY;
+  avatarGroup.userData.baseZ = baseZ;
+  avatarGroup.position.x = motionState.posX || 0.0;
+  avatarGroup.position.z = (baseZ - AppState.avatarDistance) + (motionState.posZ || 0.0);
+  avatarGroup.position.y = (AppState.avatarHeightOffset || 0.0) + (motionState.jumpY || 0.0);
+  avatarGroup.rotation.y = AppState.avatarRotationY + (motionState.headingRotY || 0.0);
 
   if (hudElement) {
     const scaleVal = hudElement.querySelector('#hud-scale-val');
@@ -175,5 +184,10 @@ export {
   handleXRControllerInput,
   isXRSessionActive,
   setXRActionCallbacks,
-  updateVRHUDState
+  updateVRHUDState,
+  motionState,
+  triggerAvatarGesture,
+  moveAvatar,
+  setFreestyleMode,
+  getAvatarMotionStatus
 };

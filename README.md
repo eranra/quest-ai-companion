@@ -44,12 +44,12 @@ Featuring a **flexible dual-mode architecture**:
    https://eranra.github.io/quest-ai-companion/
    ```
 4. Click **"360° VR"** on the top bar to step into full VR immersion!
-5. Use your Touch Controllers:
-   - **Grip + Stick Y:** Adjust avatar elevation / floor level offset.
+5. Use your Touch Controllers or On-Screen Toolbar:
+   - **Left Stick:** Direct avatar locomotion in scene (walk forward, backward, left, right).
+   - **Grip + Left Stick Y:** Adjust avatar scale.
    - **Right Stick Y:** Adjust avatar distance.
-   - **Left Stick Y:** Adjust avatar scale.
-   - **Right Stick X:** Cycle avatar character.
-   - **Left Stick X:** Cycle 3D space environment.
+   - **Grip + Right Stick Y:** Adjust avatar elevation / floor level offset.
+   - **In-VR 3D Console & On-Screen Toolbar:** Trigger expressive gestures (👋 Wave, 🕺 Dance, 🤸 Balance, 🙌 Cheer, 🙇 Bow, 🤔 Think, 👏 Clap, 🦘 Jump, 🎲 Freestyle Mode).
    - **Button A / X:** Push-to-Talk / Mic toggle.
    - **Button B / Y:** Exit VR back to 2D browser window.
 

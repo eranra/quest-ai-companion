@@ -8,7 +8,11 @@ import {
   enterVR,
   setXRActionCallbacks,
   updateVRHUDState,
-  resetCameraView
+  resetCameraView,
+  triggerAvatarGesture,
+  moveAvatar,
+  setFreestyleMode,
+  getAvatarMotionStatus
 } from './scene.js';
 import { buildAvatar, cycleAvatar, getDefaultVoiceForAvatar } from './avatars/index.js';
 import { switchSpace, cycleSpace } from './spaces/index.js';
@@ -54,7 +58,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.7.3';
+export const APP_VERSION = 'v0.8.0';
 
 // DOM References
 const dom = {
@@ -594,7 +598,11 @@ function initApp() {
       setActiveVoiceId,
       flipAvatarOrientation,
       resetCameraView,
-      getAvatarGroup: () => avatarGroup
+      getAvatarGroup: () => avatarGroup,
+      triggerAvatarGesture,
+      moveAvatar,
+      setFreestyleMode,
+      getAvatarMotionStatus
     });
     buildAvatar(AppState.avatarId, avatarGroup);
     applyAvatarTransform();

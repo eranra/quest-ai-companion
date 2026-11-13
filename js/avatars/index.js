@@ -1,4 +1,13 @@
-import { resetRig, groundAvatar } from './rig.js';
+import {
+  resetRig,
+  groundAvatar,
+  motionState,
+  triggerAvatarGesture,
+  moveAvatar,
+  setFreestyleMode,
+  getAvatarMotionStatus,
+  resetAvatarMotion
+} from './rig.js';
 import { buildEchoDrone } from './echo.js';
 import { buildSparkDrone } from './spark.js';
 import { buildPipCartoon } from './pip.js';
@@ -70,3 +79,12 @@ export function cycleAvatar(direction = 1, avatarGroup, onAvatarChange) {
   if (onAvatarChange) onAvatarChange(nextId, defaultVoice);
   return nextId;
 }
+
+export {
+  motionState,
+  triggerAvatarGesture,
+  moveAvatar,
+  setFreestyleMode,
+  getAvatarMotionStatus,
+  resetAvatarMotion
+};

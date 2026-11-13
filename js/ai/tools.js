@@ -22,7 +22,11 @@ const sceneHooks = {
   setActiveVoiceId: null,
   flipAvatarOrientation: null,
   resetCameraView: null,
-  getAvatarGroup: () => null
+  getAvatarGroup: () => null,
+  triggerAvatarGesture: null,
+  moveAvatar: null,
+  setFreestyleMode: null,
+  getAvatarMotionStatus: null
 };
 
 export function registerSceneHooks(hooks) {
@@ -96,6 +100,60 @@ export const TOOL_DEFINITIONS = [
     parameters: {
       type: 'OBJECT',
       properties: {}
+    }
+  },
+  {
+    name: 'avatar_gesture',
+    description: 'Perform an expressive full-body gesture with the 3D avatar in the scene. Available gestures: "wave" (friendly greeting), "dance" (rhythmic party dance), "stand_on_one_leg" (balance on one foot), "bow" (polite formal bow), "celebrate" or "hands_up" (raise arms high in victory), "think" (hand to chin contemplating), "clap" (applaud), "laugh" (joyous laughter), "jump" (energetic hop), "nod" (affirmative agreement), "shake_head" (disagreement).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        gesture: {
+          type: 'STRING',
+          description: 'The gesture identifier: "wave", "dance", "stand_on_one_leg", "bow", "celebrate", "hands_up", "think", "clap", "laugh", "jump", "nod", or "shake_head".'
+        },
+        duration: {
+          type: 'NUMBER',
+          description: 'Optional duration in seconds (default 3.0).'
+        }
+      },
+      required: ['gesture']
+    }
+  },
+  {
+    name: 'avatar_move',
+    description: 'Move or navigate the 3D avatar within the virtual scene. Directions: "left", "right", "forward", "backward", "center", "random". Styles: "walk" (normal gait), "run" (faster stride), "jump" (vertical hop), "step" (small relocation).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        direction: {
+          type: 'STRING',
+          description: 'The movement direction: "left", "right", "forward", "backward", "center", or "random".'
+        },
+        style: {
+          type: 'STRING',
+          description: 'The movement style: "walk", "run", "jump", or "step" (default "walk").'
+        },
+        distance: {
+          type: 'NUMBER',
+          description: 'Optional distance in meters (default 0.8).'
+        }
+      },
+      required: ['direction']
+    }
+  },
+  {
+    name: 'avatar_freestyle',
+    description: 'Enable or disable autonomous freestyle movement mode. When enabled, the avatar autonomously explores the scene, wanders around, hops, jumps, and performs spontaneous gestures.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        enabled: {
+          type: 'BOOLEAN',
+          description: 'Whether freestyle mode is active (true to start autonomous movement and gestures, false to stay in place).'
+        }
+      },
+      required: ['enabled']
     }
   }
 ];
@@ -307,6 +365,59 @@ export async function executeTool(name, args = {}) {
       };
     }
 
+    case 'avatar_gesture': {
+      const gesture = args.gesture || args.name || 'wave';
+      const duration = args.duration || 3.0;
+      let res = { success: true, gesture, duration };
+      if (sceneHooks.triggerAvatarGesture) {
+        res = sceneHooks.triggerAvatarGesture(gesture, duration);
+      }
+      const readableGesture = gesture.replace(/_/g, ' ');
+      logDebug('TOOL', `Avatar gesture triggered: ${gesture} (${duration}s)`);
+      return {
+        success: true,
+        tool: 'avatar_gesture',
+        gesture,
+        duration,
+        result: `I am now performing the ${readableGesture} gesture in the scene!`
+      };
+    }
+
+    case 'avatar_move': {
+      const dir = args.direction || args.dir || 'forward';
+      const style = args.style || 'walk';
+      const dist = args.distance || 0.8;
+      let res = { success: true, direction: dir, style, distance: dist };
+      if (sceneHooks.moveAvatar) {
+        res = sceneHooks.moveAvatar(dir, style, dist);
+      }
+      logDebug('TOOL', `Avatar move triggered: direction=${dir}, style=${style}, dist=${dist}`);
+      return {
+        success: true,
+        tool: 'avatar_move',
+        direction: dir,
+        style,
+        distance: dist,
+        result: `Moving ${dir} with a ${style} style.`
+      };
+    }
+
+    case 'avatar_freestyle': {
+      const enabled = args.enabled !== undefined ? !!args.enabled : true;
+      if (sceneHooks.setFreestyleMode) {
+        sceneHooks.setFreestyleMode(enabled);
+      }
+      logDebug('TOOL', `Avatar freestyle mode set: ${enabled}`);
+      return {
+        success: true,
+        tool: 'avatar_freestyle',
+        enabled,
+        result: enabled
+          ? "Freestyle mode activated! I'll move around, explore the scene, jump, and make gestures."
+          : "Freestyle mode paused. I'm staying right here with you."
+      };
+    }
+
     default:
       logDebug('TOOL', `Unknown tool requested: ${name}`);
       return {
@@ -398,6 +509,60 @@ export async function detectAndExecuteTool(userPrompt) {
     return await executeTool('get_companion_status');
   }
 
+  // 10. Avatar Freestyle / Autonomous wandering mode
+  if (/\b(move around|walk around|wander around|explore the (scene|room|space)|freestyle mode|start freestyle)\b/i.test(p)) {
+    return await executeTool('avatar_freestyle', { enabled: true });
+  }
+  if (/\b(stop moving|stop freestyle|pause freestyle|stay still|freeze|stand still)\b/i.test(p)) {
+    return await executeTool('avatar_freestyle', { enabled: false });
+  }
+
+  // 11. Avatar Expressive Gestures
+  if (/\b(dance|start dancing|do a dance|party)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'dance' });
+  }
+  if (/\b(stand on one leg|balance on one (leg|foot)|lift (one|a) leg|balance pose|balance)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'stand_on_one_leg' });
+  }
+  if (/\b(wave|wave at me|wave your hand|say hello with a wave|give (me )?a wave)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'wave' });
+  }
+  if (/\b(put your hands up|hands up|celebrate|cheer|victory pose)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'celebrate' });
+  }
+  if (/\b(take a bow|give a bow|bow for me|make a bow|bow)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'bow' });
+  }
+  if (/\b(clap|applaud|applause|give me a clap|clap your hands)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'clap' });
+  }
+  if (/\b(laugh out loud|give a laugh|crack up|laugh)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'laugh' });
+  }
+  if (/\b(jump up|hop up|can you jump|do a jump|jump|hop)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'jump' });
+  }
+  if (/\b(think|ponder|contemplate|stroke your chin|deep thought)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'think' });
+  }
+
+  // 12. Avatar Locomotion Navigation
+  if (/\b(move|walk|step)\b.*\b(to the )?left\b/i.test(p)) {
+    return await executeTool('avatar_move', { direction: 'left', style: 'walk' });
+  }
+  if (/\b(move|walk|step)\b.*\b(to the )?right\b/i.test(p)) {
+    return await executeTool('avatar_move', { direction: 'right', style: 'walk' });
+  }
+  if (/\b(move|walk|step)\b.*\b(forward|closer|front)\b/i.test(p)) {
+    return await executeTool('avatar_move', { direction: 'forward', style: 'walk' });
+  }
+  if (/\b(move|walk|step)\b.*\b(backward|back|further)\b/i.test(p)) {
+    return await executeTool('avatar_move', { direction: 'backward', style: 'walk' });
+  }
+  if (/\b(run)\b.*\b(forward|left|right|around)\b/i.test(p)) {
+    return await executeTool('avatar_move', { direction: 'forward', style: 'run' });
+  }
+
   return null;
 }
 
@@ -422,11 +587,18 @@ export async function processActionTagsInModelOutput(rawText) {
     let args = {};
     if (toolName === 'change_space') args = { space: rawParam };
     else if (toolName === 'change_avatar') args = { avatar: rawParam };
+    else if (toolName === 'avatar_gesture') args = { gesture: rawParam };
+    else if (toolName === 'avatar_move') {
+      const parts = rawParam.split(',').map(s => s.trim());
+      args = { direction: parts[0] || 'forward', style: parts[1] || 'walk' };
+    } else if (toolName === 'avatar_freestyle') {
+      args = { enabled: rawParam !== 'false' && rawParam !== 'off' && rawParam !== '0' };
+    }
     await executeTool(toolName, args);
   }
 
-  // Strip all [ACTION: ...] tags from the text
-  cleanText = cleanText.replace(actionRegex, '').trim();
+  // Strip all [ACTION: ...] tags from the text and normalize multiple spaces
+  cleanText = cleanText.replace(actionRegex, '').replace(/\s{2,}/g, ' ').trim();
 
   return { cleanText, actions };
 }

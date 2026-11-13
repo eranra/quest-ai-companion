@@ -68,9 +68,11 @@ async function runTestSuite() {
   server.listen(TEST_PORT, async () => {
     console.log(`[TEST SERVER] Running at http://127.0.0.1:${TEST_PORT}/`);
 
+    const testChromeDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'quest-chrome-'));
     const chrome = spawn(CHROME_PATH, [
       '--headless=new',
       `--remote-debugging-port=${CDP_PORT}`,
+      `--user-data-dir=${testChromeDataDir}`,
       '--disable-gpu',
       '--no-sandbox',
       `http://127.0.0.1:${TEST_PORT}/`
@@ -807,7 +809,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.7.3');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.8.0');
                     assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
@@ -820,7 +822,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.7.3' })
+                      body: JSON.stringify({ targetVersion: 'v0.8.0' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -1093,7 +1095,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.7.3', badgeElem && badgeElem.textContent.includes('v0.7.3'));
+                    assert('App version badge reflects v0.8.0', badgeElem && badgeElem.textContent.includes('v0.8.0'));
 
                     // 18. v0.7.0 Performance, Parallel Streaming, Full-Duplex AEC, and Selective Model Loading
                     // 18.1 Parallel PC Server Backend TTS Endpoint
@@ -1223,6 +1225,144 @@ async function runTestSuite() {
                     vrHudModule.testVRHUDIntersection(dummyRaycaster, true, testCallbacks);
                     assert('VR HUD button click debounce blocks rapid double-toggle', toggleCount === 1);
                     vrHudModule.setVRHUDVisibility(false);
+
+                    // 22. v0.8.0 Avatar Motion, Expressive Gestures, Dual Controls & Agentic Movement Tools
+                    // 22.1 Rig Kinematics & Gesture Triggering Verification
+                    const rigModule = await import('./js/avatars/rig.js');
+                    assert('rig.js exports motionState', typeof rigModule.motionState === 'object');
+                    assert('rig.js exports triggerAvatarGesture', typeof rigModule.triggerAvatarGesture === 'function');
+                    assert('rig.js exports moveAvatar', typeof rigModule.moveAvatar === 'function');
+                    assert('rig.js exports setFreestyleMode', typeof rigModule.setFreestyleMode === 'function');
+                    assert('rig.js exports getAvatarMotionStatus', typeof rigModule.getAvatarMotionStatus === 'function');
+                    assert('rig.js exports resetAvatarMotion', typeof rigModule.resetAvatarMotion === 'function');
+
+                    // Test all 11 expressive gestures
+                    const allGestures = ['wave', 'dance', 'stand_on_one_leg', 'celebrate', 'bow', 'think', 'clap', 'laugh', 'jump', 'nod', 'shake_head'];
+                    allGestures.forEach(g => {
+                      const res = rigModule.triggerAvatarGesture(g, 3.0);
+                      assert('triggerAvatarGesture("' + g + '") succeeds', res.success === true && rigModule.motionState.currentGesture === g);
+                    });
+
+                    // Test gesture aliases
+                    rigModule.triggerAvatarGesture('hands_up');
+                    assert('hands_up aliases to celebrate', rigModule.motionState.currentGesture === 'celebrate');
+                    rigModule.triggerAvatarGesture('balance');
+                    assert('balance aliases to stand_on_one_leg', rigModule.motionState.currentGesture === 'stand_on_one_leg');
+                    rigModule.triggerAvatarGesture('ponder');
+                    assert('ponder aliases to think', rigModule.motionState.currentGesture === 'think');
+                    rigModule.triggerAvatarGesture('hop');
+                    assert('hop aliases to jump', rigModule.motionState.currentGesture === 'jump');
+
+                    // 22.2 Locomotion Navigation & Scene Bounds Verification
+                    const moveLeft = rigModule.moveAvatar('left', 'walk', 0.8);
+                    assert('moveAvatar left sets targetX negative', moveLeft.success && rigModule.motionState.targetX < 0 && rigModule.motionState.isMoving === true);
+
+                    const moveRight = rigModule.moveAvatar('right', 'walk', 1.0);
+                    assert('moveAvatar right sets targetX positive', moveRight.success && rigModule.motionState.isMoving === true);
+
+                    const moveForward = rigModule.moveAvatar('forward', 'run', 0.5);
+                    assert('moveAvatar forward sets style run', moveForward.success && rigModule.motionState.moveStyle === 'run');
+
+                    const moveCenter = rigModule.moveAvatar('center');
+                    assert('moveAvatar center resets target coordinates to 0', moveCenter.success && rigModule.motionState.targetX === 0 && rigModule.motionState.targetZ === 0);
+
+                    const moveRandom = rigModule.moveAvatar('random');
+                    assert('moveAvatar random keeps target within safe boundary', moveRandom.success && Math.abs(rigModule.motionState.targetX) <= 1.6 && Math.abs(rigModule.motionState.targetZ) <= 1.2);
+
+                    // 22.3 Autonomous Freestyle Wandering Mode Verification
+                    rigModule.setFreestyleMode(true);
+                    assert('setFreestyleMode(true) activates freestyle state', rigModule.motionState.freestyle === true);
+                    rigModule.setFreestyleMode(false);
+                    assert('setFreestyleMode(false) deactivates freestyle state', rigModule.motionState.freestyle === false);
+
+                    // 22.4 Agentic Movement Tools Declaration & Execution Verification
+                    const toolsMod = await import('./js/ai/tools.js');
+                    const toolNames = toolsMod.TOOL_DEFINITIONS.map(t => t.name);
+                    assert('TOOL_DEFINITIONS includes avatar_gesture', toolNames.includes('avatar_gesture'));
+                    assert('TOOL_DEFINITIONS includes avatar_move', toolNames.includes('avatar_move'));
+                    assert('TOOL_DEFINITIONS includes avatar_freestyle', toolNames.includes('avatar_freestyle'));
+
+                    const toolExecGesture = await toolsMod.executeTool('avatar_gesture', { gesture: 'dance', duration: 3.5 });
+                    assert('executeTool avatar_gesture succeeds', toolExecGesture.success === true && toolExecGesture.gesture === 'dance');
+
+                    const toolExecMove = await toolsMod.executeTool('avatar_move', { direction: 'left', style: 'walk', distance: 0.8 });
+                    assert('executeTool avatar_move succeeds', toolExecMove.success === true && toolExecMove.direction === 'left');
+
+                    const toolExecFreestyle = await toolsMod.executeTool('avatar_freestyle', { enabled: true });
+                    assert('executeTool avatar_freestyle succeeds', toolExecFreestyle.success === true && toolExecFreestyle.enabled === true);
+
+                    // 22.5 Natural User Prompt Matching (Pre-Inference Agent Routing)
+                    const danceMatch = await toolsMod.detectAndExecuteTool("Can you dance for me?");
+                    assert('detectAndExecuteTool detects dance gesture prompt', danceMatch && danceMatch.tool === 'avatar_gesture' && danceMatch.gesture === 'dance');
+
+                    const waveMatch = await toolsMod.detectAndExecuteTool("Wave at me please");
+                    assert('detectAndExecuteTool detects wave gesture prompt', waveMatch && waveMatch.tool === 'avatar_gesture' && waveMatch.gesture === 'wave');
+
+                    const balanceMatch = await toolsMod.detectAndExecuteTool("Can you stand on one leg?");
+                    assert('detectAndExecuteTool detects stand_on_one_leg balance prompt', balanceMatch && balanceMatch.tool === 'avatar_gesture' && balanceMatch.gesture === 'stand_on_one_leg');
+
+                    const jumpMatch = await toolsMod.detectAndExecuteTool("Jump up high!");
+                    assert('detectAndExecuteTool detects jump gesture prompt', jumpMatch && jumpMatch.tool === 'avatar_gesture' && jumpMatch.gesture === 'jump');
+
+                    const freeMatch = await toolsMod.detectAndExecuteTool("Move around the room");
+                    assert('detectAndExecuteTool detects freestyle move around prompt', freeMatch && freeMatch.tool === 'avatar_freestyle' && freeMatch.enabled === true);
+
+                    const stopMatch = await toolsMod.detectAndExecuteTool("Stop moving now");
+                    assert('detectAndExecuteTool detects stop moving prompt', stopMatch && stopMatch.tool === 'avatar_freestyle' && stopMatch.enabled === false);
+
+                    const moveLeftMatch = await toolsMod.detectAndExecuteTool("Move to the left");
+                    assert('detectAndExecuteTool detects move left prompt', moveLeftMatch && moveLeftMatch.tool === 'avatar_move' && moveLeftMatch.direction === 'left');
+
+                    // 22.6 Action Tag Parsing from AI Agent Output
+                    const actionTagTest = await toolsMod.processActionTagsInModelOutput("I would love to dance! [ACTION: avatar_gesture(dance)] Let's groove!");
+                    assert('processActionTagsInModelOutput extracts avatar_gesture action', actionTagTest.actions.length === 1 && actionTagTest.actions[0].toolName === 'avatar_gesture' && actionTagTest.actions[0].param === 'dance');
+                    assert('processActionTagsInModelOutput cleans text for TTS speech', actionTagTest.cleanText === "I would love to dance! Let's groove!");
+
+                    const moveTagTest = await toolsMod.processActionTagsInModelOutput("Heading over. [ACTION: avatar_move(right,walk)]");
+                    assert('processActionTagsInModelOutput extracts avatar_move action', moveTagTest.actions.length === 1 && moveTagTest.actions[0].toolName === 'avatar_move');
+
+                    const freeTagTest = await toolsMod.processActionTagsInModelOutput("Wandering around! [ACTION: avatar_freestyle(true)]");
+                    assert('processActionTagsInModelOutput extracts avatar_freestyle action', freeTagTest.actions.length === 1 && freeTagTest.actions[0].toolName === 'avatar_freestyle');
+
+                    // 22.7 Android / Mobile & Desktop Direct Motion Toolbar DOM Elements
+                    const motionBar = document.getElementById('avatar-motion-bar');
+                    assert('avatar-motion-bar exists in DOM', motionBar !== null);
+
+                    const motionButtons = document.querySelectorAll('.motion-btn');
+                    assert('All 11 Avatar Motion Buttons present in Toolbar', motionButtons.length >= 10, 'Found: ' + motionButtons.length);
+
+                    const btnFreestyleEl = document.getElementById('btn-motion-freestyle');
+                    assert('btn-motion-freestyle exists in Toolbar', btnFreestyleEl !== null);
+
+                    // Ensure clean initial state for button click test
+                    rigModule.setFreestyleMode(false);
+                    btnFreestyleEl.textContent = '🎲 Freestyle: OFF';
+                    btnFreestyleEl.classList.remove('active');
+
+                    btnFreestyleEl.click();
+                    assert('Clicking btn-motion-freestyle toggles freestyle ON',
+                      rigModule.motionState.freestyle === true && btnFreestyleEl.textContent.includes('ON'),
+                      'text="' + (btnFreestyleEl && btnFreestyleEl.textContent) + '", freestyle=' + rigModule.motionState.freestyle
+                    );
+                    btnFreestyleEl.click();
+                    assert('Clicking btn-motion-freestyle toggles freestyle OFF',
+                      rigModule.motionState.freestyle === false && btnFreestyleEl.textContent.includes('OFF'),
+                      'text="' + (btnFreestyleEl && btnFreestyleEl.textContent) + '", freestyle=' + rigModule.motionState.freestyle
+                    );
+
+                    // 22.8 Standalone PC Server Remote Tools Integration
+                    const serverToolsRes = await fetch('http://127.0.0.1:8125/api/tools').then(r => r.json());
+                    assert('Server /api/tools exposes avatar_gesture', serverToolsRes.tools && serverToolsRes.tools.some(t => t.name === 'avatar_gesture'));
+                    assert('Server /api/tools exposes avatar_move', serverToolsRes.tools && serverToolsRes.tools.some(t => t.name === 'avatar_move'));
+                    assert('Server /api/tools exposes avatar_freestyle', serverToolsRes.tools && serverToolsRes.tools.some(t => t.name === 'avatar_freestyle'));
+
+                    // Remote Chat Tool Execution via /api/chat
+                    const remoteDanceRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: 'Can you dance for me?', model: 'instant-companion' })
+                    }).then(r => r.json());
+                    assert('Remote /api/chat triggers avatar_gesture action', remoteDanceRes.success && (remoteDanceRes.reply.toLowerCase().includes('dance') || (remoteDanceRes.action && remoteDanceRes.action.tool === 'avatar_gesture')));
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

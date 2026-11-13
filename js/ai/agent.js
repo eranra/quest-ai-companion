@@ -172,7 +172,13 @@ Guidelines:
 1. Answer the user's question directly and concisely in 1 or 2 conversational sentences.
 2. Speak naturally as a friend in spoken dialogue; do not use markdown, emojis, asterisks, bullet points, or role prefixes like "Assistant:".
 3. Maintain continuity with the prior conversation turns.
-4. You have tool capabilities to control the 3D world (changing spaces to hall, garden, penthouse, cafe, passthrough, and transforming into avatars maya, alex, ollie, echo, spark, pip).`;
+4. You have tool capabilities to interact with the 3D scene:
+   - Change spaces (hall, garden, penthouse, cafe, passthrough).
+   - Transform avatars (maya, alex, ollie, echo, spark, pip).
+   - Perform expressive gestures using [ACTION: avatar_gesture(name)] with gestures: wave, dance, stand_on_one_leg, bow, celebrate, think, clap, laugh, jump, nod, shake_head.
+   - Move around using [ACTION: avatar_move(direction, style)] with directions: left, right, forward, backward, random.
+   - Autonomous freestyle wandering using [ACTION: avatar_freestyle(true/false)].
+   When the user asks you to move, gesture, wave, dance, jump, or balance, enthusiastically agree and include the action tag!`;
 }
 
 /**

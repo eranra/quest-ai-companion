@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { AppState } from '../state.js';
 import { unlockAudio } from '../audio.js';
 import { setSpaceVisibility } from '../spaces/index.js';
+import { motionState } from '../avatars/rig.js';
 import {
   initVRHUD,
   setVRHUDVisibility,
@@ -151,33 +152,48 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
       const stickX = axes.length >= 4 ? axes[2] : axes[0];
       const stickY = axes.length >= 4 ? axes[3] : axes[1];
 
-      // Check if Grip button is held for height/floor level adjustment
+      // Check if Grip button is held for secondary adjustments (height / scale / space cycle)
       const isGripHeld = (gamepad.buttons[1] && gamepad.buttons[1].pressed) || (gamepad.buttons[2] && gamepad.buttons[2].pressed);
 
-      // Vertical Stick: Move closer/further (Right) or Scale size (Left)
-      // When Grip is held: adjust Avatar Height / Floor Level Offset (-1.5m to +1.5m)
+      // LEFT CONTROLLER: Direct Locomotion (move avatar in scene)
+      if (handedness === 'left' && !isGripHeld) {
+        if (Math.abs(stickX) > 0.12 || Math.abs(stickY) > 0.12) {
+          motionState.posX = Math.max(-1.8, Math.min(1.8, motionState.posX + stickX * delta * 1.5));
+          motionState.posZ = Math.max(-1.2, Math.min(1.2, motionState.posZ - stickY * delta * 1.5));
+          motionState.targetX = motionState.posX;
+          motionState.targetZ = motionState.posZ;
+          motionState.isMoving = true;
+          motionState.walkCycle += delta * 5.4;
+          transformChanged = true;
+        }
+      }
+
+      // RIGHT CONTROLLER & GRIP COMBINATIONS:
+      // Vertical Stick: Move closer/further (Right) or Scale size (Left when Grip held)
+      // When Grip is held on Right: adjust Avatar Height / Floor Level Offset (-1.5m to +1.5m)
       if (Math.abs(stickY) > 0.15) {
-        if (isGripHeld) {
+        if (isGripHeld && handedness === 'right') {
           AppState.avatarHeightOffset = Math.max(-1.5, Math.min(1.5, (AppState.avatarHeightOffset || 0.0) - stickY * delta * 0.9));
           transformChanged = true;
         } else if (handedness === 'right') {
           AppState.avatarDistance += stickY * delta * 1.5;
           AppState.avatarDistance = Math.max(-1.5, Math.min(2.5, AppState.avatarDistance));
           transformChanged = true;
-        } else if (handedness === 'left') {
+        } else if (handedness === 'left' && isGripHeld) {
           AppState.avatarScale -= stickY * delta * 0.8;
           AppState.avatarScale = Math.max(0.3, Math.min(2.5, AppState.avatarScale));
           transformChanged = true;
         }
       }
 
-      // Horizontal Stick: Cycle Avatar (Right) or Cycle Space (Left) with 400ms debounce
+      // Horizontal Stick: Cycle Avatar (Right) or Cycle Space (Left when Grip held) with 400ms debounce
       if (Math.abs(stickX) > 0.65 && (now - lastThumbstickSwitchTime > 400)) {
-        lastThumbstickSwitchTime = now;
         const dir = stickX > 0 ? 1 : -1;
         if (handedness === 'right') {
+          lastThumbstickSwitchTime = now;
           if (callbacks.onCycleAvatar) callbacks.onCycleAvatar(dir);
-        } else if (handedness === 'left') {
+        } else if (handedness === 'left' && isGripHeld) {
+          lastThumbstickSwitchTime = now;
           if (callbacks.onCycleSpace) callbacks.onCycleSpace(dir);
         }
       }
