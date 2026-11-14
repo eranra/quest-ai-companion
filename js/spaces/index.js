@@ -186,6 +186,12 @@ export function setSpaceVisibility(visible) {
   }
 }
 
+export function setAvatarShadowVisibility(visible) {
+  if (contactShadowMesh) {
+    contactShadowMesh.visible = visible;
+  }
+}
+
 export function getCurrentSpaceId() {
   return currentSpaceId;
 }

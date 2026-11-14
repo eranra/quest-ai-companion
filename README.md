@@ -38,9 +38,9 @@ Featuring a **flexible dual-mode architecture**:
   - Automotive progression mode (automatically advances when finished) or single-track repeat loop.
   - In-VR 3D console, settings modal, and quick toolbar controls.
 
-- **🧘 Immersive Focus Void Mode (Panel Only):**
-  - Minimalist immersive mode eliminating 3D scene, avatar, and background music into a distraction-free void.
-  - Keeps only the floating 3D HUD console panel active and interactive in 3D.
+- **🧘 Pure Immersive View (Avatar-Free Environment Immersion):**
+  - Minimalist immersive mode that keeps the full 360° space environment active and vibrant without avatar obstruction or background music.
+  - Keeps the floating 3D HUD console panel active and interactive in 3D (with ➖ Hide Panel minimize support).
   - Automatically enables Live Mode upon entry, and cleanly restores avatar, space, music, and Live Mode state on exit.
 
 ---

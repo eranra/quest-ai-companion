@@ -16,7 +16,8 @@ import {
   moveAvatar,
   setFreestyleMode,
   getAvatarMotionStatus,
-  setSpaceVisibility
+  setSpaceVisibility,
+  setAvatarShadowVisibility
 } from './scene.js';
 import { buildAvatar, cycleAvatar, getDefaultVoiceForAvatar } from './avatars/index.js';
 import { switchSpace, cycleSpace } from './spaces/index.js';
@@ -539,7 +540,7 @@ function initApp() {
     const hudOverlay = document.getElementById('hud-overlay');
 
     if (nextFocus) {
-      // 1. Snapshot complete state prior to entering Focus Void Mode
+      // 1. Snapshot complete state prior to entering Pure Immersive View
       focusSnapshot = {
         wasLiveMode: !!AppState.isLiveMode,
         wasMusicMuted: isMusicMuted(),
@@ -551,35 +552,27 @@ function initApp() {
         avatarGroup.visible = false;
       }
 
-      // 3. Hide 3D space environment & ground contact shadows
-      setSpaceVisibility(false);
+      // 3. Hide avatar floor contact shadow, but KEEP 3D space environment visible (pure immersive view)
+      setAvatarShadowVisibility(false);
+      setSpaceVisibility(true);
 
-      // 4. Set pure void black background
-      if (scene) {
-        scene.background = new THREE.Color(0x000000);
-      }
-      if (renderer) {
-        renderer.setClearColor(0x000000, 1);
-        renderer.setClearAlpha(1);
-      }
-
-      // 5. Mute background music
+      // 4. Mute background music for quiet companion interaction
       setMusicMuted(true);
 
-      // 6. Automatically enable Live Mode if not already enabled
+      // 5. Automatically enable Live Mode if not already enabled
       if (!AppState.isLiveMode) {
         await handleToggleLiveMode(true);
       }
 
-      // 7. Update UI elements
+      // 6. Update UI elements
       if (hudOverlay) hudOverlay.classList.add('focus-mode-active');
       if (btnFocus) btnFocus.classList.add('active');
       if (btnFocusModal) btnFocusModal.style.background = '#059669';
       if (focusLabelModal) focusLabelModal.textContent = 'ON';
 
       updateVRHUDState({
-        status: '🧘 Focus Mode (Void)',
-        text: 'Focus Void Mode: Avatar & Scene hidden. Live Mode listening hands-free.'
+        status: '🧘 Immersive View',
+        text: 'Pure Immersive View: Avatar hidden. 360° space environment active with hands-free Live Mode.'
       });
     } else {
       // Restore pre-focus state exactly
@@ -595,9 +588,9 @@ function initApp() {
         applyAvatarTransform();
       }
 
-      // 2. Restore 3D space environment
+      // 2. Restore avatar floor shadow & ensure space visibility
+      setAvatarShadowVisibility(true);
       setSpaceVisibility(true);
-      switchSpace(snapshot.spaceId || AppState.spaceId || 'hall');
 
       // 3. Restore ambient music mute state
       setMusicMuted(snapshot.wasMusicMuted);
@@ -615,7 +608,7 @@ function initApp() {
 
       updateVRHUDState({
         status: 'Ready',
-        text: 'Focus Mode exited: Scene, Avatar & Audio restored.'
+        text: 'Immersive View exited: Avatar & audio restored.'
       });
     }
 

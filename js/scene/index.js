@@ -9,7 +9,7 @@ import {
   setFreestyleMode,
   getAvatarMotionStatus
 } from '../avatars/rig.js';
-import { initSpaces, updateCurrentSpace, setSpaceVisibility } from '../spaces/index.js';
+import { initSpaces, updateCurrentSpace, setSpaceVisibility, setAvatarShadowVisibility } from '../spaces/index.js';
 import { createCamera, createOrbitControls, applyResponsiveFraming as applyCameraFraming } from './camera.js';
 import {
   setupXRControllers,
@@ -240,6 +240,7 @@ export {
   setFreestyleMode,
   getAvatarMotionStatus,
   setSpaceVisibility,
+  setAvatarShadowVisibility,
   isVRHUDMinimizedState,
   setVRHUDMinimized,
   toggleVRHUDMinimized
