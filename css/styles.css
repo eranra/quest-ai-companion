@@ -1383,3 +1383,21 @@
         grid-template-columns: repeat(3, 1fr);
       }
     }
+
+    /* Focus Void Mode (Panel Only, Empty Scene) */
+    #btn-focus-mode.active {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      border-color: #818cf8;
+      box-shadow: 0 0 12px rgba(129, 140, 248, 0.55);
+      color: #ffffff;
+    }
+
+    #hud-overlay.focus-mode-active #avatar-dock,
+    #hud-overlay.focus-mode-active #quick-actions,
+    #hud-overlay.focus-mode-active .avatar-selector-bar,
+    #hud-overlay.focus-mode-active .dock-container,
+    #hud-overlay.focus-mode-active #status-pill {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }

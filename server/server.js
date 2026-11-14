@@ -295,9 +295,9 @@ function getSpaceArrivalSpeech(spaceName) {
 export function getServerVersion() {
   try {
     const raw = fs.readFileSync(path.join(ROOT_DIR, 'version.json'), 'utf-8');
-    return JSON.parse(raw).version || 'v0.8.1';
+    return JSON.parse(raw).version || 'v0.8.2';
   } catch {
-    return 'v0.8.1';
+    return 'v0.8.2';
   }
 }
 

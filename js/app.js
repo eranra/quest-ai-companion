@@ -1,7 +1,10 @@
 // Main Application Orchestrator - Quest AI Companion
+import * as THREE from 'three';
 import { AppState } from './state.js';
 import {
   initScene,
+  scene,
+  renderer,
   avatarGroup,
   applyAvatarTransform,
   flipAvatarOrientation,
@@ -12,7 +15,8 @@ import {
   triggerAvatarGesture,
   moveAvatar,
   setFreestyleMode,
-  getAvatarMotionStatus
+  getAvatarMotionStatus,
+  setSpaceVisibility
 } from './scene.js';
 import { buildAvatar, cycleAvatar, getDefaultVoiceForAvatar } from './avatars/index.js';
 import { switchSpace, cycleSpace } from './spaces/index.js';
@@ -46,7 +50,9 @@ import {
   isNeuralTTSReady,
   isNeuralTTSLoading,
   initAmbientMusic,
-  nextTrack
+  nextTrack,
+  isMusicMuted,
+  setMusicMuted
 } from './audio/index.js';
 import {
   initPipelineUI,
@@ -60,7 +66,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.8.1';
+export const APP_VERSION = 'v0.8.2';
 
 // DOM References
 const dom = {
@@ -479,7 +485,7 @@ function initApp() {
   let lastToggleLiveTime = 0;
   async function handleToggleLiveMode(forceState = null) {
     const now = Date.now();
-    if (now - lastToggleLiveTime < 350) return;
+    if (forceState === null && now - lastToggleLiveTime < 350) return;
     lastToggleLiveTime = now;
 
     const nextMode = forceState !== null ? forceState : !AppState.isLiveMode;
@@ -517,6 +523,106 @@ function initApp() {
       updateVRHUDState({ text: '⚡ Live Mode turned OFF. Press A/X to talk or B/Y to exit VR.' });
     }
   }
+
+  // Focus Void Mode: State Snapshot, Pure Black Void & Exact Restoration
+  let focusSnapshot = null;
+
+  async function toggleFocusMode(forceState = null) {
+    const nextFocus = forceState !== null ? !!forceState : !AppState.isFocusMode;
+    if (AppState.isFocusMode === nextFocus) return nextFocus;
+
+    AppState.isFocusMode = nextFocus;
+
+    const btnFocus = document.getElementById('btn-focus-mode');
+    const btnFocusModal = document.getElementById('btn-focus-toggle-modal');
+    const focusLabelModal = document.getElementById('focus-toggle-label');
+    const hudOverlay = document.getElementById('hud-overlay');
+
+    if (nextFocus) {
+      // 1. Snapshot complete state prior to entering Focus Void Mode
+      focusSnapshot = {
+        wasLiveMode: !!AppState.isLiveMode,
+        wasMusicMuted: isMusicMuted(),
+        spaceId: AppState.spaceId || 'hall'
+      };
+
+      // 2. Hide avatar completely
+      if (avatarGroup) {
+        avatarGroup.visible = false;
+      }
+
+      // 3. Hide 3D space environment & ground contact shadows
+      setSpaceVisibility(false);
+
+      // 4. Set pure void black background
+      if (scene) {
+        scene.background = new THREE.Color(0x000000);
+      }
+      if (renderer) {
+        renderer.setClearColor(0x000000, 1);
+        renderer.setClearAlpha(1);
+      }
+
+      // 5. Mute background music
+      setMusicMuted(true);
+
+      // 6. Automatically enable Live Mode if not already enabled
+      if (!AppState.isLiveMode) {
+        await handleToggleLiveMode(true);
+      }
+
+      // 7. Update UI elements
+      if (hudOverlay) hudOverlay.classList.add('focus-mode-active');
+      if (btnFocus) btnFocus.classList.add('active');
+      if (btnFocusModal) btnFocusModal.style.background = '#059669';
+      if (focusLabelModal) focusLabelModal.textContent = 'ON';
+
+      updateVRHUDState({
+        status: '🧘 Focus Mode (Void)',
+        text: 'Focus Void Mode: Avatar & Scene hidden. Live Mode listening hands-free.'
+      });
+    } else {
+      // Restore pre-focus state exactly
+      const snapshot = focusSnapshot || {
+        wasLiveMode: false,
+        wasMusicMuted: false,
+        spaceId: AppState.spaceId || 'hall'
+      };
+
+      // 1. Show avatar
+      if (avatarGroup) {
+        avatarGroup.visible = true;
+        applyAvatarTransform();
+      }
+
+      // 2. Restore 3D space environment
+      setSpaceVisibility(true);
+      switchSpace(snapshot.spaceId || AppState.spaceId || 'hall');
+
+      // 3. Restore ambient music mute state
+      setMusicMuted(snapshot.wasMusicMuted);
+
+      // 4. Restore Live Mode state
+      await handleToggleLiveMode(snapshot.wasLiveMode);
+
+      // 5. Update UI elements
+      if (hudOverlay) hudOverlay.classList.remove('focus-mode-active');
+      if (btnFocus) btnFocus.classList.remove('active');
+      if (btnFocusModal) btnFocusModal.style.background = '#4f46e5';
+      if (focusLabelModal) focusLabelModal.textContent = 'OFF';
+
+      focusSnapshot = null;
+
+      updateVRHUDState({
+        status: 'Ready',
+        text: 'Focus Mode exited: Scene, Avatar & Audio restored.'
+      });
+    }
+
+    return nextFocus;
+  }
+
+  window.toggleFocusMode = toggleFocusMode;
 
   async function handleToggleMic() {
     if (AppState.isSpeaking) {
@@ -642,6 +748,9 @@ function initApp() {
         AppState.save();
         applyAvatarTransform();
         updateVRHUDState({ status: `Avatar: ${nextId}` });
+      },
+      onToggleFocus: () => {
+        toggleFocusMode();
       }
     });
   } catch (err) {
@@ -735,6 +844,15 @@ function initApp() {
         }
       }
     }).catch(() => {});
+  }
+
+  // 9. Focus Mode Button Listener
+  const btnFocus = document.getElementById('btn-focus-mode');
+  if (btnFocus) {
+    btnFocus.addEventListener('click', () => {
+      unlockAudio();
+      toggleFocusMode();
+    });
   }
 
   // Global touch / click unblock for audio

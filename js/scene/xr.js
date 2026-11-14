@@ -149,22 +149,39 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
     // 5. Thumbstick Inputs
     if (gamepad.axes && gamepad.axes.length >= 2) {
       const axes = gamepad.axes;
-      const stickX = axes.length >= 4 ? axes[2] : axes[0];
-      const stickY = axes.length >= 4 ? axes[3] : axes[1];
+      // In WebXR Standard Gamepad Mapping (Meta Quest 3 Touch Plus):
+      // axes[0] = Thumbstick X (-1 left, +1 right)
+      // axes[1] = Thumbstick Y (-1 forward, +1 backward)
+      // axes[2] & axes[3] = Touchpad (0 or unused on Quest 3 Touch Plus)
+      let stickX = axes[0] || 0;
+      let stickY = axes[1] || 0;
+      // Fallback for non-standard gamepads that only populate axes[2]/axes[3]
+      if (Math.abs(stickX) < 0.05 && Math.abs(stickY) < 0.05 && axes.length >= 4) {
+        if (Math.abs(axes[2] || 0) > 0.05 || Math.abs(axes[3] || 0) > 0.05) {
+          stickX = axes[2];
+          stickY = axes[3];
+        }
+      }
 
       // Check if Grip button is held for secondary adjustments (height / scale / space cycle)
       const isGripHeld = (gamepad.buttons[1] && gamepad.buttons[1].pressed) || (gamepad.buttons[2] && gamepad.buttons[2].pressed);
 
       // LEFT CONTROLLER: Direct Locomotion (move avatar in scene)
       if (handedness === 'left' && !isGripHeld) {
-        if (Math.abs(stickX) > 0.12 || Math.abs(stickY) > 0.12) {
-          motionState.posX = Math.max(-1.8, Math.min(1.8, motionState.posX + stickX * delta * 1.5));
-          motionState.posZ = Math.max(-1.2, Math.min(1.2, motionState.posZ - stickY * delta * 1.5));
+        if (Math.abs(stickX) > 0.10 || Math.abs(stickY) > 0.10) {
+          motionState.posX = Math.max(-2.5, Math.min(2.5, motionState.posX + stickX * delta * 1.6));
+          motionState.posZ = Math.max(-2.2, Math.min(2.2, motionState.posZ - stickY * delta * 1.6));
           motionState.targetX = motionState.posX;
           motionState.targetZ = motionState.posZ;
           motionState.isMoving = true;
           motionState.walkCycle += delta * 5.4;
+          // Dynamically orient avatar to face walking direction while moving
+          if (Math.hypot(stickX, stickY) > 0.15) {
+            motionState.headingRotY = Math.atan2(stickX, -stickY);
+          }
           transformChanged = true;
+        } else if (motionState.isMoving) {
+          motionState.isMoving = false;
         }
       }
 

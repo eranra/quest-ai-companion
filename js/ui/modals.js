@@ -67,7 +67,9 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     btnMusicToggle: document.getElementById('btn-music-toggle'),
     musicToggleLabel: document.getElementById('music-toggle-label'),
     chkMusicAuto: document.getElementById('chk-music-auto'),
-    btnAmbientMusic: document.getElementById('btn-ambient-music')
+    btnAmbientMusic: document.getElementById('btn-ambient-music'),
+    btnFocusToggleModal: document.getElementById('btn-focus-toggle-modal'),
+    focusToggleLabel: document.getElementById('focus-toggle-label')
   };
 
   // Sync active avatar card
@@ -291,6 +293,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     dom.btnSettings.onclick = () => {
       unlockAudio();
       syncMusicUI();
+      syncFocusUI();
       dom.cfgGeminiKey.value = AppState.geminiKey;
       dom.cfgEngineSelect.value = AppState.engine;
       dom.cfgLocalModel.value = AppState.localModel;
@@ -604,6 +607,25 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     dom.btnAmbientMusic.onclick = () => {
       unlockAudio();
       nextTrack();
+      syncMusicUI();
+    };
+  }
+
+  // Focus Void Mode Modal Listeners
+  function syncFocusUI() {
+    if (dom.btnFocusToggleModal && dom.focusToggleLabel) {
+      dom.focusToggleLabel.textContent = AppState.isFocusMode ? 'ON' : 'OFF';
+      dom.btnFocusToggleModal.style.background = AppState.isFocusMode ? '#059669' : '#4f46e5';
+    }
+  }
+
+  if (dom.btnFocusToggleModal) {
+    dom.btnFocusToggleModal.onclick = () => {
+      unlockAudio();
+      if (window.toggleFocusMode) {
+        window.toggleFocusMode();
+      }
+      syncFocusUI();
       syncMusicUI();
     };
   }

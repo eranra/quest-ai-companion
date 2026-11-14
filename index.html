@@ -62,7 +62,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.8.1</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.8.2</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -112,6 +112,11 @@
 
         <button id="btn-turn-avatar" class="icon-btn" title="Turn Avatar 180° (Face Front / Back)">
           <span style="font-size: 15px;">🔄</span>
+        </button>
+
+        <!-- Focus Mode (Immersive Void / Panel Only) -->
+        <button id="btn-focus-mode" class="icon-btn" title="Toggle Focus Void Mode (Panel Only, Empty Scene)">
+          <span style="font-size: 15px;">🧘</span>
         </button>
 
         <button id="btn-xr" style="display: none;"><span id="xr-label">VR</span></button>
@@ -517,6 +522,19 @@
             <input id="chk-music-auto" type="checkbox" checked>
             <span class="toggle-slider"></span>
           </label>
+        </div>
+      </div>
+
+      <!-- Immersive Focus Void Mode (Panel Only) Settings -->
+      <div class="form-group" style="background: rgba(99, 102, 241, 0.12); padding: 12px; border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <label class="form-label" style="color: #a5b4fc; margin-bottom: 2px;">🧘 Immersive Focus Void Mode</label>
+            <p class="help-hint" style="margin-bottom: 0;">Hides avatar, 3D space & music. Interactive floating panel only with auto Live Mode.</p>
+          </div>
+          <button id="btn-focus-toggle-modal" class="action-btn" style="padding: 4px 10px; font-size: 11px; background: #4f46e5;">
+            <span id="focus-toggle-label">OFF</span>
+          </button>
         </div>
       </div>
 

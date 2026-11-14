@@ -14,11 +14,16 @@ let currentStatusText = 'Ready';
 let currentSpeechText = 'Hi! Press A/X to talk, or B/Y to exit VR back to settings.';
 let currentVolumeLevel = 0;
 let hoveredButtonKey = null;
+let isVRHUDMinimized = false;
 
 // Button bounding boxes in canvas pixel coordinates (1024 x 512)
+// Header: Minimize button
 // Row 1: Core Navigation & Audio Controls
 // Row 2: Direct Expressive Gestures & Freestyle Mode
 const HUD_BUTTONS = [
+  // Top Header Minimize Button
+  { key: 'minimize', label: '➖ Hide Panel', x: 520, y: 32, w: 210, h: 48, color: '#334155', activeColor: '#1e293b' },
+
   // Row 1
   { key: 'exit', label: '🚪 Exit VR', x: 30, y: 340, w: 160, h: 58, color: '#ef4444', activeColor: '#dc2626' },
   { key: 'mic', label: '🎙️ Talk (A/X)', x: 200, y: 340, w: 185, h: 58, color: '#6366f1', activeColor: '#4f46e5' },
@@ -27,12 +32,13 @@ const HUD_BUTTONS = [
   { key: 'space', label: '🏛️ Space', x: 780, y: 340, w: 105, h: 58, color: '#38bdf8', activeColor: '#0284c7' },
   { key: 'avatar', label: '👤 Avatar', x: 895, y: 340, w: 100, h: 58, color: '#a855f7', activeColor: '#9333ea' },
 
-  // Row 2: Gesture & Movement Actions
-  { key: 'wave', label: '👋 Wave', x: 40, y: 418, w: 170, h: 58, color: '#ec4899', activeColor: '#db2777' },
-  { key: 'dance', label: '🕺 Dance', x: 225, y: 418, w: 170, h: 58, color: '#f59e0b', activeColor: '#d97706' },
-  { key: 'balance', label: '🤸 Balance', x: 410, y: 418, w: 180, h: 58, color: '#8b5cf6', activeColor: '#7c3aed' },
-  { key: 'jump', label: '🦘 Jump', x: 605, y: 418, w: 170, h: 58, color: '#06b6d4', activeColor: '#0891b2' },
-  { key: 'freestyle', label: '🎲 Freestyle', x: 790, y: 418, w: 194, h: 58, color: '#14b8a6', activeColor: '#0d9488' }
+  // Row 2: Gesture & Movement Actions + Immersive Focus Mode
+  { key: 'wave', label: '👋 Wave', x: 30, y: 418, w: 145, h: 58, color: '#ec4899', activeColor: '#db2777' },
+  { key: 'dance', label: '🕺 Dance', x: 185, y: 418, w: 145, h: 58, color: '#f59e0b', activeColor: '#d97706' },
+  { key: 'balance', label: '🤸 Balance', x: 340, y: 418, w: 155, h: 58, color: '#8b5cf6', activeColor: '#7c3aed' },
+  { key: 'jump', label: '🦘 Jump', x: 505, y: 418, w: 145, h: 58, color: '#06b6d4', activeColor: '#0891b2' },
+  { key: 'freestyle', label: '🎲 Freestyle', x: 660, y: 418, w: 165, h: 58, color: '#14b8a6', activeColor: '#0d9488' },
+  { key: 'focus', label: '🧘 Focus', x: 835, y: 418, w: 160, h: 58, color: '#475569', activeColor: '#334155' }
 ];
 
 export function initVRHUD(scene) {
@@ -108,6 +114,28 @@ function renderHUDCanvas() {
   const ctx = hudCtx;
   const w = 1024;
   const h = 512;
+
+  // Minimized Mode: Render sleek floating pill button only, leaving 95% of canvas 100% transparent
+  if (isVRHUDMinimized) {
+    ctx.clearRect(0, 0, w, h);
+    const isHovered = hoveredButtonKey === 'reopen';
+    drawRoundedRect(ctx, 362, 220, 300, 72, 36);
+    ctx.fillStyle = isHovered ? 'rgba(99, 102, 241, 0.95)' : 'rgba(15, 23, 42, 0.88)';
+    ctx.fill();
+    ctx.lineWidth = isHovered ? 3 : 2;
+    ctx.strokeStyle = isHovered ? '#a5b4fc' : 'rgba(99, 102, 241, 0.6)';
+    ctx.stroke();
+
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText('👁️ Reopen Panel ➕', 512, 264);
+
+    if (hudTexture) {
+      hudTexture.needsUpdate = true;
+    }
+    return;
+  }
 
   // 1. Dark Glass Background
   ctx.clearRect(0, 0, w, h);
@@ -224,6 +252,8 @@ function renderHUDCanvas() {
       displayLabel = `👤 ${AppState.avatarId || 'Avatar'}`;
     } else if (btn.key === 'freestyle') {
       displayLabel = motionState.freestyle ? '🎲 Free: ON' : '🎲 Free: OFF';
+    } else if (btn.key === 'focus') {
+      displayLabel = AppState.isFocusMode ? '🧘 Focus: ON' : '🧘 Focus: OFF';
     }
 
     ctx.fillText(displayLabel, btn.x + btn.w / 2, btn.y + btn.h / 2 + 6);
@@ -263,6 +293,27 @@ export function testVRHUDIntersection(raycaster, isTriggerClick, callbacks = {})
   // Convert UV (0 to 1) to canvas pixels
   const px = uv.x * 1024;
   const py = (1 - uv.y) * 512;
+
+  // If HUD is currently minimized, test hit only against the compact "Reopen Panel" pill
+  if (isVRHUDMinimized) {
+    const isOverPill = (px >= 362 && px <= 662 && py >= 220 && py <= 292);
+    const prevHover = hoveredButtonKey;
+    hoveredButtonKey = isOverPill ? 'reopen' : null;
+    if (prevHover !== hoveredButtonKey) {
+      renderHUDCanvas();
+    }
+
+    if (isOverPill && isTriggerClick) {
+      const now = Date.now();
+      if (now - lastActionTriggerTime < 350) {
+        return { point: intersects[0].point, buttonKey: 'reopen' };
+      }
+      lastActionTriggerTime = now;
+      setVRHUDMinimized(false);
+      if (callbacks.onToggleMinimize) callbacks.onToggleMinimize(false);
+    }
+    return isOverPill ? { point: intersects[0].point, buttonKey: 'reopen' } : null;
+  }
 
   let matched = null;
   for (const btn of HUD_BUTTONS) {
@@ -317,10 +368,34 @@ export function testVRHUDIntersection(raycaster, isTriggerClick, callbacks = {})
       if (callbacks.onToggleFreestyle) callbacks.onToggleFreestyle();
       else setFreestyleMode(!motionState.freestyle);
       renderHUDCanvas();
+    } else if (matched.key === 'focus') {
+      if (callbacks.onToggleFocus) callbacks.onToggleFocus();
+      renderHUDCanvas();
+    } else if (matched.key === 'minimize') {
+      setVRHUDMinimized(true);
+      if (callbacks.onToggleMinimize) callbacks.onToggleMinimize(true);
     }
   }
 
   return { point: intersects[0].point, buttonKey: hoveredButtonKey };
+}
+
+export function resetHUDActionDebounce() {
+  lastActionTriggerTime = 0;
+}
+
+export function isVRHUDMinimizedState() {
+  return isVRHUDMinimized;
+}
+
+export function setVRHUDMinimized(minimized) {
+  isVRHUDMinimized = !!minimized;
+  renderHUDCanvas();
+  return isVRHUDMinimized;
+}
+
+export function toggleVRHUDMinimized() {
+  return setVRHUDMinimized(!isVRHUDMinimized);
 }
 
 export function getVRHUDMesh() {

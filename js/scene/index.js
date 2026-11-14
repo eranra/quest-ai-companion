@@ -22,6 +22,11 @@ import {
   setXRActionCallbacks,
   updateVRHUDState
 } from './xr.js';
+import {
+  isVRHUDMinimizedState,
+  setVRHUDMinimized,
+  toggleVRHUDMinimized
+} from './vr_hud.js';
 
 export let scene, camera, renderer, controls, clock;
 export let avatarGroup;
@@ -72,6 +77,50 @@ export function initScene(container, hud) {
 
   // Setup WebXR Controllers
   setupXRControllers(scene, renderer);
+
+  // Mobile / Android Touch Locomotion: 2-finger drag smoothly walks avatar in scene
+  let touchStartX = 0;
+  let touchStartZ = 0;
+  let isTouchMoving = false;
+
+  renderer.domElement.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      isTouchMoving = true;
+      touchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      touchStartZ = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    }
+  }, { passive: true });
+
+  renderer.domElement.addEventListener('touchmove', (e) => {
+    if (isTouchMoving && e.touches.length === 2) {
+      const curX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const curZ = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const dx = (curX - touchStartX) * 0.005;
+      const dz = (curZ - touchStartZ) * 0.005;
+
+      motionState.posX = Math.max(-2.5, Math.min(2.5, motionState.posX + dx));
+      motionState.posZ = Math.max(-2.2, Math.min(2.2, motionState.posZ + dz));
+      motionState.targetX = motionState.posX;
+      motionState.targetZ = motionState.posZ;
+      motionState.isMoving = true;
+      motionState.walkCycle += 0.12;
+
+      if (Math.hypot(dx, dz) > 0.01) {
+        motionState.headingRotY = Math.atan2(dx, dz);
+      }
+
+      applyAvatarTransform();
+      touchStartX = curX;
+      touchStartZ = curZ;
+    }
+  }, { passive: true });
+
+  renderer.domElement.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      isTouchMoving = false;
+      motionState.isMoving = false;
+    }
+  }, { passive: true });
 
   // Resize and Orientation Listener
   window.addEventListener('resize', applyResponsiveFraming);
@@ -189,5 +238,9 @@ export {
   triggerAvatarGesture,
   moveAvatar,
   setFreestyleMode,
-  getAvatarMotionStatus
+  getAvatarMotionStatus,
+  setSpaceVisibility,
+  isVRHUDMinimizedState,
+  setVRHUDMinimized,
+  toggleVRHUDMinimized
 };

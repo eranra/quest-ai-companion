@@ -809,7 +809,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.8.1');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.8.2');
                     assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
@@ -822,7 +822,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.8.1' })
+                      body: JSON.stringify({ targetVersion: 'v0.8.2' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -1095,7 +1095,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.8.1', badgeElem && badgeElem.textContent.includes('v0.8.1'));
+                    assert('App version badge reflects v0.8.2', badgeElem && badgeElem.textContent.includes('v0.8.2'));
 
                     // 18. v0.7.0 Performance, Parallel Streaming, Full-Duplex AEC, and Selective Model Loading
                     // 18.1 Parallel PC Server Backend TTS Endpoint
@@ -1484,6 +1484,150 @@ async function runTestSuite() {
                     assert('slider-music-volume exists in settings modal', document.getElementById('slider-music-volume') !== null);
                     assert('btn-music-toggle exists in settings modal', document.getElementById('btn-music-toggle') !== null);
                     assert('chk-music-auto exists in settings modal', document.getElementById('chk-music-auto') !== null);
+
+                    // =========================================================
+                    // 28. Immersive Focus Void Mode (Panel Only)
+                    // =========================================================
+                    assert('AppState exports isFocusMode', typeof AppState.isFocusMode === 'boolean');
+                    assert('AppState.isFocusMode starts disabled by default', AppState.isFocusMode === false);
+                    assert('btn-focus-mode exists in top controls', document.getElementById('btn-focus-mode') !== null);
+                    assert('btn-focus-toggle-modal exists in settings modal', document.getElementById('btn-focus-toggle-modal') !== null);
+                    assert('window.toggleFocusMode is a registered function', typeof window.toggleFocusMode === 'function');
+
+                    // Check VR HUD Focus Button
+                    vrHUDModule.setVRHUDVisibility(true);
+                    vrHUDModule.resetHUDActionDebounce();
+                    const hudMeshObj = vrHUDModule.getVRHUDMesh();
+                    assert('VR HUD mesh exists', hudMeshObj !== null);
+
+                    let xrFocusCallbackInvoked = false;
+                    const hudFocusHit = vrHUDModule.testVRHUDIntersection({
+                      intersectObject: () => [{
+                        point: new THREE.Vector3(0, 0, 0),
+                        uv: { x: 0.8935, y: 0.1269 }
+                      }]
+                    }, true, {
+                      onToggleFocus: () => {
+                        xrFocusCallbackInvoked = true;
+                      }
+                    });
+
+                    assert('VR HUD testVRHUDIntersection hits focus button', hudFocusHit && hudFocusHit.buttonKey === 'focus');
+                    assert('VR HUD focus button trigger dispatches onToggleFocus callback', xrFocusCallbackInvoked === true);
+
+                    // =========================================================
+                    // 29. In-VR 3D Panel Minimize & Reopen (Scene Visibility)
+                    // =========================================================
+                    assert('vr_hud.js exports isVRHUDMinimizedState', typeof vrHUDModule.isVRHUDMinimizedState === 'function');
+                    assert('vr_hud.js exports setVRHUDMinimized', typeof vrHUDModule.setVRHUDMinimized === 'function');
+                    assert('vr_hud.js exports toggleVRHUDMinimized', typeof vrHUDModule.toggleVRHUDMinimized === 'function');
+                    assert('VR HUD starts unminimized by default', vrHUDModule.isVRHUDMinimizedState() === false);
+
+                    // Click Minimize Button in Header Bar (x: 580, y: 56 -> uv.x = 0.5664, uv.y = 0.8906)
+                    vrHUDModule.resetHUDActionDebounce();
+                    const minimizeHit = vrHUDModule.testVRHUDIntersection({
+                      intersectObject: () => [{
+                        point: new THREE.Vector3(0, 0, 0),
+                        uv: { x: 0.5664, y: 0.8906 }
+                      }]
+                    }, true);
+                    assert('VR HUD testVRHUDIntersection hits minimize button', minimizeHit && minimizeHit.buttonKey === 'minimize');
+                    assert('Clicking minimize button sets isVRHUDMinimizedState to true', vrHUDModule.isVRHUDMinimizedState() === true);
+
+                    // Click Reopen Pill in Center (x: 512, y: 256 -> uv.x = 0.50, uv.y = 0.50)
+                    vrHUDModule.resetHUDActionDebounce();
+                    const reopenHit = vrHUDModule.testVRHUDIntersection({
+                      intersectObject: () => [{
+                        point: new THREE.Vector3(0, 0, 0),
+                        uv: { x: 0.50, y: 0.50 }
+                      }]
+                    }, true);
+                    assert('VR HUD testVRHUDIntersection hits reopen pill when minimized', reopenHit && reopenHit.buttonKey === 'reopen');
+                    assert('Clicking reopen pill restores full 3D panel (isVRHUDMinimizedState = false)', vrHUDModule.isVRHUDMinimizedState() === false);
+
+                    // =========================================================
+                    // 30. Meta Quest 3 Left Stick & Android Locomotion
+                    // =========================================================
+                    const preMotionX = motionModule.motionState.posX;
+                    const preMotionZ = motionModule.motionState.posZ;
+
+                    // Simulate Quest 3 WebXR Left Controller Thumbstick
+                    const xrModule = await import('./js/scene/xr.js');
+                    const mockSession = {
+                      inputSources: [{
+                        handedness: 'left',
+                        gamepad: {
+                          axes: [0.75, -0.75, 0, 0], // axes[0] = right (+X), axes[1] = forward (-Z)
+                          buttons: [{ pressed: false }, { pressed: false }, { pressed: false }, { pressed: false }]
+                        }
+                      }]
+                    };
+                    const mockRenderer = {
+                      xr: {
+                        getSession: () => mockSession
+                      }
+                    };
+
+                    let xrTransformCallbackCalled = false;
+                    xrModule.handleXRControllerInput(mockRenderer, 0.1, () => {
+                      xrTransformCallbackCalled = true;
+                    });
+
+                    assert('Quest 3 Left Stick axes[0]/axes[1] moves avatar X', motionModule.motionState.posX > preMotionX);
+                    assert('Quest 3 Left Stick axes[0]/axes[1] moves avatar Z', motionModule.motionState.posZ > preMotionZ);
+                    assert('Quest 3 Left Stick activates avatar locomotion motionState.isMoving', motionModule.motionState.isMoving === true);
+                    assert('handleXRControllerInput dispatches applyAvatarTransform callback', xrTransformCallbackCalled === true);
+
+                    // Simulate 2-finger Touch Locomotion on Android canvas
+                    const canvasEl = document.querySelector('canvas');
+                    if (canvasEl) {
+                      const touchStartEvt = new Event('touchstart');
+                      touchStartEvt.touches = [
+                        { clientX: 100, clientY: 200 },
+                        { clientX: 120, clientY: 200 }
+                      ];
+                      canvasEl.dispatchEvent(touchStartEvt);
+
+                      const touchMoveEvt = new Event('touchmove');
+                      touchMoveEvt.touches = [
+                        { clientX: 140, clientY: 230 },
+                        { clientX: 160, clientY: 230 }
+                      ];
+                      canvasEl.dispatchEvent(touchMoveEvt);
+
+                      assert('2-finger touch drag moves avatar on mobile canvas', motionModule.motionState.isMoving === true);
+
+                      const touchEndEvt = new Event('touchend');
+                      touchEndEvt.touches = [];
+                      canvasEl.dispatchEvent(touchEndEvt);
+                      assert('Ending 2-finger touch drag stops motion', motionModule.motionState.isMoving === false);
+                    }
+
+                    // Test toggleFocusMode ON
+                    // Ensure pre-conditions: Live Mode is OFF, Music is unmuted
+                    musicModule.setMusicMuted(false);
+                    AppState.isLiveMode = false;
+                    const initialSpaceId = AppState.spaceId;
+
+                    await window.toggleFocusMode(true);
+                    assert('toggleFocusMode(true) sets AppState.isFocusMode to true', AppState.isFocusMode === true);
+                    assert('Focus Mode hides avatarGroup completely (visible = false)', currentAvatarGroup.visible === false);
+                    assert('Focus Mode mutes background music', musicModule.isMusicMuted() === true);
+                    assert('Focus Mode automatically activates hands-free Live Mode', AppState.isLiveMode === true);
+                    assert('Focus Mode applies focus-mode-active CSS class to hud-overlay', document.getElementById('hud-overlay').classList.contains('focus-mode-active'));
+                    assert('Focus Mode highlights btn-focus-mode button', document.getElementById('btn-focus-mode').classList.contains('active'));
+                    assert('Focus Mode sets pure black scene background', sceneModule.scene.background && sceneModule.scene.background.r === 0 && sceneModule.scene.background.g === 0 && sceneModule.scene.background.b === 0);
+                    assert('Focus Mode sets renderer clearAlpha to 1', sceneModule.renderer.getClearAlpha() === 1);
+
+                    // Test toggleFocusMode OFF (Exact Restoration)
+                    await window.toggleFocusMode(false);
+                    assert('toggleFocusMode(false) sets AppState.isFocusMode to false', AppState.isFocusMode === false);
+                    assert('Exiting Focus Mode restores avatarGroup visibility (visible = true)', currentAvatarGroup.visible === true);
+                    assert('Exiting Focus Mode restores pre-entry music mute state (unmuted)', musicModule.isMusicMuted() === false);
+                    assert('Exiting Focus Mode restores pre-entry Live Mode state (was false -> now false)', AppState.isLiveMode === false);
+                    assert('Exiting Focus Mode removes focus-mode-active CSS class', !document.getElementById('hud-overlay').classList.contains('focus-mode-active'));
+                    assert('Exiting Focus Mode unhighlights btn-focus-mode button', !document.getElementById('btn-focus-mode').classList.contains('active'));
+                    assert('Exiting Focus Mode restores 3D space environment', AppState.spaceId === initialSpaceId);
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

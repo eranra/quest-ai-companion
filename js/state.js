@@ -19,6 +19,7 @@ export const AppState = {
   avatarId: storage.getItem('quest_avatar_id') || 'echo',
   spaceId: storage.getItem('quest_space_id') || 'hall',
   isLiveMode: false, // Always starts disabled on website entry
+  isFocusMode: false, // Immersive Void / Panel-Only Mode
   
   // Standalone PC Server Remote Models (WASM)
   remoteSttModel: storage.getItem('quest_remote_stt_model') || 'whisper-tiny',
