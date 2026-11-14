@@ -3,7 +3,7 @@ import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
 import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady, PIPER_VOICE_CONFIGS, getActiveVoiceId, setActiveVoiceId, getDefaultVoiceForAvatar } from '../audio/index.js';
-import { selectTrackById, setMusicVolume, getMusicVolume, toggleMusicMute, isMusicMuted, setMusicAutoMode, getMusicAutoMode, getMusicStatus, nextTrack } from '../audio/ambient_music.js';
+import { selectTrackById, setMusicVolume, getMusicVolume, toggleMusicMute, isMusicMuted, setMusicAutoMode, getMusicAutoMode, getMusicStatus, nextTrack, prevTrack } from '../audio/ambient_music.js';
 import { checkGeminiResponsiveness, checkRemoteServerResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport, selectRemoteModel, fetchRemoteModels, getCachedRemoteModels } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
@@ -69,7 +69,20 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     chkMusicAuto: document.getElementById('chk-music-auto'),
     btnAmbientMusic: document.getElementById('btn-ambient-music'),
     btnFocusToggleModal: document.getElementById('btn-focus-toggle-modal'),
-    focusToggleLabel: document.getElementById('focus-toggle-label')
+    focusToggleLabel: document.getElementById('focus-toggle-label'),
+    modalMusic: document.getElementById('modal-music'),
+    btnCloseMusic: document.getElementById('btn-close-music'),
+    btnCloseMusicBottom: document.getElementById('btn-close-music-bottom'),
+    musicCurrentTitle: document.getElementById('modal-music-current-title'),
+    musicCurrentDesc: document.getElementById('modal-music-current-desc'),
+    btnMusicToggleMain: document.getElementById('btn-music-toggle-main'),
+    musicToggleMainLabel: document.getElementById('music-toggle-main-label'),
+    cfgMusicTrackMain: document.getElementById('cfg-music-track-main'),
+    btnMusicPrev: document.getElementById('btn-music-prev'),
+    btnMusicNext: document.getElementById('btn-music-next'),
+    sliderMusicVolumeMain: document.getElementById('slider-music-volume-main'),
+    valMusicVolumeMain: document.getElementById('val-music-volume-main'),
+    chkMusicAutoMain: document.getElementById('chk-music-auto-main')
   };
 
   // Sync active avatar card
@@ -563,6 +576,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
   // Ambient Background Music Settings Listeners
   function syncMusicUI() {
     const status = getMusicStatus();
+    // Settings modal elements
     if (dom.cfgMusicTrack) dom.cfgMusicTrack.value = status.trackId;
     if (dom.sliderMusicVolume) dom.sliderMusicVolume.value = status.volume;
     if (dom.valMusicVolume) dom.valMusicVolume.textContent = `${Math.round(status.volume * 100)}%`;
@@ -570,6 +584,25 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     if (dom.btnMusicToggle && dom.musicToggleLabel) {
       dom.musicToggleLabel.textContent = status.isMuted ? '🔇 Muted' : '🔊 Playing';
       dom.btnMusicToggle.style.background = status.isMuted ? '#ef4444' : '#059669';
+    }
+
+    // Dedicated Ambient Music Modal elements
+    if (dom.musicCurrentTitle) dom.musicCurrentTitle.textContent = status.currentTrack ? status.currentTrack.title : 'Ambient Soundscape';
+    if (dom.musicCurrentDesc) dom.musicCurrentDesc.textContent = status.currentTrack ? status.currentTrack.desc : '';
+    if (dom.cfgMusicTrackMain) dom.cfgMusicTrackMain.value = status.trackId;
+    if (dom.sliderMusicVolumeMain) dom.sliderMusicVolumeMain.value = status.volume;
+    if (dom.valMusicVolumeMain) dom.valMusicVolumeMain.textContent = `${Math.round(status.volume * 100)}%`;
+    if (dom.chkMusicAutoMain) dom.chkMusicAutoMain.checked = status.autoMode;
+    if (dom.btnMusicToggleMain && dom.musicToggleMainLabel) {
+      dom.musicToggleMainLabel.textContent = status.isMuted ? '🔇 Muted' : '🔊 Playing';
+      dom.btnMusicToggleMain.style.background = status.isMuted ? '#ef4444' : '#059669';
+    }
+
+    // Top Bar Ambient Music Icon state
+    if (dom.btnAmbientMusic) {
+      dom.btnAmbientMusic.innerHTML = `<span style="font-size: 15px;">${status.isMuted ? '🔇' : '🎵'}</span>`;
+      dom.btnAmbientMusic.classList.toggle('active', !status.isMuted);
+      dom.btnAmbientMusic.setAttribute('data-floating-tooltip', status.isMuted ? '🎵 Ambient Music: Muted (Click to open music controls)' : `🎵 Ambient Music: Playing - ${status.currentTrack ? status.currentTrack.title : 'Music'} (Click to open controls)`);
     }
   }
 
@@ -603,10 +636,70 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     };
   }
 
+  // Dedicated Music Modal Listeners
   if (dom.btnAmbientMusic) {
     dom.btnAmbientMusic.onclick = () => {
       unlockAudio();
+      syncMusicUI();
+      if (dom.modalMusic) dom.modalMusic.classList.add('open');
+    };
+  }
+
+  if (dom.btnCloseMusic) {
+    dom.btnCloseMusic.onclick = () => {
+      if (dom.modalMusic) dom.modalMusic.classList.remove('open');
+    };
+  }
+
+  if (dom.btnCloseMusicBottom) {
+    dom.btnCloseMusicBottom.onclick = () => {
+      if (dom.modalMusic) dom.modalMusic.classList.remove('open');
+    };
+  }
+
+  if (dom.btnMusicToggleMain) {
+    dom.btnMusicToggleMain.onclick = () => {
+      unlockAudio();
+      toggleMusicMute();
+      syncMusicUI();
+    };
+  }
+
+  if (dom.cfgMusicTrackMain) {
+    dom.cfgMusicTrackMain.onchange = (e) => {
+      unlockAudio();
+      selectTrackById(e.target.value);
+      syncMusicUI();
+    };
+  }
+
+  if (dom.btnMusicPrev) {
+    dom.btnMusicPrev.onclick = () => {
+      unlockAudio();
+      prevTrack();
+      syncMusicUI();
+    };
+  }
+
+  if (dom.btnMusicNext) {
+    dom.btnMusicNext.onclick = () => {
+      unlockAudio();
       nextTrack();
+      syncMusicUI();
+    };
+  }
+
+  if (dom.sliderMusicVolumeMain) {
+    dom.sliderMusicVolumeMain.oninput = (e) => {
+      unlockAudio();
+      setMusicVolume(e.target.value);
+      syncMusicUI();
+    };
+  }
+
+  if (dom.chkMusicAutoMain) {
+    dom.chkMusicAutoMain.onchange = (e) => {
+      setMusicAutoMode(e.target.checked);
       syncMusicUI();
     };
   }

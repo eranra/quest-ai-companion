@@ -809,7 +809,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.8.2');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.8.3');
                     assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
@@ -822,7 +822,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.8.2' })
+                      body: JSON.stringify({ targetVersion: 'v0.8.3' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -1095,7 +1095,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.8.2', badgeElem && badgeElem.textContent.includes('v0.8.2'));
+                    assert('App version badge reflects v0.8.3', badgeElem && badgeElem.textContent.includes('v0.8.3'));
 
                     // 18. v0.7.0 Performance, Parallel Streaming, Full-Duplex AEC, and Selective Model Loading
                     // 18.1 Parallel PC Server Backend TTS Endpoint
@@ -1324,12 +1324,18 @@ async function runTestSuite() {
                     const freeTagTest = await toolsMod.processActionTagsInModelOutput("Wandering around! [ACTION: avatar_freestyle(true)]");
                     assert('processActionTagsInModelOutput extracts avatar_freestyle action', freeTagTest.actions.length === 1 && freeTagTest.actions[0].toolName === 'avatar_freestyle');
 
-                    // 22.7 Android / Mobile & Desktop Direct Motion Toolbar DOM Elements
+                    // 22.7 Compact Gestures Combo Box & Toolbar Controls
                     const motionBar = document.getElementById('avatar-motion-bar');
                     assert('avatar-motion-bar exists in DOM', motionBar !== null);
 
-                    const motionButtons = document.querySelectorAll('.motion-btn');
-                    assert('All 11 Avatar Motion Buttons present in Toolbar', motionButtons.length >= 10, 'Found: ' + motionButtons.length);
+                    const gestureSelect = document.getElementById('select-avatar-gesture');
+                    assert('select-avatar-gesture combo box exists in DOM', gestureSelect !== null);
+                    assert('select-avatar-gesture contains expressive gestures & locomotion options', gestureSelect.options.length >= 10);
+
+                    // Test selecting a gesture from the combo box
+                    gestureSelect.value = 'gesture:wave';
+                    gestureSelect.dispatchEvent(new Event('change'));
+                    assert('Selecting gesture from combo box triggers gesture', rigModule.motionState.currentGesture === 'wave');
 
                     const btnFreestyleEl = document.getElementById('btn-motion-freestyle');
                     assert('btn-motion-freestyle exists in Toolbar', btnFreestyleEl !== null);
@@ -1484,6 +1490,20 @@ async function runTestSuite() {
                     assert('slider-music-volume exists in settings modal', document.getElementById('slider-music-volume') !== null);
                     assert('btn-music-toggle exists in settings modal', document.getElementById('btn-music-toggle') !== null);
                     assert('chk-music-auto exists in settings modal', document.getElementById('chk-music-auto') !== null);
+
+                    // Verify Dedicated Ambient Music Modal
+                    const modalMusic = document.getElementById('modal-music');
+                    assert('modal-music exists in DOM', modalMusic !== null);
+                    const btnAmbientMusic = document.getElementById('btn-ambient-music');
+                    btnAmbientMusic.click();
+                    assert('Clicking btn-ambient-music opens modal-music', modalMusic.classList.contains('open'));
+                    const btnCloseMusic = document.getElementById('btn-close-music');
+                    btnCloseMusic.click();
+                    assert('Clicking btn-close-music closes modal-music', !modalMusic.classList.contains('open'));
+
+                    // Verify Universal Floating Tooltip Element
+                    const tooltipEl = document.getElementById('floating-tooltip');
+                    assert('floating-tooltip element exists in DOM', tooltipEl !== null);
 
                     // =========================================================
                     // 28. Immersive Focus Void Mode (Panel Only)

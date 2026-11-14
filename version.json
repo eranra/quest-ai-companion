@@ -1,7 +1,7 @@
 {
-  "version": "v0.8.2",
-  "build": 58,
+  "version": "v0.8.3",
+  "build": 59,
   "released": "2026-11-14",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.8.2: 1) Pure Immersive View: Added pure immersed 3D view preserving the full 360° space environment (Study Hall, Zen Garden, Penthouse, Cafe, Passthrough) without avatar obstruction or background music, keeping the interactive 3D console active; 2) Automatic Live Mode Activation: Entering Immersive View automatically activates hands-free Live Mode; 3) Full State Snapshot & Exact Restoration: Exiting cleanly restores pre-entry state (avatar visibility, floor shadow, background music state, and Live Mode on/off state); 4) In-VR 3D Panel Minimize & Reopen: Added ➖ Hide Panel button in 3D console header to collapse the HUD into a compact floating 👁️ Reopen Panel pill, providing unobstructed scene visibility; 5) Quest 3 Left Stick & Android Touch Locomotion: Enabled direct avatar locomotion via Quest 3 Left Thumbstick (axes[0]/axes[1]) and Android 2-finger touch drag."
+  "changelog": "v0.8.3: 1) Dedicated Ambient Music Controller: Transformed the top bar music icon into a dedicated soundscape manager modal allowing play/pause toggle, track selection across all 8 soundscapes, previous/next skipping, volume slider, and automotive repeat; 2) Universal Floating Tooltips: Added interactive floating helper tooltips on hover across all toolbar icons, buttons, and settings; 3) Compact Gestures Combo Box: Replaced the expansive gesture button row with a sleek, compact dropdown select control and quick freestyle toggle; 4) Pure Immersive View: Refined avatar-free immersive view keeping the full 360 space environment active without black screen; 5) Quest 3 Left Stick & Android Touch Locomotion: Smooth avatar walking with dynamic heading orientation."
 }

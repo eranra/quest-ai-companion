@@ -51,7 +51,25 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     };
   });
 
-  // Avatar Direct Motion & Gestures Toolbar (Android, Mobile & Desktop)
+  // Avatar Direct Motion & Gestures Combo Box & Buttons (Android, Mobile & Desktop)
+  const gestureSelect = document.getElementById('select-avatar-gesture');
+  if (gestureSelect) {
+    gestureSelect.onchange = (e) => {
+      unlockAudio();
+      const val = e.target.value;
+      if (!val) return;
+      const [type, action] = val.split(':');
+      if (type === 'gesture') {
+        triggerAvatarGesture(action);
+      } else if (type === 'move') {
+        moveAvatar(action, 'walk', 0.8);
+      }
+      setTimeout(() => {
+        gestureSelect.selectedIndex = 0;
+      }, 350);
+    };
+  }
+
   document.querySelectorAll('.motion-btn').forEach(btn => {
     btn.onclick = () => {
       unlockAudio();

@@ -64,10 +64,11 @@ import {
   initDebugDrawer,
   logDebug,
   setStageTiming,
-  setActiveStage
+  setActiveStage,
+  initTooltips
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.8.2';
+export const APP_VERSION = 'v0.8.3';
 
 // DOM References
 const dom = {
@@ -847,6 +848,9 @@ function initApp() {
       toggleFocusMode();
     });
   }
+
+  // 10. Universal Floating Help Tooltips
+  initTooltips();
 
   // Global touch / click unblock for audio
   window.addEventListener('click', unlockAudio, { once: true });
