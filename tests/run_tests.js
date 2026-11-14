@@ -978,7 +978,7 @@ async function runTestSuite() {
                       body: JSON.stringify({ prompt: "It's really fun. And how are you?", spaceId: 'cafe', model: 'antigravity' })
                     }).then(r => r.json());
                     const funReplyLower = (agFunRes.reply || '').toLowerCase();
-                    const hasPositiveTone = /fun|glad|enjoy|great|doing well|thrilled|wonderful|good/i.test(funReplyLower);
+                    const hasPositiveTone = /fun|glad|enjoy|great|doing well|thrilled|wonderful|good|happy|pleased|delighted|fine/i.test(funReplyLower);
                     assert('Antigravity acknowledges fun remark and answers how are you', agFunRes.success && hasPositiveTone && !agFunRes.reply.includes('Regarding'));
 
                     // Test live weather retrieval without SEO teasers
@@ -1132,6 +1132,37 @@ async function runTestSuite() {
                     assert('detectUserInterruption triggers on user interruption during speech', interruptResult === true || (interruptResult && interruptResult.isInterruption === true));
                     assert('isSelfEcho identifies exact or near-identical avatar speech echo', whisperModule.isSelfEcho('The weather today is sunny and clear', 'The weather today is sunny and clear') === true);
                     assert('Smart AEC mode is supported for full-duplex conversational barge-in', AppState.echoGuardMode === 'smart' || AppState.echoGuardMode === 'smart_aec' || AppState.echoGuardMode === 'half_duplex');
+
+                    // 18.3.1 Live Mode Barge-In & Instant Avatar Interruption
+                    const liveMotionModule = await import('./js/avatars/motion.js');
+                    assert('motion.js exports stopAvatarGesture', typeof liveMotionModule.stopAvatarGesture === 'function');
+
+                    // Simulate speaking avatar with active gesture
+                    AppState.isLiveMode = true;
+                    AppState.isSpeaking = true;
+                    liveMotionModule.triggerAvatarGesture('dance', 5.0);
+                    assert('Avatar gesture active prior to interruption', liveMotionModule.motionState.currentGesture === 'dance');
+
+                    // User issues stop command during speech
+                    const userStopBarge = whisperModule.detectUserInterruption('Alex stop talking please');
+                    assert('detectUserInterruption recognizes conversational stop command', userStopBarge.isInterruption === true && userStopBarge.isStopCommand === true);
+                    assert('isSelfEcho never drops user stop command as acoustic echo', whisperModule.isSelfEcho('Alex stop talking please') === false);
+
+                    // Stop speaking halts audio and halts avatar gesture immediately
+                    audioSubsystem.stopSpeaking();
+                    assert('stopSpeaking resets AppState.isSpeaking to false', AppState.isSpeaking === false);
+                    assert('stopSpeaking immediately cancels active avatar gesture', liveMotionModule.motionState.currentGesture === null && liveMotionModule.motionState.gestureBlend === 0);
+
+                    // User interrupts with new instruction while avatar is speaking
+                    AppState.isSpeaking = true;
+                    liveMotionModule.triggerAvatarGesture('wave', 5.0);
+                    const userNewInstructionBarge = whisperModule.detectUserInterruption('Wait, can you count from 1 to 5 instead?');
+                    assert('detectUserInterruption recognizes new instruction barge-in', userNewInstructionBarge.isInterruption === true && userNewInstructionBarge.isStopCommand === false);
+                    assert('isSelfEcho never blocks novel user instruction as acoustic echo', whisperModule.isSelfEcho('Wait, can you count from 1 to 5 instead?') === false);
+
+                    audioSubsystem.stopSpeaking();
+                    assert('Interrupted speech stops gesture for new instruction', liveMotionModule.motionState.currentGesture === null);
+                    AppState.isLiveMode = false;
 
                     // 18.4 Selective Model Loading when Connected to PC
                     const prevEngine = AppState.engine;

@@ -5,6 +5,7 @@ import {
   animateRig,
   motionState,
   triggerAvatarGesture,
+  stopAvatarGesture,
   moveAvatar,
   setFreestyleMode,
   getAvatarMotionStatus
@@ -262,6 +263,7 @@ export {
   updateVRHUDState,
   motionState,
   triggerAvatarGesture,
+  stopAvatarGesture,
   moveAvatar,
   setFreestyleMode,
   getAvatarMotionStatus,

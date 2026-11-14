@@ -4,6 +4,7 @@ import { AppState } from '../state.js';
 import {
   motionState,
   triggerAvatarGesture,
+  stopAvatarGesture,
   moveAvatar,
   setFreestyleMode,
   getAvatarMotionStatus,
@@ -217,6 +218,7 @@ export function animateRig(delta, elapsed, camera, avatarGroup) {
 export {
   motionState,
   triggerAvatarGesture,
+  stopAvatarGesture,
   moveAvatar,
   setFreestyleMode,
   getAvatarMotionStatus,

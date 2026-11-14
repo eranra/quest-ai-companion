@@ -1,7 +1,8 @@
 // Local On-Device Speech-to-Text: OpenAI Whisper & Direct Gemini Multimodal Audio
 // Captures mic audio with WebRTC AEC, zero system beeps, and immediate hardware release!
 import { AppState } from '../state.js';
-import { isSelfEcho, detectUserInterruption, stopSpeaking } from './tts.js';
+import { isSelfEcho, detectUserInterruption, stopSpeaking, clearEchoCooldown } from './tts.js';
+import { stopAvatarGesture } from '../avatars/motion.js';
 import { abortActiveGeneration } from '../ai.js';
 import { encodeWAV, blobToBase64 } from './wav.js';
 import { transcribeAudioWithGemini } from '../ai/index.js';
@@ -351,7 +352,10 @@ async function finalizeWhisperTranscription() {
   // Minimum ~0.35s audio to avoid clicks
   if (totalLength < sampleRate * 0.35) {
     logDebug('STT', `Audio too short (${(audioDurationSec * 1000).toFixed(0)}ms), discarding.`);
-    if (!AppState.isLiveMode) {
+    if (AppState.isLiveMode) {
+      startListeningWhisper();
+      if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
+    } else {
       if (onStatusChangeCallback) onStatusChangeCallback('idle', 'Audio too short. Tap mic to speak.');
     }
     return;
@@ -474,6 +478,7 @@ async function finalizeWhisperTranscription() {
             }
           }, 350);
         } else {
+          startListeningWhisper();
           if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
         }
       } else {
@@ -482,31 +487,52 @@ async function finalizeWhisperTranscription() {
       return;
     }
 
-    // Acoustic Echo Guard Check
-    if (isSelfEcho(transcript)) {
-      console.warn(`[STT] Discarded self-echo: "${transcript}"`);
-      setActiveStage('idle', 'Idle / Ready');
-      if (!AppState.isLiveMode) {
-        if (onStatusChangeCallback) onStatusChangeCallback('idle');
-      }
-      return;
-    }
-
-    // Check Barge-in while assistant speaking
-    if (AppState.isSpeaking || AppState.isGenerating) {
+    // Check Barge-in / Interruption while assistant is speaking or generating
+    const isAssistantBusy = AppState.isSpeaking || AppState.isGenerating;
+    if (isAssistantBusy) {
       const interruption = detectUserInterruption(transcript);
       if (interruption.isInterruption) {
+        logDebug('STT', `⚡ Barge-in user interruption detected: "${transcript}"`);
         stopSpeaking();
+        stopAvatarGesture();
         abortActiveGeneration();
 
         if (interruption.isStopCommand) {
           setActiveStage('idle', 'Idle / Ready');
-          if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Stopped by user. Listening...');
+          if (AppState.isLiveMode) {
+            startListeningWhisper();
+            if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Stopped by user. Listening...');
+          } else {
+            if (onStatusChangeCallback) onStatusChangeCallback('idle', 'Stopped.');
+          }
           return;
         }
+
+        // Interrupted with a new user command/question: clear echo cooldown
+        clearEchoCooldown();
       } else {
+        // Not a user interruption: test echo
+        if (isSelfEcho(transcript)) {
+          console.warn(`[STT] Discarded self-echo during assistant speech: "${transcript}"`);
+        }
         setActiveStage('idle', 'Idle / Ready');
-        if (!AppState.isLiveMode) {
+        if (AppState.isLiveMode) {
+          startListeningWhisper();
+          if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
+        } else {
+          if (onStatusChangeCallback) onStatusChangeCallback('idle');
+        }
+        return;
+      }
+    } else {
+      // Assistant silent: test trailing echo
+      if (isSelfEcho(transcript)) {
+        console.warn(`[STT] Discarded self-echo: "${transcript}"`);
+        setActiveStage('idle', 'Idle / Ready');
+        if (AppState.isLiveMode) {
+          startListeningWhisper();
+          if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
+        } else {
           if (onStatusChangeCallback) onStatusChangeCallback('idle');
         }
         return;
@@ -522,7 +548,10 @@ async function finalizeWhisperTranscription() {
     setActiveStage('idle', 'Idle / Ready');
     logDebug('STT', `Speech transcription error: ${err.message}`, 'error');
     console.error('Speech transcription error:', err);
-    if (!AppState.isLiveMode) {
+    if (AppState.isLiveMode) {
+      startListeningWhisper();
+      if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Live Mode: Listening...');
+    } else {
       stopListeningWhisper(false);
       if (onStatusChangeCallback) onStatusChangeCallback('idle', `Speech error: ${err.message}`);
     }
@@ -583,8 +612,6 @@ export function stopListeningWhisper(finalizeIfAudioPresent = false) {
   if (onStatusChangeCallback) {
     if (!AppState.isSpeaking && !AppState.isGenerating) {
       onStatusChangeCallback('idle');
-    } else {
-      onStatusChangeCallback('analyzing');
     }
   }
 }

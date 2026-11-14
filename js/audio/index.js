@@ -5,9 +5,13 @@ import {
   speakReply as nativeSpeakReply,
   stopSpeaking as nativeStopSpeaking,
   isSelfEcho,
+  detectUserInterruption,
   setLipSyncCallback as setNativeLipSyncCallback,
-  getSpokenRegistry
+  getSpokenRegistry,
+  clearEchoCooldown,
+  registerStopSpeakingCallback
 } from './tts.js';
+import { stopAvatarGesture } from '../avatars/motion.js';
 import {
   initSpeechRecognition as nativeInitSpeechRecognition,
   startListening as nativeStartListening,
@@ -145,12 +149,21 @@ export function speakReply(text, onComplete) {
   }
 }
 
+// Register unified stop hook so calling stopSpeaking() from tts.js or any sub-module
+// immediately halts remote/neural audio and 3D avatar gestures
+registerStopSpeakingCallback(() => {
+  stopRemoteTTS();
+  stopNeuralTTS();
+  stopAvatarGesture();
+});
+
 /**
- * Halts speaking immediately across Remote, Neural, and Native TTS engines
+ * Halts speaking immediately across Remote, Neural, and Native TTS engines and resets avatar gesture
  */
 export function stopSpeaking() {
   stopRemoteTTS();
   stopNeuralTTS();
+  stopAvatarGesture();
   nativeStopSpeaking();
 }
 
@@ -168,6 +181,9 @@ export {
   stopMicAnalyser,
   getAudioContext,
   isSelfEcho,
+  detectUserInterruption,
+  clearEchoCooldown,
+  stopAvatarGesture,
   getSpokenRegistry,
   initWhisper,
   isWhisperReady,

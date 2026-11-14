@@ -78,6 +78,16 @@ export function recordSpokenText(cleanText) {
   activeSpokenWords = words;
 }
 
+let onStopSpeakingCallback = null;
+
+export function registerStopSpeakingCallback(cb) {
+  onStopSpeakingCallback = cb;
+}
+
+export function clearEchoCooldown() {
+  echoCooldownUntil = 0;
+}
+
 export function getSpokenRegistry() {
   return {
     activeSpokenText,
@@ -97,6 +107,12 @@ export function isSelfEcho(transcript, referenceText) {
   }
   if (AppState.echoGuardMode === 'off') return false;
   if (!transcript || !transcript.trim()) return false;
+
+  // Genuine user interruptions or stop commands are NEVER self-echo!
+  const interruption = detectUserInterruption(transcript);
+  if (interruption.isInterruption) {
+    return false;
+  }
 
   pruneSpokenHistory();
   if (spokenHistory.length === 0 && !activeSpokenText) return false;
@@ -132,7 +148,8 @@ export function isSelfEcho(transcript, referenceText) {
       }
     }
 
-    // Tier 3: Lexical Token Overlap while active
+    // Tier 3: Lexical Token Overlap while active (filter common stop words so natural phrases aren't dropped)
+    const STOP_WORDS = new Set(['the','a','an','is','it','to','in','on','at','and','or','you','i','we','of','for','with','as','be','do']);
     const allSpokenWords = new Set();
     for (const entry of spokenHistory) {
       for (const w of entry.wordSet) {
@@ -140,18 +157,16 @@ export function isSelfEcho(transcript, referenceText) {
       }
     }
 
-    let matchCount = 0;
-    for (const w of candWords) {
-      if (allSpokenWords.has(w)) {
-        matchCount++;
+    const contentWords = candWords.filter(w => !STOP_WORDS.has(w));
+    if (contentWords.length > 0) {
+      let matchCount = 0;
+      for (const w of contentWords) {
+        if (allSpokenWords.has(w)) matchCount++;
       }
+      const overlapRatio = matchCount / contentWords.length;
+      if (contentWords.length <= 2 && matchCount >= 1 && overlapRatio >= 0.5) return true;
+      if (contentWords.length >= 3 && overlapRatio >= 0.6) return true;
     }
-
-    const overlapRatio = matchCount / candWords.length;
-    // If 1-2 words and any of them match assistant speech -> echo
-    if (candWords.length <= 2 && matchCount >= 1) return true;
-    // If >= 3 words and at least 30% match assistant speech -> echo
-    if (overlapRatio >= 0.30) return true;
   }
 
   return false;
@@ -172,12 +187,13 @@ export function detectUserInterruption(transcript, referenceText) {
   const clean = transcript.trim();
   const candNorm = normalizeText(clean);
   const candWords = extractWordTokens(candNorm);
+  if (candWords.length === 0) {
+    return { isInterruption: false, isStopCommand: false, novelWords: [] };
+  }
 
   // 1. Explicit verbal stop commands
-  const stopRegex = /^(stop|pause|wait|cancel|shut\s*up|be\s*quiet|hush|silence|hold\s*on|enough)\b/i;
-  if (stopRegex.test(clean)) {
-    return { isInterruption: true, isStopCommand: true, novelWords: candWords };
-  }
+  const stopWordRegex = /\b(stop|pause|wait|cancel|shut\s*up|be\s*quiet|hush|silence|hold\s*on|enough|stop\s*talking)\b/i;
+  const hasStopWord = stopWordRegex.test(clean);
 
   // 2. Novel word comparison against actively spoken text
   const currentWords = new Set();
@@ -186,11 +202,26 @@ export function detectUserInterruption(transcript, referenceText) {
     for (const w of latest.wordSet) currentWords.add(w);
   }
 
-  const novelWords = candWords.filter(w => !currentWords.has(w) && w.length >= 3);
+  const novelWords = candWords.filter(w => !currentWords.has(w) && w.length >= 2);
 
-  // If the candidate contains at least 2 novel words that the assistant never spoke:
+  // If candidate has a stop command and is brief (<= 4 words, e.g. "stop", "alex stop", "stop talking please"), it is a pure stop command
+  if (hasStopWord && candWords.length <= 4) {
+    return { isInterruption: true, isStopCommand: true, novelWords: candWords };
+  }
+
+  // If candidate has a stop command followed by a new instruction (e.g. "Wait, count 1 to 5 instead")
+  if (hasStopWord && candWords.length > 4) {
+    return { isInterruption: true, isStopCommand: false, novelWords };
+  }
+
+  // If candidate contains at least 2 novel words that assistant never spoke in current utterance:
   // It is a genuine user interruption asking a new question or giving a command!
   if (novelWords.length >= 2) {
+    return { isInterruption: true, isStopCommand: false, novelWords };
+  }
+
+  // If candidate contains at least 1 novel word and has total length >= 3 words
+  if (novelWords.length >= 1 && candWords.length >= 3) {
     return { isInterruption: true, isStopCommand: false, novelWords };
   }
 
@@ -208,12 +239,15 @@ export function stopSpeaking() {
   }
   AppState.isSpeaking = false;
   activeUtterance = null;
-  // Mark end of speech and provide 2.5s post-speech echo grace period for trailing STT packets
-  echoCooldownUntil = Date.now() + 2500;
+  // Mark end of speech and provide 1.5s post-speech echo grace period for trailing STT packets
+  echoCooldownUntil = Date.now() + 1500;
   if (spokenHistory.length > 0) {
     spokenHistory[spokenHistory.length - 1].finishedAt = Date.now();
   }
   if (onLipSyncCallback) onLipSyncCallback(0);
+  if (onStopSpeakingCallback) {
+    try { onStopSpeakingCallback(); } catch (e) {}
+  }
 }
 
 export function speakReply(text, onComplete) {

@@ -1,6 +1,7 @@
 // Robust Native Speech Recognition Engine: Dual-Mode (Push-to-Talk vs Always-On Live Mode)
 import { AppState } from '../state.js';
-import { isSelfEcho, detectUserInterruption, stopSpeaking, getSpokenRegistry } from './tts.js';
+import { isSelfEcho, detectUserInterruption, stopSpeaking, getSpokenRegistry, clearEchoCooldown } from './tts.js';
+import { stopAvatarGesture } from '../avatars/motion.js';
 import { abortActiveGeneration } from '../ai.js';
 
 let recognition = null;
@@ -87,18 +88,12 @@ export function initSpeechRecognition(handlers) {
         return;
       }
 
-      // In Smart AEC mode: test if incoming transcript is acoustic echo of the assistant's own voice
-      if (isSelfEcho(candidate)) {
-        currentTranscript = '';
-        if (silenceTimer) clearTimeout(silenceTimer);
-        return;
-      }
-
-      // If NOT self-echo while assistant is speaking: analyze if this is a genuine user barge-in!
+      // Check genuine user barge-in FIRST!
       const interruption = detectUserInterruption(candidate);
       if (interruption.isInterruption) {
-        // Halt assistant speech and abort generation immediately!
+        // Halt assistant speech, 3D gestures, and abort generation immediately!
         stopSpeaking();
+        stopAvatarGesture();
         abortActiveGeneration();
 
         if (interruption.isStopCommand) {
@@ -109,11 +104,17 @@ export function initSpeechRecognition(handlers) {
           return;
         }
 
-        // User spoke a novel question over the avatar -> accept user's new question
+        // User spoke a novel instruction/question over the avatar -> accept user's new question
+        clearEchoCooldown();
         currentTranscript = candidate;
         if (onStatusChangeCallback) onStatusChangeCallback('listening', 'Interrupted. Listening to you...');
       } else {
-        // Under threshold: likely background noise or partial garbled echo
+        // Under threshold or echo
+        if (isSelfEcho(candidate)) {
+          currentTranscript = '';
+          if (silenceTimer) clearTimeout(silenceTimer);
+          return;
+        }
         return;
       }
     } else {

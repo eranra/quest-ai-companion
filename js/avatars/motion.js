@@ -162,6 +162,17 @@ export function getAvatarMotionStatus() {
 }
 
 /**
+ * Immediately halts any active avatar gesture and restores rest pose
+ */
+export function stopAvatarGesture() {
+  motionState.currentGesture = null;
+  motionState.gestureTime = 0;
+  motionState.gestureDuration = 0;
+  motionState.gestureBlend = 0;
+  motionState.jumpY = 0;
+}
+
+/**
  * Reset avatar motion to center origin
  */
 export function resetAvatarMotion() {

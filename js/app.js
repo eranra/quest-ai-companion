@@ -23,6 +23,7 @@ import { buildAvatar, cycleAvatar, getDefaultVoiceForAvatar } from './avatars/in
 import { switchSpace, cycleSpace } from './spaces/index.js';
 import { 
   generateAIResponse, 
+  abortActiveGeneration,
   initLocalWebLLM, 
   checkGeminiResponsiveness,
   checkRemoteServerResponsiveness,
@@ -86,6 +87,7 @@ const dom = {
 
 let dockController = null;
 let modalController = null;
+let activeTurnSeq = 0;
 
 // -------------------------------------------------------------
 // Voice & Conversational Pipeline Handling
@@ -98,8 +100,20 @@ async function handleUserSpeech(userText) {
   // Multi-tier echo gatekeeper: discard any acoustic reflection before LLM processing
   if (isSelfEcho(userText)) {
     console.warn(`[EchoGuard] Blocked self-echo from reaching AI: "${userText}"`);
+    if (AppState.isLiveMode) {
+      setPipelineState('listening', 'Live Mode: Listening...');
+      updateVRHUDState({ status: 'Live Mode: Listening...' });
+      if (dom.btnMic) dom.btnMic.classList.add('listening');
+      if (dockController) dockController.updateMicUI(true);
+      startListening();
+    }
     return;
   }
+
+  // Interruption / Barge-in cleanup: immediately halt previous speech, gestures, and pending LLM queries
+  const thisTurnId = ++activeTurnSeq;
+  stopSpeaking();
+  abortActiveGeneration();
 
   // Always stop mic capturing while AI is analyzing & speaking to prevent speaker audio leakage
   stopListening();
@@ -129,11 +143,18 @@ async function handleUserSpeech(userText) {
   try {
     const tAIStart = performance.now();
     const reply = await generateAIResponse(userText, (report) => {
+      if (thisTurnId !== activeTurnSeq) return;
       const statusText = report.text || `Loading LLM: ${report.progress}%`;
       setPipelineState('analyzing', statusText);
       dom.speechText.textContent = `You: "${userText}"\n\n⚡ ${statusText}`;
       updateVRHUDState({ status: '⚡ Analyzing...', text: statusText });
     });
+
+    if (thisTurnId !== activeTurnSeq) {
+      logDebug('AI', `Turn #${thisTurnId} superseded by Turn #${activeTurnSeq}, ignoring reply.`);
+      return;
+    }
+
     const aiLatency = Math.round(performance.now() - tAIStart);
     setStageTiming('llm', aiLatency);
     logDebug('AI', `AI response ready in ${aiLatency}ms (${reply.length} chars)`);
@@ -163,11 +184,13 @@ async function handleUserSpeech(userText) {
     }
 
     speakReply(reply, () => {
+      if (thisTurnId !== activeTurnSeq) return; // Discard callback if turn was interrupted!
       // Completed speaking reply:
       if (AppState.isLiveMode) {
         if (AppState.echoGuardMode === 'half_duplex') {
           // Half-duplex mode: wait 350ms acoustic cooldown before reopening microphone
           setTimeout(() => {
+            if (thisTurnId !== activeTurnSeq) return;
             if (AppState.isLiveMode && !AppState.isSpeaking && !AppState.isGenerating) {
               setPipelineState('listening', 'Live Mode: Listening...');
               updateVRHUDState({ status: 'Live Mode: Listening...' });
@@ -197,6 +220,10 @@ async function handleUserSpeech(userText) {
       }
     });
   } catch (err) {
+    if (thisTurnId !== activeTurnSeq) {
+      logDebug('AI', `Aborted Turn #${thisTurnId} error suppressed.`);
+      return;
+    }
     AppState.isGenerating = false;
     AppState.isSpeaking = false;
     console.error('Conversation Error:', err);
@@ -208,6 +235,7 @@ async function handleUserSpeech(userText) {
     if (dockController) dockController.updateMicUI(false);
     if (AppState.isLiveMode) {
       setTimeout(() => {
+        if (thisTurnId !== activeTurnSeq) return;
         setPipelineState('listening', 'Live Mode: Listening...');
         updateVRHUDState({ status: 'Live Mode: Listening...' });
         if (dom.btnMic) dom.btnMic.classList.add('listening');
@@ -805,7 +833,9 @@ function initApp() {
   if (bubbleElement) {
     bubbleElement.addEventListener('click', () => {
       if (AppState.isSpeaking || AppState.isGenerating) {
+        activeTurnSeq++;
         stopSpeaking();
+        abortActiveGeneration();
         AppState.isSpeaking = false;
         AppState.isGenerating = false;
         if (AppState.isLiveMode) {
