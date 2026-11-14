@@ -240,7 +240,7 @@ export async function synthesizeServerSpeech(text, voiceId) {
       const { stdout } = await execFilePromise(
         'powershell.exe',
         ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SAPI_SCRIPT, '-Text', clean, '-VoiceId', voiceId || ''],
-        { maxBuffer: 10 * 1024 * 1024, timeout: 6000 }
+        { maxBuffer: 10 * 1024 * 1024, timeout: 12000 }
       );
       const b64 = (stdout || '').trim();
       if (b64 && b64.startsWith('UklGR') && b64.length > 500) {

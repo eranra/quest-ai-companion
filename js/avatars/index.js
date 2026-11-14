@@ -39,6 +39,7 @@ export function getDefaultVoiceForAvatar(avatarId) {
 }
 
 export function buildAvatar(avatarId, avatarGroup) {
+  if (!avatarGroup) return;
   currentAvatarBuildToken++;
   const buildToken = currentAvatarBuildToken;
 
@@ -47,8 +48,11 @@ export function buildAvatar(avatarId, avatarGroup) {
     avatarGroup.remove(avatarGroup.children[0]);
   }
   resetRig();
+  avatarGroup.visible = !AppState.isFocusMode;
 
-  switch (avatarId) {
+  const targetId = AVATAR_IDS.includes(avatarId) ? avatarId : 'echo';
+
+  switch (targetId) {
     case 'spark':
       buildSparkDrone(avatarGroup);
       break;

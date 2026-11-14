@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.5.3">
+  <link rel="stylesheet" href="css/styles.css?v=0.8.3">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -185,10 +185,16 @@
 
     <!-- Bottom Deck Controls -->
     <div class="bottom-deck interactive">
-      <!-- Compact Avatar Gestures & Motion Combo Box -->
+      <!-- Sleek Avatar Gestures & Motion Bar -->
       <div id="avatar-motion-bar" class="avatar-motion-bar compact-motion-bar" title="Direct Avatar Movement & Gestures">
-        <label for="select-avatar-gesture" class="motion-combo-label">🎭 Gestures:</label>
-        <select id="select-avatar-gesture" class="motion-select" title="Select avatar gesture or locomotion to perform">
+        <button id="btn-gesture-menu" class="motion-btn motion-menu-btn" title="Open Avatar Gestures & Locomotion Panel">
+          <span>🎭 Gestures</span>
+          <span id="gesture-menu-chevron" class="motion-chevron">▴</span>
+        </button>
+        <button class="motion-btn btn-freestyle" data-freestyle="toggle" id="btn-motion-freestyle" title="Toggle Autonomous Movement & Periodic Gestures">🎲 Freestyle: OFF</button>
+        
+        <!-- Accessible / programmatic fallback combo box -->
+        <select id="select-avatar-gesture" class="motion-select" style="display: none;" title="Select avatar gesture or locomotion to perform">
           <option value="" disabled selected>Choose a gesture...</option>
           <optgroup label="Expressive Gestures">
             <option value="gesture:wave">👋 Wave</option>
@@ -207,7 +213,32 @@
             <option value="move:right">🚶 Step Right</option>
           </optgroup>
         </select>
-        <button class="motion-btn btn-freestyle" data-freestyle="toggle" id="btn-motion-freestyle" title="Toggle Autonomous Movement & Periodic Gestures">🎲 Freestyle: OFF</button>
+      </div>
+
+      <!-- Floating Gestures & Locomotion Popover -->
+      <div id="gesture-popover" class="gesture-popover" style="display: none;">
+        <div class="gesture-popover-header">
+          <span class="gesture-popover-title">🎭 Companion Gestures & Motion</span>
+          <button id="btn-close-gestures" class="gesture-popover-close" title="Close Gestures">✕</button>
+        </div>
+        <div class="gesture-popover-section">Expressive Gestures</div>
+        <div class="gesture-chips-grid">
+          <button class="gesture-chip" data-gesture="wave" title="Wave Friendly Greeting">👋 Wave</button>
+          <button class="gesture-chip" data-gesture="dance" title="Dance to Rhythm">🕺 Dance</button>
+          <button class="gesture-chip" data-gesture="stand_on_one_leg" title="Stand on One Leg Balance">🤸 Balance</button>
+          <button class="gesture-chip" data-gesture="celebrate" title="Celebrate / Cheer">🙌 Cheer</button>
+          <button class="gesture-chip" data-gesture="bow" title="Polite Formal Bow">🙇 Bow</button>
+          <button class="gesture-chip" data-gesture="think" title="Pondering Thought">🤔 Think</button>
+          <button class="gesture-chip" data-gesture="clap" title="Clap Hands">👏 Clap</button>
+          <button class="gesture-chip" data-gesture="jump" title="Jump / Hop">🦘 Jump</button>
+        </div>
+        <div class="gesture-popover-section" style="margin-top: 8px;">Locomotion</div>
+        <div class="gesture-chips-grid locomotion-grid">
+          <button class="gesture-chip" data-move="forward" title="Walk Forward">⬆️ Forward</button>
+          <button class="gesture-chip" data-move="backward" title="Step Backward">⬇️ Back</button>
+          <button class="gesture-chip" data-move="left" title="Step Left">⬅️ Left</button>
+          <button class="gesture-chip" data-move="right" title="Step Right">➡️ Right</button>
+        </div>
       </div>
 
       <!-- Suggestion chips -->
@@ -868,11 +899,18 @@
   <!-- Floating Help Tooltip Component -->
   <div id="floating-tooltip" class="floating-tooltip"></div>
 
-  <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query -->
+  <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query & Fallback Boundary -->
   <script type="module">
     const params = new URLSearchParams(window.location.search);
     const v = params.get('v') || 'v0.8.3';
-    import(`./js/app.js?v=${v}`);
+    const t = params.get('_t') || Date.now();
+    import(`./js/app.js?v=${v}&_t=${t}`).catch((err) => {
+      console.error('[Quest AI Companion Bootstrap Error]:', err);
+      const speech = document.getElementById('speech-text');
+      if (speech) {
+        speech.innerHTML = `⚠️ <b>App Update Notice:</b> New features detected. <a href="javascript:location.reload(true)" style="color:#818cf8; text-decoration:underline;">Click here to refresh with latest code</a>.<br><small style="color:#94a3b8;">(${err.message})</small>`;
+      }
+    });
   </script>
 
 </body>

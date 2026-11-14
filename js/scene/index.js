@@ -45,11 +45,13 @@ export function initScene(container, hud) {
 
   // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const initW = (typeof window !== 'undefined' && window.innerWidth > 0) ? window.innerWidth : 1024;
+  const initH = (typeof window !== 'undefined' && window.innerHeight > 0) ? window.innerHeight : 768;
+  renderer.setSize(initW, initH);
+  renderer.setPixelRatio(Math.min((typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.xr.enabled = true;
-  container.appendChild(renderer.domElement);
+  if (container) container.appendChild(renderer.domElement);
 
   // Orbit Controls (Mobile touch & desktop mouse)
   controls = createOrbitControls(camera, renderer.domElement);
@@ -134,8 +136,32 @@ export function initScene(container, hud) {
 
 export function applyAvatarTransform() {
   if (!avatarGroup) return;
-  // Apply Quest 3 / user scale, distance, and orientation
-  avatarGroup.scale.setScalar(AppState.avatarScale);
+
+  // Safeguard against NaN or corrupt values in AppState / localStorage
+  let scale = parseFloat(AppState.avatarScale);
+  if (isNaN(scale) || scale <= 0.05 || scale > 10.0) {
+    scale = 1.0;
+    AppState.avatarScale = 1.0;
+  }
+  let dist = parseFloat(AppState.avatarDistance);
+  if (isNaN(dist) || dist < -10.0 || dist > 20.0) {
+    dist = 0.0;
+    AppState.avatarDistance = 0.0;
+  }
+  let heightOff = parseFloat(AppState.avatarHeightOffset);
+  if (isNaN(heightOff) || Math.abs(heightOff) > 10.0) {
+    heightOff = 0.0;
+    AppState.avatarHeightOffset = 0.0;
+  }
+  let rotY = parseFloat(AppState.avatarRotationY);
+  if (isNaN(rotY)) {
+    rotY = 0.0;
+    AppState.avatarRotationY = 0.0;
+  }
+
+  // Ensure visibility reflects Focus Mode
+  avatarGroup.visible = !AppState.isFocusMode;
+  avatarGroup.scale.setScalar(scale);
 
   // In WebXR: User stands at (0, 0, 0) looking down -Z axis.
   // The avatar stands comfortably in front of the user (at -1.8m + thumbstick adjustment).
@@ -144,9 +170,9 @@ export function applyAvatarTransform() {
   const baseZ = isXR ? -1.8 : 0.0;
   avatarGroup.userData.baseZ = baseZ;
   avatarGroup.position.x = motionState.posX || 0.0;
-  avatarGroup.position.z = (baseZ - AppState.avatarDistance) + (motionState.posZ || 0.0);
-  avatarGroup.position.y = (AppState.avatarHeightOffset || 0.0) + (motionState.jumpY || 0.0);
-  avatarGroup.rotation.y = AppState.avatarRotationY + (motionState.headingRotY || 0.0);
+  avatarGroup.position.z = (baseZ - dist) + (motionState.posZ || 0.0);
+  avatarGroup.position.y = heightOff + (motionState.jumpY || 0.0);
+  avatarGroup.rotation.y = rotY + (motionState.headingRotY || 0.0);
 
   if (hudElement) {
     const scaleVal = hudElement.querySelector('#hud-scale-val');

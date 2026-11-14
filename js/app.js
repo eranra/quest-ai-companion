@@ -225,7 +225,7 @@ async function handleUserSpeech(userText) {
 // -------------------------------------------------------------
 // Centralized Main-Screen Model Download & Progress Tracking
 // -------------------------------------------------------------
-function showMainProgress(visible, text = '', pct = 0) {
+function showMainProgress(visible, text = '', pct = 0, disableInputs = false) {
   if (dom.modelProgressBar) {
     dom.modelProgressBar.style.display = visible ? 'block' : 'none';
   }
@@ -239,10 +239,11 @@ function showMainProgress(visible, text = '', pct = 0) {
   if (dom.modelProgressLabel && text) {
     dom.modelProgressLabel.textContent = text;
   }
-  // Disable user input controls while downloading to prevent race conditions
-  if (dom.promptInput) dom.promptInput.disabled = visible;
-  if (dom.btnSend) dom.btnSend.disabled = visible;
-  if (dom.btnMic) dom.btnMic.disabled = visible;
+  if (disableInputs) {
+    if (dom.promptInput) dom.promptInput.disabled = visible;
+    if (dom.btnSend) dom.btnSend.disabled = visible;
+    if (dom.btnMic) dom.btnMic.disabled = visible;
+  }
 }
 
 // -------------------------------------------------------------
@@ -451,9 +452,6 @@ function initApp() {
       console.log('Quest/Browser has no native speech synthesis voices. Auto-enabling Neural TTS (WASM).');
       AppState.ttsEngine = 'neural';
       AppState.save();
-      if (!isNeuralTTSReady()) {
-        ensureTTSReady();
-      }
     }
   }
   checkAndRouteTTS();
@@ -468,21 +466,6 @@ function initApp() {
     AppState.save();
     if (dockController) dockController.updateEngineBadge();
   }
-
-  // Preload configured voice models in background sequentially to avoid CPU lockup
-  (async () => {
-    // If connected to remote PC Server, skip downloading on-device models to conserve Quest memory!
-    if (AppState.engine === 'remote' && AppState.remoteServerStatus === 'online') {
-      console.log('[ModelLoader] PC Server online: skipping local on-device model preload to conserve memory.');
-      return;
-    }
-    if (AppState.sttEngine === 'whisper' && !isWhisperReady()) {
-      await ensureSTTReady();
-    }
-    if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
-      await ensureTTSReady();
-    }
-  })();
 
   let lastToggleLiveTime = 0;
   async function handleToggleLiveMode(forceState = null) {
@@ -706,8 +689,20 @@ function initApp() {
       setFreestyleMode,
       getAvatarMotionStatus
     });
-    buildAvatar(AppState.avatarId, avatarGroup);
+
+    if (avatarGroup) {
+      avatarGroup.visible = !AppState.isFocusMode;
+    }
+    buildAvatar(AppState.avatarId || 'echo', avatarGroup);
     applyAvatarTransform();
+
+    // Re-verify viewport framing after initial paint
+    setTimeout(() => {
+      try {
+        resetCameraView();
+        applyAvatarTransform();
+      } catch (e) {}
+    }, 150);
 
     // Initialize Gentle Ambient Background Music
     try {

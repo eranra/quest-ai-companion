@@ -51,7 +51,65 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     };
   });
 
-  // Avatar Direct Motion & Gestures Combo Box & Buttons (Android, Mobile & Desktop)
+  // Avatar Direct Motion & Gestures Popover & Controls (Quest 3, Android, Mobile & Desktop)
+  const gestureMenuBtn = document.getElementById('btn-gesture-menu');
+  const gesturePopover = document.getElementById('gesture-popover');
+  const btnCloseGestures = document.getElementById('btn-close-gestures');
+  const gestureChevron = document.getElementById('gesture-menu-chevron');
+
+  function toggleGesturePopover(forceState = null) {
+    if (!gesturePopover) return;
+    const isShowing = gesturePopover.style.display !== 'none';
+    const nextState = forceState !== null ? forceState : !isShowing;
+    gesturePopover.style.display = nextState ? 'block' : 'none';
+    if (gestureChevron) {
+      gestureChevron.textContent = nextState ? '▾' : '▴';
+    }
+  }
+
+  if (gestureMenuBtn) {
+    gestureMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      unlockAudio();
+      toggleGesturePopover();
+    });
+  }
+
+  if (btnCloseGestures) {
+    btnCloseGestures.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleGesturePopover(false);
+    });
+  }
+
+  // Close popover when clicking anywhere else on page
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', (e) => {
+      if (gesturePopover && gesturePopover.style.display !== 'none') {
+        if (!gesturePopover.contains(e.target) && e.target !== gestureMenuBtn && !gestureMenuBtn?.contains(e.target)) {
+          toggleGesturePopover(false);
+        }
+      }
+    });
+  }
+
+  // Gesture Chips in Popover
+  document.querySelectorAll('.gesture-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      unlockAudio();
+      chip.classList.add('active');
+      setTimeout(() => chip.classList.remove('active'), 500);
+
+      if (chip.dataset.gesture) {
+        triggerAvatarGesture(chip.dataset.gesture);
+      } else if (chip.dataset.move) {
+        moveAvatar(chip.dataset.move, 'walk', 0.8);
+      }
+    });
+  });
+
+  // Programmatic fallback / combo box compatibility
   const gestureSelect = document.getElementById('select-avatar-gesture');
   if (gestureSelect) {
     gestureSelect.onchange = (e) => {
@@ -70,7 +128,7 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
     };
   }
 
-  document.querySelectorAll('.motion-btn').forEach(btn => {
+  document.querySelectorAll('.motion-btn:not(.motion-menu-btn)').forEach(btn => {
     btn.onclick = () => {
       unlockAudio();
       if (btn.dataset.gesture) {

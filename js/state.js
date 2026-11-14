@@ -7,7 +7,7 @@ const storage = (typeof localStorage !== 'undefined') ? localStorage : {
 export const AppState = {
   // Default to Local CPU WASM Model: SmolLM2 135M (ultra-fast, zero-flags)
   engine: storage.getItem('quest_engine') || 'local', // 'local' | 'cloud' | 'remote'
-  remoteServerUrl: storage.getItem('quest_remote_url') || 'http://localhost:8080',
+  remoteServerUrl: storage.getItem('quest_remote_url') || (typeof window !== 'undefined' && window.location.origin.startsWith('http') && !window.location.origin.includes('github.io') ? window.location.origin : 'http://localhost:8080'),
   localModel: (() => {
     const saved = storage.getItem('quest_local_model');
     if (!saved || saved.includes('MLC') || saved.includes('Llama')) {
@@ -37,11 +37,23 @@ export const AppState = {
   geminiStatus: 'unknown', // 'online', 'offline', 'checking', 'no-key'
   remoteServerStatus: 'unknown', // 'online', 'offline', 'checking'
   
-  // Avatar Transform (Controlled by Quest 3 thumbstick / UI)
-  avatarDistance: parseFloat(storage.getItem('quest_avatar_dist') || '0.0'),
-  avatarScale: parseFloat(storage.getItem('quest_avatar_scale') || '1.0'),
-  avatarRotationY: parseFloat(storage.getItem('quest_avatar_roty') || '0.0'),
-  avatarHeightOffset: parseFloat(storage.getItem('quest_avatar_height_offset') || '0.0'),
+  // Avatar Transform (Controlled by Quest 3 thumbstick / UI) - with robust bounds
+  avatarDistance: (() => {
+    const v = parseFloat(storage.getItem('quest_avatar_dist'));
+    return (isNaN(v) || v < -10.0 || v > 20.0) ? 0.0 : v;
+  })(),
+  avatarScale: (() => {
+    const v = parseFloat(storage.getItem('quest_avatar_scale'));
+    return (isNaN(v) || v <= 0.05 || v > 10.0) ? 1.0 : v;
+  })(),
+  avatarRotationY: (() => {
+    const v = parseFloat(storage.getItem('quest_avatar_roty'));
+    return isNaN(v) ? 0.0 : v;
+  })(),
+  avatarHeightOffset: (() => {
+    const v = parseFloat(storage.getItem('quest_avatar_height_offset'));
+    return (isNaN(v) || Math.abs(v) > 10.0) ? 0.0 : v;
+  })(),
   
   // Live Mode Sensitivity / Noise Threshold ('high_filter', 'normal', 'sensitive')
   liveSensitivity: storage.getItem('quest_live_sensitivity') || 'normal',
