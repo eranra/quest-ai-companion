@@ -1,7 +1,7 @@
 {
-  "version": "v0.8.0",
-  "build": 56,
-  "released": "2026-11-13",
+  "version": "v0.8.1",
+  "build": 57,
+  "released": "2026-11-14",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.8.0: 1) Expressive Full-Body Avatar Gestures & Locomotion: rich kinematics including wave, dance, stand on one leg balance, celebratory hands up, bow, think, clap, laugh, jump, and locomotion (walk, run, jump, step, left, right, forward, backward); 2) Dual Direct & Agentic Control: direct control via Meta Quest 3 controller thumbsticks and In-VR 3D HUD console, alongside Android/mobile touch floating action toolbar and desktop keyboard shortcuts; 3) Agentic Movement Tools: registered avatar_gesture, avatar_move, and avatar_freestyle tools in agentic tool registry for autonomous AI decision-making; 4) Autonomous Freestyle Mode: allows the avatar to explore the scene, wander around, jump, and spontaneously gesture organically."
+  "changelog": "v0.8.1: 1) Avatar Switching & Kinematic Persistence: Fixed gesture breakdown across avatar transitions by resolving async GLB race conditions, implementing deep skeleton remap cloning, and preventing mixer stomping on procedural gestures; 2) In-VR 3D Console Fixes: Fixed 3D avatar disappearing in WebXR during panel cycling with atomic AppState sync and immediate grounding transform; 3) Transparent Passthrough WebXR: Fixed black screen backdrop in Mixed Reality Passthrough by enforcing true WebGL canvas alpha transparency and null scene background; 4) Modular Architecture: Decoupled rig bone data from motion kinematics into js/avatars/motion.js; 5) Gentle Ambient Background Music: Added 8 continuous procedural ambient music soundscapes with comfortable background volume, automatic track progression cycling, single-track looping, speech ducking, and In-VR HUD console controls."
 }

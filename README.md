@@ -32,6 +32,12 @@ Featuring a **flexible dual-mode architecture**:
   - **TTS Voices:** Piper Neural TTS WASM (Amy, Ryan, Lessac, Kathleen, Danny).
   - **LLM Options:** Instant Companion (0ms), SmolLM2 135M, SmolLM2 360M, Qwen 2.5 0.5B, Antigravity Agent, or Gemini Cloud.
 
+- **🎵 Gentle Ambient Background Music:**
+  - 8 calming 2:30 to 3:00 minute generative soundscapes (Serene Morning, Zen Temple Courtyard, Cozy Coffeehouse, Starlight Voyage, Gentle Rain Meditation, Autumn Hearth, Deep Ocean Waves, Twilight Reflection).
+  - Non-intrusive comfortable background volume with automatic speech ducking.
+  - Automotive progression mode (automatically advances when finished) or single-track repeat loop.
+  - In-VR 3D console, settings modal, and quick toolbar controls.
+
 ---
 
 ## 🚀 How to Run

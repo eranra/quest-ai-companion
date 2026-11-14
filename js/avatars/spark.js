@@ -75,4 +75,5 @@ export function buildSparkDrone(avatarGroup) {
   avatarGroup.add(root);
   rig.root = root;
   rig.head = root;
+  rig.hips = root;
 }

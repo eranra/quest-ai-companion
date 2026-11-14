@@ -3,6 +3,7 @@ import { AppState } from '../state.js';
 import { buildAvatar } from '../avatars/index.js';
 import { avatarGroup, applyAvatarTransform, flipAvatarOrientation, resetCameraView } from '../scene.js';
 import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, isNeuralTTSReady, PIPER_VOICE_CONFIGS, getActiveVoiceId, setActiveVoiceId, getDefaultVoiceForAvatar } from '../audio/index.js';
+import { selectTrackById, setMusicVolume, getMusicVolume, toggleMusicMute, isMusicMuted, setMusicAutoMode, getMusicAutoMode, getMusicStatus, nextTrack } from '../audio/ambient_music.js';
 import { checkGeminiResponsiveness, checkRemoteServerResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport, selectRemoteModel, fetchRemoteModels, getCachedRemoteModels } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
 
@@ -59,7 +60,14 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
     btnCloseQuestAlert: document.getElementById('btn-close-quest-alert'),
     btnQuestSwitchGemini: document.getElementById('btn-quest-switch-gemini'),
     btnQuestAlertGotIt: document.getElementById('btn-quest-alert-got-it'),
-    questGpuFlagStatus: document.getElementById('quest-gpu-flag-status')
+    questGpuFlagStatus: document.getElementById('quest-gpu-flag-status'),
+    cfgMusicTrack: document.getElementById('cfg-music-track'),
+    sliderMusicVolume: document.getElementById('slider-music-volume'),
+    valMusicVolume: document.getElementById('val-music-volume'),
+    btnMusicToggle: document.getElementById('btn-music-toggle'),
+    musicToggleLabel: document.getElementById('music-toggle-label'),
+    chkMusicAuto: document.getElementById('chk-music-auto'),
+    btnAmbientMusic: document.getElementById('btn-ambient-music')
   };
 
   // Sync active avatar card
@@ -282,6 +290,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
   if (dom.btnSettings) {
     dom.btnSettings.onclick = () => {
       unlockAudio();
+      syncMusicUI();
       dom.cfgGeminiKey.value = AppState.geminiKey;
       dom.cfgEngineSelect.value = AppState.engine;
       dom.cfgLocalModel.value = AppState.localModel;
@@ -545,6 +554,57 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
         dom.btnTestVoice.style.background = '#10b981';
         dom.btnTestVoice.disabled = false;
       });
+    };
+  }
+
+  // Ambient Background Music Settings Listeners
+  function syncMusicUI() {
+    const status = getMusicStatus();
+    if (dom.cfgMusicTrack) dom.cfgMusicTrack.value = status.trackId;
+    if (dom.sliderMusicVolume) dom.sliderMusicVolume.value = status.volume;
+    if (dom.valMusicVolume) dom.valMusicVolume.textContent = `${Math.round(status.volume * 100)}%`;
+    if (dom.chkMusicAuto) dom.chkMusicAuto.checked = status.autoMode;
+    if (dom.btnMusicToggle && dom.musicToggleLabel) {
+      dom.musicToggleLabel.textContent = status.isMuted ? '🔇 Muted' : '🔊 Playing';
+      dom.btnMusicToggle.style.background = status.isMuted ? '#ef4444' : '#059669';
+    }
+  }
+
+  if (dom.btnMusicToggle) {
+    dom.btnMusicToggle.onclick = () => {
+      unlockAudio();
+      toggleMusicMute();
+      syncMusicUI();
+    };
+  }
+
+  if (dom.cfgMusicTrack) {
+    dom.cfgMusicTrack.onchange = (e) => {
+      unlockAudio();
+      selectTrackById(e.target.value);
+      syncMusicUI();
+    };
+  }
+
+  if (dom.sliderMusicVolume) {
+    dom.sliderMusicVolume.oninput = (e) => {
+      unlockAudio();
+      const vol = setMusicVolume(e.target.value);
+      if (dom.valMusicVolume) dom.valMusicVolume.textContent = `${Math.round(vol * 100)}%`;
+    };
+  }
+
+  if (dom.chkMusicAuto) {
+    dom.chkMusicAuto.onchange = (e) => {
+      setMusicAutoMode(e.target.checked);
+    };
+  }
+
+  if (dom.btnAmbientMusic) {
+    dom.btnAmbientMusic.onclick = () => {
+      unlockAudio();
+      nextTrack();
+      syncMusicUI();
     };
   }
 

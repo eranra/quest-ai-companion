@@ -1,15 +1,48 @@
-// GLTF Model Loader Utility with In-Memory Caching & Three.js r128 Compatibility
+// GLTF Model Loader Utility with In-Memory Caching & Deep Skeleton Cloning
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const modelCache = new Map();
 const loader = new GLTFLoader();
 
+/**
+ * Deep clones an Object3D hierarchy ensuring SkinnedMesh skeletons are properly
+ * remapped to the newly cloned bones rather than referencing detached original bones.
+ */
+export function cloneSkinnedHierarchy(source) {
+  if (!source) return null;
+  const clone = source.clone(true);
+
+  // Map original bones to newly cloned bones
+  const boneMap = new Map();
+  const origBones = [];
+  source.traverse((n) => {
+    if (n.isBone) origBones.push(n);
+  });
+
+  origBones.forEach((orig) => {
+    const matching = clone.getObjectByName(orig.name);
+    if (matching) {
+      boneMap.set(orig, matching);
+    }
+  });
+
+  // Rebind each cloned SkinnedMesh to the newly cloned skeleton
+  clone.traverse((n) => {
+    if (n.isSkinnedMesh && n.skeleton) {
+      const clonedBones = n.skeleton.bones.map((b) => boneMap.get(b) || b);
+      const newSkeleton = new THREE.Skeleton(clonedBones, n.skeleton.boneInverses);
+      n.bind(newSkeleton, n.bindMatrix);
+    }
+  });
+
+  return clone;
+}
+
 export async function loadGLBAvatar(url) {
   if (modelCache.has(url)) {
     const cached = modelCache.get(url);
-    // Clone scene and skeleton
-    const cloneScene = cached.scene.clone(true);
+    const cloneScene = cloneSkinnedHierarchy(cached.scene);
     return {
       scene: cloneScene,
       animations: cached.animations || []
@@ -26,7 +59,6 @@ export async function loadGLBAvatar(url) {
             node.receiveShadow = true;
             if (node.material) {
               node.material.side = THREE.DoubleSide;
-              // Ensure proper lighting response
               if (node.material.roughness !== undefined) {
                 node.material.roughness = Math.max(0.2, node.material.roughness);
               }
@@ -39,8 +71,10 @@ export async function loadGLBAvatar(url) {
           animations: gltf.animations || []
         });
 
+        // Return a fresh cloned instance so the master cache remains unmutated
+        const initialClone = cloneSkinnedHierarchy(gltf.scene);
         resolve({
-          scene: gltf.scene,
+          scene: initialClone,
           animations: gltf.animations || []
         });
       },

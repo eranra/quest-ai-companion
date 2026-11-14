@@ -278,13 +278,34 @@ export function enterVR(renderer, scene, onSessionChange) {
       xrSession = session;
       isEnteringXR = false;
       scene.background = null;
+      if (renderer) {
+        if (AppState.spaceId === 'passthrough') {
+          renderer.setClearColor(0x000000, 0);
+          renderer.setClearAlpha(0);
+        } else {
+          renderer.setClearColor(0x05070f, 1);
+          renderer.setClearAlpha(1);
+        }
+      }
       setSpaceVisibility(true);
       setVRHUDVisibility(true);
 
       session.addEventListener('end', () => {
         xrSession = null;
         isEnteringXR = false;
-        scene.background = new THREE.Color(0x05070f);
+        if (AppState.spaceId === 'passthrough') {
+          scene.background = null;
+          if (renderer) {
+            renderer.setClearColor(0x000000, 0);
+            renderer.setClearAlpha(0);
+          }
+        } else {
+          scene.background = new THREE.Color(0x05070f);
+          if (renderer) {
+            renderer.setClearColor(0x05070f, 1);
+            renderer.setClearAlpha(1);
+          }
+        }
         setSpaceVisibility(true);
         setVRHUDVisibility(false);
         if (onSessionChange) onSessionChange(false, 'vr');

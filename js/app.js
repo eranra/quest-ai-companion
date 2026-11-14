@@ -44,7 +44,9 @@ import {
   isWhisperReady,
   initNeuralTTS,
   isNeuralTTSReady,
-  isNeuralTTSLoading
+  isNeuralTTSLoading,
+  initAmbientMusic,
+  nextTrack
 } from './audio/index.js';
 import {
   initPipelineUI,
@@ -58,7 +60,7 @@ import {
   setActiveStage
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.8.0';
+export const APP_VERSION = 'v0.8.1';
 
 // DOM References
 const dom = {
@@ -607,6 +609,13 @@ function initApp() {
     buildAvatar(AppState.avatarId, avatarGroup);
     applyAvatarTransform();
 
+    // Initialize Gentle Ambient Background Music
+    try {
+      initAmbientMusic();
+    } catch (e) {
+      console.warn('Ambient music init error:', e);
+    }
+
     // Register In-VR 3D Console & Quest Controller Hardware Buttons (B/Y, A/X, Grip, Sticks)
     setXRActionCallbacks({
       onExitVR: () => {
@@ -619,12 +628,18 @@ function initApp() {
       onToggleLive: () => {
         handleToggleLiveMode();
       },
+      onCycleMusic: () => {
+        const nextTr = nextTrack();
+        updateVRHUDState({ status: `Music: ${nextTr.title}` });
+      },
       onCycleSpace: (dir) => {
         const nextDef = cycleSpace(dir);
         updateVRHUDState({ status: `Space: ${nextDef.name}` });
       },
       onCycleAvatar: (dir) => {
         const nextId = cycleAvatar(dir, avatarGroup);
+        AppState.avatarId = nextId;
+        AppState.save();
         applyAvatarTransform();
         updateVRHUDState({ status: `Avatar: ${nextId}` });
       }

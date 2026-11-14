@@ -809,7 +809,7 @@ async function runTestSuite() {
                     assert('checkRemoteServerResponsiveness succeeds with standalone server', healthCheck.responsive === true);
                     assert('Standalone server returns host CPU specs', typeof healthCheck.cores === 'number' && healthCheck.cores > 0);
                     assert('Standalone server reports hardware acceleration configuration', healthCheck.hardware && typeof healthCheck.hardware.cores === 'number' && typeof healthCheck.hardware.wasmThreads === 'number');
-                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.8.0');
+                    assert('checkRemoteServerResponsiveness verifies version lockstep', healthCheck.versionMatch === true && healthCheck.serverVersion === 'v0.8.1');
                     assert('Standalone server health reports persistent antigravitySession', healthCheck.antigravitySession && typeof healthCheck.antigravitySession.conversationId === 'string');
 
                     // 14.4 Version Mismatch & Automatic Backend Upgrade Detection
@@ -822,7 +822,7 @@ async function runTestSuite() {
                     const upgradeApiRes = await fetch('http://127.0.0.1:8125/api/upgrade', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ targetVersion: 'v0.8.0' })
+                      body: JSON.stringify({ targetVersion: 'v0.8.1' })
                     }).then(r => r.json());
                     assert('POST /api/upgrade handles upgrade request', upgradeApiRes.status === 'reloaded_in_test' || upgradeApiRes.status === 'already_upgrading');
 
@@ -1095,7 +1095,7 @@ async function runTestSuite() {
 
                     // 17. Version Badge Verification
                     const badgeElem = document.getElementById('app-version-badge');
-                    assert('App version badge reflects v0.8.0', badgeElem && badgeElem.textContent.includes('v0.8.0'));
+                    assert('App version badge reflects v0.8.1', badgeElem && badgeElem.textContent.includes('v0.8.1'));
 
                     // 18. v0.7.0 Performance, Parallel Streaming, Full-Duplex AEC, and Selective Model Loading
                     // 18.1 Parallel PC Server Backend TTS Endpoint
@@ -1363,6 +1363,127 @@ async function runTestSuite() {
                       body: JSON.stringify({ prompt: 'Can you dance for me?', model: 'instant-companion' })
                     }).then(r => r.json());
                     assert('Remote /api/chat triggers avatar_gesture action', remoteDanceRes.success && (remoteDanceRes.reply.toLowerCase().includes('dance') || (remoteDanceRes.action && remoteDanceRes.action.tool === 'avatar_gesture')));
+
+                    // =========================================================
+                    // 23. v0.8.1 Avatar Switching Lifecycle & Gesture Stability
+                    // =========================================================
+                    const avatarsModule = await import('./js/avatars/index.js');
+                    const motionModule = await import('./js/avatars/motion.js');
+                    const sceneModule = await import('./js/scene/index.js');
+                    const currentAvatarGroup = sceneModule.avatarGroup;
+
+                    assert('avatars/index.js exports getAvatarBuildToken', typeof avatarsModule.getAvatarBuildToken === 'function');
+                    const initialBuildToken = avatarsModule.getAvatarBuildToken();
+
+                    // Switch through all avatars in sequence and verify gestures remain intact
+                    const avatarSequence = ['maya', 'alex', 'ollie', 'pip', 'echo', 'spark', 'maya'];
+                    for (const targetAv of avatarSequence) {
+                      avatarsModule.buildAvatar(targetAv, currentAvatarGroup);
+                      sceneModule.applyAvatarTransform();
+
+                      assert('Avatar ' + targetAv + ' builds successfully in lifecycle test', currentAvatarGroup.children.length > 0);
+                      assert('Avatar ' + targetAv + ' sets valid rig root', rigModule.rig.root !== null);
+
+                      // Trigger wave gesture on avatar
+                      const gWaveRes = motionModule.triggerAvatarGesture('wave', 2.0);
+                      assert('Avatar ' + targetAv + ' triggers wave gesture', gWaveRes && gWaveRes.success && motionModule.motionState.currentGesture === 'wave');
+
+                      // Simulate animation frames
+                      rigModule.animateRig(0.016, 1.0, sceneModule.camera, currentAvatarGroup);
+                      assert('Avatar ' + targetAv + ' evaluates wave gesture blend > 0', motionModule.motionState.gestureBlend > 0);
+
+                      // Trigger dance gesture on avatar
+                      const gDanceRes = motionModule.triggerAvatarGesture('dance', 2.5);
+                      assert('Avatar ' + targetAv + ' triggers dance gesture', gDanceRes && gDanceRes.success && motionModule.motionState.currentGesture === 'dance');
+
+                      rigModule.animateRig(0.016, 2.0, sceneModule.camera, currentAvatarGroup);
+                      assert('Avatar ' + targetAv + ' evaluates dance gesture blend > 0', motionModule.motionState.gestureBlend > 0);
+                    }
+
+                    assert('Avatar buildToken incremented across switches', avatarsModule.getAvatarBuildToken() > initialBuildToken);
+
+                    // =========================================================
+                    // 24. In-VR Small Panel 3D Avatar Switching
+                    // =========================================================
+                    const preCycleId = AppState.avatarId;
+                    const cycledAvatarId = avatarsModule.cycleAvatar(1, currentAvatarGroup);
+                    sceneModule.applyAvatarTransform();
+
+                    assert('cycleAvatar advances to next avatar ID', typeof cycledAvatarId === 'string' && cycledAvatarId !== preCycleId);
+                    assert('cycleAvatar syncs AppState.avatarId atomically', AppState.avatarId === cycledAvatarId);
+                    assert('Cycled avatar maintains visible meshes in avatarGroup', currentAvatarGroup.children.length > 0);
+
+                    // =========================================================
+                    // 25. Passthrough Space WebXR Transparency Fix
+                    // =========================================================
+                    const spacesModule = await import('./js/spaces/index.js');
+                    const passDef = spacesModule.switchSpace('passthrough');
+                    assert('switchSpace switches to passthrough', passDef && passDef.id === 'passthrough' && AppState.spaceId === 'passthrough');
+                    assert('Passthrough sets scene.background to null', sceneModule.scene.background === null);
+                    assert('Passthrough sets renderer clearAlpha to 0 (100% transparent)', sceneModule.renderer.getClearAlpha() === 0);
+
+                    // Switch back to 3D environment (Study Hall) and verify background restored
+                    const hallDef = spacesModule.switchSpace('hall');
+                    assert('switchSpace restores hall space', hallDef && hallDef.id === 'hall');
+                    assert('Restoring 3D space restores renderer clearAlpha to 1', sceneModule.renderer.getClearAlpha() === 1);
+
+                    // =========================================================
+                    // 26. Decoupled Motion Module (js/avatars/motion.js)
+                    // =========================================================
+                    assert('motion.js exports motionState', typeof motionModule.motionState === 'object');
+                    assert('motion.js exports triggerAvatarGesture', typeof motionModule.triggerAvatarGesture === 'function');
+                    assert('motion.js exports moveAvatar', typeof motionModule.moveAvatar === 'function');
+                    assert('motion.js exports setFreestyleMode', typeof motionModule.setFreestyleMode === 'function');
+                    assert('motion.js exports getAvatarMotionStatus', typeof motionModule.getAvatarMotionStatus === 'function');
+                    assert('motion.js exports resetAvatarMotion', typeof motionModule.resetAvatarMotion === 'function');
+                    assert('motion.js exports updateMotionKinematics', typeof motionModule.updateMotionKinematics === 'function');
+
+                    // =========================================================
+                    // 27. Gentle Ambient Background Music System
+                    // =========================================================
+                    const musicModule = await import('./js/audio/ambient_music.js');
+                    assert('ambient_music.js exports AMBIENT_TRACKS array', Array.isArray(musicModule.AMBIENT_TRACKS));
+                    assert('AMBIENT_TRACKS contains 8 unique tracks', musicModule.AMBIENT_TRACKS.length === 8);
+
+                    // Verify each track has 2-3 minute comfortable duration
+                    const allTracksLong = musicModule.AMBIENT_TRACKS.every(t => t.duration >= 150 && t.duration <= 180);
+                    assert('All 8 ambient tracks have 2:30 to 3:00 minute calming duration', allTracksLong === true);
+
+                    // Verify default comfortable volume (15%)
+                    musicModule.initAmbientMusic();
+                    assert('Ambient music default volume is comfortable 15% (not loud)', musicModule.getMusicVolume() <= 0.20 && musicModule.getMusicVolume() >= 0.10);
+                    assert('Ambient music starts with Auto Mode enabled by default', musicModule.getMusicAutoMode() === true);
+
+                    // Volume control
+                    const setVolRes = musicModule.setMusicVolume(0.22);
+                    assert('setMusicVolume updates volume safely', setVolRes === 0.22 && musicModule.getMusicVolume() === 0.22);
+
+                    // Mute / Disable control
+                    assert('isMusicMuted returns boolean', typeof musicModule.isMusicMuted() === 'boolean');
+                    musicModule.setMusicMuted(true);
+                    assert('setMusicMuted(true) mutes music', musicModule.isMusicMuted() === true);
+                    musicModule.setMusicMuted(false);
+                    assert('setMusicMuted(false) unmutes music', musicModule.isMusicMuted() === false);
+
+                    // Track selection & automotive mode
+                    const cafeTrack = musicModule.selectTrackById('cozy_cafe');
+                    assert('selectTrackById selects Cozy Coffeehouse track', cafeTrack && cafeTrack.id === 'cozy_cafe');
+
+                    musicModule.setMusicAutoMode(false);
+                    assert('setMusicAutoMode(false) activates single-track repeat mode', musicModule.getMusicAutoMode() === false);
+
+                    const nextTr = musicModule.nextTrack();
+                    assert('nextTrack advances to next ambient soundscape', nextTr && nextTr.id !== 'cozy_cafe');
+
+                    const hudLabel = musicModule.getMusicHUDLabel();
+                    assert('getMusicHUDLabel returns formatted VR label', typeof hudLabel === 'string' && hudLabel.includes('🎵'));
+
+                    // Verify Ambient Music DOM elements exist
+                    assert('btn-ambient-music exists in DOM top controls', document.getElementById('btn-ambient-music') !== null);
+                    assert('cfg-music-track exists in settings modal', document.getElementById('cfg-music-track') !== null);
+                    assert('slider-music-volume exists in settings modal', document.getElementById('slider-music-volume') !== null);
+                    assert('btn-music-toggle exists in settings modal', document.getElementById('btn-music-toggle') !== null);
+                    assert('chk-music-auto exists in settings modal', document.getElementById('chk-music-auto') !== null);
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

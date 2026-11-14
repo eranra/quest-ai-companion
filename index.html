@@ -62,7 +62,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.8.0</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.8.1</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -100,6 +100,10 @@
 
         <button id="btn-spaces" class="icon-btn" title="Choose 3D Space / Environment">
           <span style="font-size: 16px;">🏛️</span>
+        </button>
+
+        <button id="btn-ambient-music" class="icon-btn" title="Ambient Music (Calming soundscapes)">
+          <span style="font-size: 15px;">🎵</span>
         </button>
 
         <button id="btn-avatars" class="icon-btn" title="Choose Avatar">
@@ -475,6 +479,47 @@
         </p>
       </div>
 
+      <!-- Ambient Background Music Settings -->
+      <div class="form-group" style="background: rgba(16, 185, 129, 0.12); padding: 12px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label class="form-label" style="color: #6ee7b7; margin-bottom: 0;">🎵 Ambient Background Music</label>
+          <button id="btn-music-toggle" class="action-btn" style="padding: 4px 10px; font-size: 11px; background: #059669;">
+            <span id="music-toggle-label">🔊 Playing</span>
+          </button>
+        </div>
+        <p class="help-hint">Gentle, calming 2-3 minute generative soundscapes for comfort and relaxation:</p>
+        
+        <div style="margin-top: 8px;">
+          <label class="form-label" style="font-size: 11px;">Select Ambient Soundscape</label>
+          <select id="cfg-music-track" class="form-input" style="font-size: 12px;">
+            <option value="serene_morning">1. Serene Morning (3:00 • Crystalline bells & warm sub-pads)</option>
+            <option value="zen_garden">2. Zen Temple Courtyard (3:00 • Singing bowls, bamboo flute & chimes)</option>
+            <option value="cozy_cafe">3. Cozy Coffeehouse (2:40 • Lo-Fi Rhodes chords & tape warmth)</option>
+            <option value="starlight">4. Starlight Voyage (3:00 • Cosmic shimmer & deep space pads)</option>
+            <option value="gentle_rain">5. Gentle Rain Meditation (3:00 • Soft rainfall & harp droplets)</option>
+            <option value="autumn_hearth">6. Autumn Hearth (2:40 • Fireplace crackle & acoustic guitar)</option>
+            <option value="ocean_calm">7. Deep Ocean Waves (3:00 • Tidal swells & glass marimba)</option>
+            <option value="twilight_piano">8. Twilight Reflection (3:00 • Intimate warm felt piano)</option>
+          </select>
+        </div>
+
+        <div style="margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 3px;">
+            <span>Music Volume (Pleasant background level)</span>
+            <span id="val-music-volume" style="color: #6ee7b7; font-family: monospace;">15%</span>
+          </div>
+          <input id="slider-music-volume" type="range" min="0.0" max="1.0" step="0.02" value="0.15" style="width: 100%;">
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+          <span style="font-size: 12px; color: var(--text-muted);">Automotive Mode (Cycles next track when finished)</span>
+          <label class="toggle-switch">
+            <input id="chk-music-auto" type="checkbox" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- 3D Environment Space Selection -->
       <div class="form-group">
         <label class="form-label">3D Environment Space</label>
@@ -724,7 +769,7 @@
   <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query -->
   <script type="module">
     const params = new URLSearchParams(window.location.search);
-    const v = params.get('v') || 'v0.8.0';
+    const v = params.get('v') || 'v0.8.1';
     import(`./js/app.js?v=${v}`);
   </script>
 

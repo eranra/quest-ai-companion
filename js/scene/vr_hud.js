@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { AppState } from '../state.js';
 import { triggerAvatarGesture, setFreestyleMode, motionState } from '../avatars/rig.js';
+import { getMusicHUDLabel, nextTrack, toggleMusicMute } from '../audio/ambient_music.js';
 
 let hudMesh = null;
 let hudCanvas = null;
@@ -19,11 +20,12 @@ let hoveredButtonKey = null;
 // Row 2: Direct Expressive Gestures & Freestyle Mode
 const HUD_BUTTONS = [
   // Row 1
-  { key: 'exit', label: '🚪 Exit VR', x: 40, y: 340, w: 230, h: 58, color: '#ef4444', activeColor: '#dc2626' },
-  { key: 'mic', label: '🎙️ Talk (A/X)', x: 285, y: 340, w: 240, h: 58, color: '#6366f1', activeColor: '#4f46e5' },
-  { key: 'live', label: '⚡ Live Mode', x: 540, y: 340, w: 200, h: 58, color: '#10b981', activeColor: '#059669' },
-  { key: 'space', label: '🏛️ Space', x: 755, y: 340, w: 110, h: 58, color: '#38bdf8', activeColor: '#0284c7' },
-  { key: 'avatar', label: '👤 Avatar', x: 880, y: 340, w: 104, h: 58, color: '#a855f7', activeColor: '#9333ea' },
+  { key: 'exit', label: '🚪 Exit VR', x: 30, y: 340, w: 160, h: 58, color: '#ef4444', activeColor: '#dc2626' },
+  { key: 'mic', label: '🎙️ Talk (A/X)', x: 200, y: 340, w: 185, h: 58, color: '#6366f1', activeColor: '#4f46e5' },
+  { key: 'live', label: '⚡ Live Mode', x: 395, y: 340, w: 225, h: 58, color: '#10b981', activeColor: '#059669' },
+  { key: 'music', label: '🎵 Music', x: 630, y: 340, w: 140, h: 58, color: '#059669', activeColor: '#047857' },
+  { key: 'space', label: '🏛️ Space', x: 780, y: 340, w: 105, h: 58, color: '#38bdf8', activeColor: '#0284c7' },
+  { key: 'avatar', label: '👤 Avatar', x: 895, y: 340, w: 100, h: 58, color: '#a855f7', activeColor: '#9333ea' },
 
   // Row 2: Gesture & Movement Actions
   { key: 'wave', label: '👋 Wave', x: 40, y: 418, w: 170, h: 58, color: '#ec4899', activeColor: '#db2777' },
@@ -214,6 +216,8 @@ function renderHUDCanvas() {
     let displayLabel = btn.label;
     if (btn.key === 'live') {
       displayLabel = isLive ? '⚡ Live: ON' : '⚡ Live: OFF';
+    } else if (btn.key === 'music') {
+      displayLabel = getMusicHUDLabel();
     } else if (btn.key === 'space') {
       displayLabel = `🏛️ ${AppState.spaceId || 'Space'}`;
     } else if (btn.key === 'avatar') {
@@ -287,10 +291,16 @@ export function testVRHUDIntersection(raycaster, isTriggerClick, callbacks = {})
       callbacks.onToggleMic();
     } else if (matched.key === 'live' && callbacks.onToggleLive) {
       callbacks.onToggleLive();
+    } else if (matched.key === 'music') {
+      if (callbacks.onCycleMusic) callbacks.onCycleMusic();
+      else nextTrack();
+      renderHUDCanvas();
     } else if (matched.key === 'space' && callbacks.onCycleSpace) {
       callbacks.onCycleSpace(1);
+      renderHUDCanvas();
     } else if (matched.key === 'avatar' && callbacks.onCycleAvatar) {
       callbacks.onCycleAvatar(1);
+      renderHUDCanvas();
     } else if (matched.key === 'wave') {
       if (callbacks.onTriggerGesture) callbacks.onTriggerGesture('wave');
       else triggerAvatarGesture('wave');

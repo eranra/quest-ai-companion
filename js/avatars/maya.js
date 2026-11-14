@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 import { rig, bindBonesFromHierarchy, groundAvatar } from './rig.js';
 import { loadGLBAvatar } from './loader.js';
+import { getAvatarBuildToken } from './index.js';
 
-export function buildMayaHumanoid(avatarGroup) {
+export function buildMayaHumanoid(avatarGroup, buildToken) {
   rig.isFloating = false;
   const root = new THREE.Group();
   avatarGroup.add(root);
@@ -16,8 +17,9 @@ export function buildMayaHumanoid(avatarGroup) {
 
   // Load realistic photorealistic GLB humanoid model
   loadGLBAvatar('assets/models/maya.glb').then(({ scene, animations }) => {
-    // If user hasn't switched away from Maya
-    if (rig.root === root) {
+    // Check if user has switched away or if a newer build has been requested
+    if (buildToken !== undefined && buildToken !== getAvatarBuildToken()) return;
+    if (rig.root === root && root.parent === avatarGroup) {
       root.remove(placeholder);
       
       scene.position.set(0, 0, 0);
@@ -27,7 +29,7 @@ export function buildMayaHumanoid(avatarGroup) {
       bindBonesFromHierarchy(scene);
       groundAvatar(root);
 
-      // Only play subtle idle animations, never wild dance clips
+      // Subtle idle animation
       if (animations && animations.length > 0) {
         const idleClip = animations.find(a => a.name.toLowerCase().includes('idle') || a.name.toLowerCase().includes('breath'));
         if (idleClip) {

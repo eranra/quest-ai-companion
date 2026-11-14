@@ -184,3 +184,22 @@ export {
   speakRemoteTTS,
   stopRemoteTTS
 };
+
+export {
+  AMBIENT_TRACKS,
+  initAmbientMusic,
+  playCurrentTrack,
+  stopCurrentTrack,
+  setMusicVolume,
+  getMusicVolume,
+  toggleMusicMute,
+  setMusicMuted,
+  isMusicMuted,
+  setMusicAutoMode,
+  getMusicAutoMode,
+  selectTrackById,
+  nextTrack,
+  prevTrack,
+  getMusicStatus,
+  getMusicHUDLabel
+} from './ambient_music.js';

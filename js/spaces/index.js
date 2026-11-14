@@ -65,6 +65,7 @@ export const SPACE_DEFINITIONS = [
 ];
 
 let sceneRef = null;
+let rendererRef = null;
 let currentSpaceInstance = null;
 let currentSpaceId = null;
 let contactShadowMesh = null;
@@ -91,8 +92,9 @@ function createContactShadowTexture() {
   return texture;
 }
 
-export function initSpaces(scene) {
+export function initSpaces(scene, renderer) {
   sceneRef = scene;
+  if (renderer) rendererRef = renderer;
 
   // Create realistic contact shadow that stays beneath the character's feet
   const shadowGeo = new THREE.PlaneGeometry(1.2, 1.2);
@@ -138,6 +140,23 @@ export function switchSpace(spaceId) {
   currentSpaceId = def.id;
   AppState.spaceId = def.id;
   AppState.save();
+
+  // Handle transparent background for Passthrough WebXR mode vs 3D photo environments
+  if (def.id === 'passthrough') {
+    sceneRef.background = null;
+    if (rendererRef) {
+      rendererRef.setClearColor(0x000000, 0);
+      rendererRef.setClearAlpha(0);
+    }
+  } else {
+    if (rendererRef) {
+      rendererRef.setClearColor(0x05070f, 1);
+      rendererRef.setClearAlpha(1);
+    }
+    if (sceneRef && (!rendererRef || !rendererRef.xr || !rendererRef.xr.isPresenting)) {
+      sceneRef.background = new THREE.Color(0x05070f);
+    }
+  }
 
   sceneRef.add(currentSpaceInstance.group);
   return def;

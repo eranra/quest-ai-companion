@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rig } from './rig.js';
+import { rig, groundAvatar } from './rig.js';
 
 export function buildOllieBot(avatarGroup) {
   rig.isFloating = false;
@@ -151,4 +151,6 @@ export function buildOllieBot(avatarGroup) {
 
   avatarGroup.add(root);
   rig.root = root;
+  rig.hips = root;
+  groundAvatar(root);
 }

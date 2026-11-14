@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 import { rig, bindBonesFromHierarchy, groundAvatar } from './rig.js';
 import { loadGLBAvatar } from './loader.js';
+import { getAvatarBuildToken } from './index.js';
 
-export function buildAlexHumanoid(avatarGroup) {
+export function buildAlexHumanoid(avatarGroup, buildToken) {
   rig.isFloating = false;
   const root = new THREE.Group();
   avatarGroup.add(root);
@@ -16,8 +17,9 @@ export function buildAlexHumanoid(avatarGroup) {
 
   // Load realistic photorealistic Ready Player Me humanoid model
   loadGLBAvatar('assets/models/alex.glb').then(({ scene, animations }) => {
-    // If user hasn't switched away from Alex
-    if (rig.root === root) {
+    // Check if user has switched away or if a newer build has been requested
+    if (buildToken !== undefined && buildToken !== getAvatarBuildToken()) return;
+    if (rig.root === root && root.parent === avatarGroup) {
       root.remove(placeholder);
 
       scene.position.set(0, 0, 0);

@@ -63,7 +63,7 @@ export function initScene(container, hud) {
   scene.add(fillLight);
 
   // Initialize Atmospheric Spaces (Environments) & Avatar Grounding
-  initSpaces(scene);
+  initSpaces(scene, renderer);
 
   // Avatar Root Group
   avatarGroup = new THREE.Group();
