@@ -10,7 +10,7 @@ import {
   setLiveMode,
   startListening,
   stopListening
-} from './audio/speech.js';
+} from './audio/index.js';
 import { stopSpeaking } from './audio/tts.js';
 import { initMicAnalyser, stopMicAnalyser } from './audio/vad.js';
 import { isMusicMuted, setMusicMuted } from './audio/ambient_music.js';
@@ -202,11 +202,17 @@ export async function handleToggleMic() {
 
   if (AppState.isSpeaking) {
     stopSpeaking();
+    AppState.isSpeaking = false;
     if (AppState.isLiveMode) {
       setPipelineState('listening', 'Interrupted. Listening...');
       updateVRHUDState({ status: 'Interrupted. Listening...' });
       if (btnMic) btnMic.classList.add('listening');
       if (dock) dock.updateMicUI(true);
+      initMicAnalyser((level) => {
+        updateMicLevel(level);
+        updateVRHUDState({ volume: level });
+      });
+      startListening();
       return;
     } else {
       setPipelineState('idle');

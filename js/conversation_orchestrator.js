@@ -23,6 +23,7 @@ import {
 } from './ui/index.js';
 
 let activeTurnSeq = 0;
+let speechSafetyWatchdog = null;
 
 let orchestratorContext = {
   dom: {},
@@ -45,6 +46,10 @@ export function getActiveTurnSeq() {
  */
 export function abortActiveTurn() {
   const abortedId = ++activeTurnSeq;
+  if (speechSafetyWatchdog) {
+    clearTimeout(speechSafetyWatchdog);
+    speechSafetyWatchdog = null;
+  }
   stopSpeaking();
   stopAvatarGesture();
   abortActiveGeneration();
@@ -146,6 +151,19 @@ export async function handleUserSpeech(userText) {
     setActiveStage('speaking', `Speaking Reply (${AppState.ttsEngine})...`);
     logDebug('TTS', `Speaking reply via ${AppState.ttsEngine}...`);
 
+    // Safety watchdog: auto-clear stuck speaking/generating state if audio hardware hangs
+    if (speechSafetyWatchdog) clearTimeout(speechSafetyWatchdog);
+    speechSafetyWatchdog = setTimeout(() => {
+      if (AppState.isSpeaking || AppState.isGenerating) {
+        console.warn('[Orchestrator] Safety watchdog: auto-clearing stuck speaking/generating state');
+        AppState.isSpeaking = false;
+        AppState.isGenerating = false;
+        if (AppState.isLiveMode) {
+          startListening();
+        }
+      }
+    }, 20000);
+
     // In Live Mode with Smart AEC, keep microphone listening so user can barge-in and interrupt anytime!
     if (AppState.isLiveMode && AppState.echoGuardMode !== 'half_duplex') {
       startListening();
@@ -158,7 +176,15 @@ export async function handleUserSpeech(userText) {
     }
 
     speakReply(reply, () => {
+      if (speechSafetyWatchdog) {
+        clearTimeout(speechSafetyWatchdog);
+        speechSafetyWatchdog = null;
+      }
+      AppState.isSpeaking = false;
+      AppState.isGenerating = false;
+
       if (thisTurnId !== activeTurnSeq) return; // Discard callback if turn was interrupted!
+
       // Completed speaking reply:
       if (AppState.isLiveMode) {
         if (AppState.echoGuardMode === 'half_duplex') {
@@ -178,11 +204,16 @@ export async function handleUserSpeech(userText) {
             }
           }, 350);
         } else {
-          // Full-duplex AEC mode: microphone was already active for barge-in, seamlessly transition state
+          // Full-duplex AEC mode: guarantee microphone and STT engine are listening
           setPipelineState('listening', 'Live Mode: Listening...');
           updateVRHUDState({ status: 'Live Mode: Listening...' });
           if (dom.btnMic) dom.btnMic.classList.add('listening');
           if (dockController) dockController.updateMicUI(true);
+          initMicAnalyser((level) => {
+            updateMicLevel(level);
+            updateVRHUDState({ volume: level });
+          });
+          startListening();
         }
       } else {
         // In Regular Mode (Live Mode OFF): return to idle and KEEP MIC CLOSED!
@@ -245,6 +276,8 @@ export function speakAnnouncement(text, onComplete) {
   if (dockController) dockController.updateMicUI(false);
 
   speakReply(text, () => {
+    AppState.isSpeaking = false;
+    AppState.isGenerating = false;
     if (thisTurnId !== activeTurnSeq) return;
     if (AppState.isLiveMode) {
       setTimeout(() => {

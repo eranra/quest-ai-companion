@@ -440,9 +440,17 @@ export async function speakNeuralTTS(text, onComplete) {
       setStageTiming('rtf', overallRTF);
 
       logDebug('TTS', `Speech completed! Total audio: ~${totalAudioDurationSec.toFixed(1)}s across ${sentences.length} sentences. Overall RTF: ${overallRTF.toFixed(2)}x.`);
+      AppState.isSpeaking = false;
+      stopVisemeAnimation();
+      setActiveStage('idle', 'Idle / Ready');
+      setStageTiming('turn_end');
       if (onComplete) onComplete();
     }
   } catch (err) {
+    if (sessionId === activeStreamingSession) {
+      AppState.isSpeaking = false;
+      stopVisemeAnimation();
+    }
     logDebug('TTS', `Speech playback error: ${err.message}`, 'error');
     if (totalAudioDurationSec === 0 && sessionId === activeStreamingSession) {
       nativeSpeakReply(text, onComplete);

@@ -111,6 +111,11 @@ export function setLiveMode(enabled) {
   if (AppState.sttEngine === 'whisper') {
     // When using Whisper STT, ensure Native SpeechRecognition is completely stopped
     nativeStopListening();
+    if (enabled) {
+      startListeningWhisper();
+    } else {
+      stopListeningWhisper();
+    }
   } else {
     nativeSetLiveMode(enabled);
   }
@@ -161,6 +166,7 @@ registerStopSpeakingCallback(() => {
  * Halts speaking immediately across Remote, Neural, and Native TTS engines and resets avatar gesture
  */
 export function stopSpeaking() {
+  AppState.isSpeaking = false;
   stopRemoteTTS();
   stopNeuralTTS();
   stopAvatarGesture();

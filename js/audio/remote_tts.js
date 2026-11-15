@@ -58,68 +58,82 @@ function stopVisemeAnimation() {
  * Synthesizes a single sentence chunk via remote PC server
  */
 export async function synthesizeRemoteSentence(sentence, voiceId, signal) {
-  const url = normalizeServerUrl(AppState.remoteServerUrl);
-  const t0 = performance.now();
-  const res = await fetch(`${url}/api/tts`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'X-Client-Version': getClientVersion(),
-      'bypass-tunnel-reminder': 'true'
-    },
-    body: JSON.stringify({
-      text: sentence,
-      voiceId: voiceId || getActiveVoiceId()
-    }),
-    signal
-  });
+  try {
+    const url = normalizeServerUrl(AppState.remoteServerUrl);
+    const t0 = performance.now();
+    const res = await fetch(`${url}/api/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Client-Version': getClientVersion(),
+        'bypass-tunnel-reminder': 'true'
+      },
+      body: JSON.stringify({
+        text: sentence,
+        voiceId: voiceId || getActiveVoiceId()
+      }),
+      signal
+    });
 
-  if (!res.ok) {
-    throw new Error(`Remote TTS error (${res.status})`);
+    if (!res.ok) {
+      throw new Error(`Remote TTS error (${res.status})`);
+    }
+
+    const data = await res.json();
+    const elapsedMs = Math.round(performance.now() - t0);
+    const wavBlob = data.audioBase64 ? base64ToWavBlob(data.audioBase64) : null;
+    return { wavBlob, elapsedMs };
+  } catch (err) {
+    if (err.name === 'AbortError' || signal?.aborted) {
+      return { wavBlob: null, elapsedMs: 0, aborted: true };
+    }
+    throw err;
   }
-
-  const data = await res.json();
-  const elapsedMs = Math.round(performance.now() - t0);
-  const wavBlob = data.audioBase64 ? base64ToWavBlob(data.audioBase64) : null;
-  return { wavBlob, elapsedMs };
 }
 
 /**
  * Synthesizes a batch of sentences in parallel across the PC Server's 20 CPU cores
  */
 export async function synthesizeRemoteBatch(sentences, voiceId, signal) {
-  const url = normalizeServerUrl(AppState.remoteServerUrl);
-  const t0 = performance.now();
-  const res = await fetch(`${url}/api/tts`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'X-Client-Version': getClientVersion(),
-      'bypass-tunnel-reminder': 'true'
-    },
-    body: JSON.stringify({
-      sentences,
-      voiceId: voiceId || getActiveVoiceId()
-    }),
-    signal
-  });
+  try {
+    const url = normalizeServerUrl(AppState.remoteServerUrl);
+    const t0 = performance.now();
+    const res = await fetch(`${url}/api/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Client-Version': getClientVersion(),
+        'bypass-tunnel-reminder': 'true'
+      },
+      body: JSON.stringify({
+        sentences,
+        voiceId: voiceId || getActiveVoiceId()
+      }),
+      signal
+    });
 
-  if (!res.ok) {
-    throw new Error(`Remote TTS batch error (${res.status})`);
+    if (!res.ok) {
+      throw new Error(`Remote TTS batch error (${res.status})`);
+    }
+
+    const data = await res.json();
+    const elapsedMs = Math.round(performance.now() - t0);
+    const chunks = (data.chunks || []).map(c => ({
+      index: c.index,
+      text: c.text,
+      wavBlob: c.audioBase64 ? base64ToWavBlob(c.audioBase64) : null,
+      latencyMs: c.latencyMs || 0
+    }));
+
+    return { chunks, elapsedMs };
+  } catch (err) {
+    if (err.name === 'AbortError' || signal?.aborted) {
+      return { chunks: [], elapsedMs: 0, aborted: true };
+    }
+    throw err;
   }
-
-  const data = await res.json();
-  const elapsedMs = Math.round(performance.now() - t0);
-  const chunks = (data.chunks || []).map(c => ({
-    index: c.index,
-    text: c.text,
-    wavBlob: c.audioBase64 ? base64ToWavBlob(c.audioBase64) : null,
-    latencyMs: c.latencyMs || 0
-  }));
-
-  return { chunks, elapsedMs };
 }
 
 /**
@@ -243,10 +257,16 @@ export async function speakRemoteTTS(text, onComplete) {
       const overallRTF = totalAudioDurationSec > 0 ? (totalSynthMs / 1000) / totalAudioDurationSec : 0.2;
       setStageTiming('rtf', overallRTF);
       logDebug('TTS', `✅ Speech completed! ~${totalAudioDurationSec.toFixed(1)}s audio via PC server. Quest UI remained 100% fluid.`);
+      AppState.isSpeaking = false;
+      stopVisemeAnimation();
+      setActiveStage('idle', 'Idle / Ready');
+      setStageTiming('turn_end');
       if (onComplete) onComplete();
     }
   } catch (err) {
     if (sessionId === activeStreamingSession) {
+      AppState.isSpeaking = false;
+      stopVisemeAnimation();
       logDebug('TTS', `Remote TTS note: ${err.message}`, 'warn');
       if (onComplete) onComplete();
     }

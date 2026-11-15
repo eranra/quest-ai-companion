@@ -1858,6 +1858,46 @@ async function runTestSuite() {
                     }).then(r => r.json());
                     assert('Server /api/chat handles custom mood parameter successfully', moodChatRes.success === true && typeof moodChatRes.reply === 'string');
 
+                    // ==========================================
+                    // Test 24: STT & Audio Routing / Lifecycle Integrity
+                    // ==========================================
+                    const audioFacadeModule = await import('./js/audio/index.js');
+                    const remoteTtsLifecycle = await import('./js/audio/remote_tts.js');
+                    const modeManagerModule = await import('./js/mode_manager.js');
+
+                    // 24.1 Audio Facade Exports
+                    assert('audio/index.js exports startListening router', typeof audioFacadeModule.startListening === 'function');
+                    assert('audio/index.js exports stopListening router', typeof audioFacadeModule.stopListening === 'function');
+                    assert('audio/index.js exports setLiveMode router', typeof audioFacadeModule.setLiveMode === 'function');
+                    assert('audio/index.js exports stopSpeaking router', typeof audioFacadeModule.stopSpeaking === 'function');
+
+                    // 24.2 Mode Manager Exports
+                    assert('mode_manager.js exports handleToggleLiveMode', typeof modeManagerModule.handleToggleLiveMode === 'function');
+                    assert('mode_manager.js exports handleToggleMic', typeof modeManagerModule.handleToggleMic === 'function');
+
+                    // 24.3 Whisper Live Mode Management in Audio Facade
+                    const origEngine = AppState.sttEngine;
+                    AppState.sttEngine = 'whisper';
+                    audioFacadeModule.setLiveMode(true);
+                    assert('setLiveMode(true) sets AppState.isLiveMode with whisper', AppState.isLiveMode === true);
+                    audioFacadeModule.setLiveMode(false);
+                    assert('setLiveMode(false) disables AppState.isLiveMode with whisper', AppState.isLiveMode === false);
+                    AppState.sttEngine = origEngine;
+
+                    // 24.4 Remote TTS Abort Resilience
+                    const abortCtrl = new AbortController();
+                    abortCtrl.abort();
+                    const abortedSynthResult = await remoteTtsLifecycle.synthesizeRemoteSentence('Test sentence', 'default', abortCtrl.signal);
+                    assert('synthesizeRemoteSentence handles aborted signal gracefully without throwing', abortedSynthResult.aborted === true && abortedSynthResult.wavBlob === null);
+
+                    const abortedBatchResult = await remoteTtsLifecycle.synthesizeRemoteBatch(['Sentence 1', 'Sentence 2'], 'default', abortCtrl.signal);
+                    assert('synthesizeRemoteBatch handles aborted signal gracefully without throwing', abortedBatchResult.aborted === true && abortedBatchResult.chunks.length === 0);
+
+                    // 24.5 stopSpeaking Guarantees isSpeaking === false
+                    AppState.isSpeaking = true;
+                    audioFacadeModule.stopSpeaking();
+                    assert('audioFacadeModule.stopSpeaking explicitly sets AppState.isSpeaking to false', AppState.isSpeaking === false);
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }
