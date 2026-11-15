@@ -1723,6 +1723,71 @@ async function runTestSuite() {
                     hardenedVadModule.stopMicAnalyser();
                     assert('stopMicAnalyser runs cleanly without error', true);
 
+                    // ==============================================================
+                    // Section 22: Componentized Modals, Mode Manager & Reactive State
+                    // ==============================================================
+                    // 22.1 Mode Manager Module
+                    const modeModule = await import('./js/mode_manager.js');
+                    assert('mode_manager.js exports handleToggleLiveMode', typeof modeModule.handleToggleLiveMode === 'function');
+                    assert('mode_manager.js exports toggleFocusMode', typeof modeModule.toggleFocusMode === 'function');
+                    assert('mode_manager.js exports handleToggleMic', typeof modeModule.handleToggleMic === 'function');
+                    assert('mode_manager.js exports setModeManagerContext', typeof modeModule.setModeManagerContext === 'function');
+                    assert('mode_manager.js exports getFocusSnapshot', typeof modeModule.getFocusSnapshot === 'function');
+
+                    // 22.2 Componentized Modals Module
+                    const modalsModule = await import('./js/ui/modals/index.js');
+                    assert('modals/index.js exports initModals', typeof modalsModule.initModals === 'function');
+                    assert('modals/index.js exports initAvatarsModal', typeof modalsModule.initAvatarsModal === 'function');
+                    assert('modals/index.js exports initSpacesModal', typeof modalsModule.initSpacesModal === 'function');
+                    assert('modals/index.js exports initMusicModal', typeof modalsModule.initMusicModal === 'function');
+                    assert('modals/index.js exports initQuestGPUAlert', typeof modalsModule.initQuestGPUAlert === 'function');
+                    assert('modals/index.js exports initSettingsModal', typeof modalsModule.initSettingsModal === 'function');
+
+                    // Test modals re-export backward compatibility
+                    const legacyModals = await import('./js/ui/modals.js');
+                    assert('ui/modals.js re-exports initModals', typeof legacyModals.initModals === 'function');
+
+                    // 22.3 Extracted Echo Guard Module
+                    const echoModule = await import('./js/audio/echo_guard.js');
+                    assert('echo_guard.js exports isSelfEcho', typeof echoModule.isSelfEcho === 'function');
+                    assert('echo_guard.js exports detectUserInterruption', typeof echoModule.detectUserInterruption === 'function');
+                    assert('echo_guard.js exports recordSpokenText', typeof echoModule.recordSpokenText === 'function');
+                    echoModule.recordSpokenText('Greetings and welcome to our beautiful virtual sanctuary');
+                    assert('isSelfEcho detects echoing sentence verbatim or by n-gram overlap', echoModule.isSelfEcho('welcome to our beautiful virtual sanctuary') === true);
+                    assert('isSelfEcho rejects non-matching user speech', echoModule.isSelfEcho('can you switch to the zen garden right now') === false);
+
+                    // 22.4 AI Tool Schemas & Action Parser
+                    const toolSchemas = await import('./js/ai/tool_schemas.js');
+                    assert('tool_schemas.js exports TOOL_DEFINITIONS', Array.isArray(toolSchemas.TOOL_DEFINITIONS) && toolSchemas.TOOL_DEFINITIONS.length >= 7);
+                    assert('tool_schemas.js exports AVATAR_IDS', Array.isArray(toolSchemas.AVATAR_IDS) && toolSchemas.AVATAR_IDS.includes('maya'));
+                    assert('tool_schemas.js exports SPACE_IDS', Array.isArray(toolSchemas.SPACE_IDS) && toolSchemas.SPACE_IDS.includes('garden'));
+                    assert('tool_schemas.js exports getGeminiToolDeclarations', typeof toolSchemas.getGeminiToolDeclarations === 'function');
+
+                    const actionParser = await import('./js/ai/action_parser.js');
+                    assert('action_parser.js exports processActionTags', typeof actionParser.processActionTags === 'function');
+                    let parsedToolName = null;
+                    let parsedToolArgs = null;
+                    const actionParserResult = await actionParser.processActionTags(
+                      'Sure thing! [ACTION: avatar_gesture(dance)] Watch me groove!',
+                      (name, args) => {
+                        parsedToolName = name;
+                        parsedToolArgs = args;
+                      }
+                    );
+                    assert('processActionTags dispatches detected tool action', parsedToolName === 'avatar_gesture' && parsedToolArgs?.gesture === 'dance');
+                    assert('processActionTags strips action tag from conversational text', typeof actionParserResult.cleanText === 'string' && !actionParserResult.cleanText.includes('[ACTION:'));
+
+                    // 22.5 Reactive Observable State Bus
+                    assert('AppState exports on, off, and emit', typeof AppState.on === 'function' && typeof AppState.off === 'function' && typeof AppState.emit === 'function');
+                    let reactiveEventVal = null;
+                    const unsubTest = AppState.on('change:testReactiveKey', (val) => {
+                      reactiveEventVal = val;
+                    });
+                    AppState.testReactiveKey = 'quantum_reactive_success';
+                    assert('AppState Proxy dispatches change:prop event automatically on mutation', reactiveEventVal === 'quantum_reactive_success');
+                    unsubTest();
+                    delete AppState.testReactiveKey;
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }
@@ -1737,6 +1802,10 @@ async function runTestSuite() {
 
           ws.onmessage = async (event) => {
             const msg = JSON.parse(event.data);
+
+            if (msg.method === 'Runtime.consoleAPICalled' && msg.params.type === 'error') {
+              console.error('[BROWSER CONSOLE ERROR]:', ...msg.params.args.map(a => a.value || a.description || JSON.stringify(a)));
+            }
 
             if (msg.method === 'Runtime.exceptionThrown') {
               uncaughtExceptions.push(msg.params.exceptionDetails);

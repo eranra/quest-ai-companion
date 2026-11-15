@@ -327,7 +327,7 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
   checkAppVersion();
   setInterval(checkAppVersion, 30000);
 
-  return {
+  const controller = {
     updateEngineBadge() {
       if (!dom.engineBadge) return;
       const isSmallScreen = window.innerWidth <= 540;
@@ -395,4 +395,17 @@ export function initDock({ onSendPrompt, onToggleLiveMode, onToggleMic, onTurnAv
       }
     }
   };
+
+  // Reactive State Listeners
+  if (AppState && typeof AppState.on === 'function') {
+    AppState.on('change:engine', () => controller.updateEngineBadge());
+    AppState.on('change:geminiStatus', () => controller.updateEngineBadge());
+    AppState.on('change:remoteServerStatus', () => controller.updateEngineBadge());
+    AppState.on('change:isModelReady', () => controller.updateEngineBadge());
+    AppState.on('change:localModel', () => controller.updateEngineBadge());
+    AppState.on('change:isLiveMode', () => controller.updateLiveModeUI());
+    AppState.on('change:isListening', (listening) => controller.updateMicUI(listening));
+  }
+
+  return controller;
 }

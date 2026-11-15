@@ -40,6 +40,12 @@ import {
   setOrchestratorContext,
   speakAnnouncement
 } from './conversation_orchestrator.js';
+import {
+  handleToggleLiveMode,
+  toggleFocusMode,
+  handleToggleMic,
+  setModeManagerContext
+} from './mode_manager.js';
 import { setActiveVoiceId } from './audio/neural_tts.js';
 import {
   unlockAudio,
@@ -358,190 +364,16 @@ function initApp() {
     if (dockController) dockController.updateEngineBadge();
   }
 
-  let lastToggleLiveTime = 0;
-  async function handleToggleLiveMode(forceState = null) {
-    const now = Date.now();
-    if (forceState === null && now - lastToggleLiveTime < 350) return;
-    lastToggleLiveTime = now;
-
-    const nextMode = forceState !== null ? forceState : !AppState.isLiveMode;
-    setLiveMode(nextMode);
-    if (dockController) dockController.updateLiveModeUI();
-    updateVRHUDState({ status: nextMode ? 'Live Mode: Listening...' : 'Ready' });
-
-    if (nextMode) {
-      setPipelineState('listening', 'Live Mode: Listening...');
-      if (dom.btnMic) dom.btnMic.classList.add('listening');
-      if (dockController) dockController.updateMicUI(true);
-      try {
-        if (AppState.engine !== 'remote' || AppState.remoteServerStatus !== 'online') {
-          await ensureSTTReady();
-          if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
-            ensureTTSReady();
-          }
-        }
-      } catch (err) {
-        dom.speechText.textContent = `Voice load error: ${err.message}`;
-      }
-      initMicAnalyser((level) => {
-        updateMicLevel(level);
-        updateVRHUDState({ volume: level });
-      });
-      startListening();
-      dom.speechText.textContent = '⚡ Live Mode active: Listening hands-free. Speak anytime, or tap to stop me while speaking.';
-      updateVRHUDState({ text: dom.speechText.textContent });
-    } else {
-      stopListening();
-      stopMicAnalyser();
-      setPipelineState('idle');
-      if (dom.btnMic) dom.btnMic.classList.remove('listening');
-      if (dockController) dockController.updateMicUI(false);
-      updateVRHUDState({ text: '⚡ Live Mode turned OFF. Press A/X to talk or B/Y to exit VR.' });
-    }
-  }
-
-  // Focus Void Mode: State Snapshot, Pure Black Void & Exact Restoration
-  let focusSnapshot = null;
-
-  async function toggleFocusMode(forceState = null) {
-    const nextFocus = forceState !== null ? !!forceState : !AppState.isFocusMode;
-    if (AppState.isFocusMode === nextFocus) return nextFocus;
-
-    AppState.isFocusMode = nextFocus;
-
-    const btnFocus = document.getElementById('btn-focus-mode');
-    const btnFocusModal = document.getElementById('btn-focus-toggle-modal');
-    const focusLabelModal = document.getElementById('focus-toggle-label');
-    const hudOverlay = document.getElementById('hud-overlay');
-
-    if (nextFocus) {
-      // 1. Snapshot complete state prior to entering Pure Immersive View
-      focusSnapshot = {
-        wasLiveMode: !!AppState.isLiveMode,
-        wasMusicMuted: isMusicMuted(),
-        spaceId: AppState.spaceId || 'hall'
-      };
-
-      // 2. Hide avatar completely
-      if (avatarGroup) {
-        avatarGroup.visible = false;
-      }
-
-      // 3. Hide avatar floor contact shadow, but KEEP 3D space environment visible (pure immersive view)
-      setAvatarShadowVisibility(false);
-      setSpaceVisibility(true);
-
-      // 4. Mute background music for quiet companion interaction
-      setMusicMuted(true);
-
-      // 5. Automatically enable Live Mode if not already enabled
-      if (!AppState.isLiveMode) {
-        await handleToggleLiveMode(true);
-      }
-
-      // 6. Update UI elements
-      if (hudOverlay) hudOverlay.classList.add('focus-mode-active');
-      if (btnFocus) btnFocus.classList.add('active');
-      if (btnFocusModal) btnFocusModal.style.background = '#059669';
-      if (focusLabelModal) focusLabelModal.textContent = 'ON';
-
-      updateVRHUDState({
-        status: '🧘 Immersive View',
-        text: 'Pure Immersive View: Avatar hidden. 360° space environment active with hands-free Live Mode.'
-      });
-    } else {
-      // Restore pre-focus state exactly
-      const snapshot = focusSnapshot || {
-        wasLiveMode: false,
-        wasMusicMuted: false,
-        spaceId: AppState.spaceId || 'hall'
-      };
-
-      // 1. Show avatar
-      if (avatarGroup) {
-        avatarGroup.visible = true;
-        applyAvatarTransform();
-      }
-
-      // 2. Restore avatar floor shadow & ensure space visibility
-      setAvatarShadowVisibility(true);
-      setSpaceVisibility(true);
-
-      // 3. Restore ambient music mute state
-      setMusicMuted(snapshot.wasMusicMuted);
-
-      // 4. Restore Live Mode state
-      await handleToggleLiveMode(snapshot.wasLiveMode);
-
-      // 5. Update UI elements
-      if (hudOverlay) hudOverlay.classList.remove('focus-mode-active');
-      if (btnFocus) btnFocus.classList.remove('active');
-      if (btnFocusModal) btnFocusModal.style.background = '#4f46e5';
-      if (focusLabelModal) focusLabelModal.textContent = 'OFF';
-
-      focusSnapshot = null;
-
-      updateVRHUDState({
-        status: 'Ready',
-        text: 'Immersive View exited: Avatar & audio restored.'
-      });
-    }
-
-    return nextFocus;
-  }
-
-  window.toggleFocusMode = toggleFocusMode;
-
-  async function handleToggleMic() {
-    if (AppState.isSpeaking) {
-      stopSpeaking();
-      if (AppState.isLiveMode) {
-        setPipelineState('listening', 'Interrupted. Listening...');
-        updateVRHUDState({ status: 'Interrupted. Listening...' });
-        if (dom.btnMic) dom.btnMic.classList.add('listening');
-        if (dockController) dockController.updateMicUI(true);
-        return;
-      } else {
-        setPipelineState('idle');
-        updateVRHUDState({ status: 'Ready' });
-        if (dom.btnMic) dom.btnMic.classList.remove('listening');
-        if (dockController) dockController.updateMicUI(false);
-        return;
-      }
-    }
-    if (AppState.isListening) {
-      stopListening(true);
-      stopMicAnalyser();
-      setPipelineState('idle');
-      updateVRHUDState({ status: 'Ready' });
-      if (dom.btnMic) dom.btnMic.classList.remove('listening');
-      if (dockController) dockController.updateMicUI(false);
-    } else {
-      setPipelineState('listening', 'Listening to you...');
-      updateVRHUDState({ status: 'Listening to you...' });
-      if (dom.btnMic) dom.btnMic.classList.add('listening');
-      if (dockController) dockController.updateMicUI(true);
-      try {
-        if (AppState.engine !== 'remote' || AppState.remoteServerStatus !== 'online') {
-          await ensureSTTReady();
-          if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
-            ensureTTSReady();
-          }
-        }
-      } catch (err) {
-        dom.speechText.textContent = `Voice model load error: ${err.message}`;
-        setPipelineState('idle');
-        if (dom.btnMic) dom.btnMic.classList.remove('listening');
-        if (dockController) dockController.updateMicUI(false);
-        return;
-      }
-      initMicAnalyser((level) => {
-        updateMicLevel(level);
-        updateVRHUDState({ volume: level });
-      });
-      startListening();
-    }
-  }
+  setModeManagerContext({
+    getAvatarGroup: () => avatarGroup,
+    getDockController: () => dockController,
+    applyAvatarTransform,
+    setAvatarShadowVisibility,
+    setSpaceVisibility,
+    ensureSTTReady,
+    ensureTTSReady,
+    isNeuralTTSReady
+  });
 
   // 3. Initialize Top Dock & Bottom Controls
   dockController = initDock({

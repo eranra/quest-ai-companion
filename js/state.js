@@ -1,10 +1,40 @@
-// Quest AI Companion - Global State & Storage Persistence
+// Quest AI Companion - Reactive Global State & Storage Persistence
 const storage = (typeof localStorage !== 'undefined') ? localStorage : {
   getItem: () => null,
   setItem: () => {}
 };
 
-export const AppState = {
+// Event listener registry for reactive state observation
+const listeners = new Map();
+
+function on(event, callback) {
+  if (typeof callback !== 'function') return () => {};
+  if (!listeners.has(event)) {
+    listeners.set(event, new Set());
+  }
+  listeners.get(event).add(callback);
+  return () => off(event, callback);
+}
+
+function off(event, callback) {
+  if (listeners.has(event)) {
+    listeners.get(event).delete(callback);
+  }
+}
+
+function emit(event, ...args) {
+  if (listeners.has(event)) {
+    for (const cb of listeners.get(event)) {
+      try {
+        cb(...args);
+      } catch (e) {
+        console.error(`[AppState] Listener error on event "${event}":`, e);
+      }
+    }
+  }
+}
+
+const rawState = {
   // Default to Local CPU WASM Model: SmolLM2 135M (ultra-fast, zero-flags)
   engine: storage.getItem('quest_engine') || 'local', // 'local' | 'cloud' | 'remote'
   remoteServerUrl: storage.getItem('quest_remote_url') || (typeof window !== 'undefined' && window.location.origin.startsWith('http') && !window.location.origin.includes('github.io') ? window.location.origin : 'http://localhost:8080'),
@@ -65,6 +95,14 @@ export const AppState = {
   sttEngine: storage.getItem('quest_stt_engine') || 'native', // 'native' or 'whisper'
   ttsEngine: storage.getItem('quest_tts_engine') || 'native', // 'native' or 'neural'
 
+  on,
+  off,
+  emit,
+  set(prop, value) {
+    this[prop] = value;
+    return value;
+  },
+
   save() {
     storage.setItem('quest_engine', this.engine);
     storage.setItem('quest_remote_url', this.remoteServerUrl);
@@ -86,3 +124,16 @@ export const AppState = {
     storage.setItem('quest_remote_tts_model', this.remoteTtsModel);
   }
 };
+
+export const AppState = new Proxy(rawState, {
+  set(target, prop, value, receiver) {
+    const prev = target[prop];
+    const changed = prev !== value;
+    const success = Reflect.set(target, prop, value, receiver);
+    if (changed && success && typeof prop === 'string') {
+      emit(`change:${prop}`, value, prev);
+      emit('change', prop, value, prev);
+    }
+    return success;
+  }
+});
