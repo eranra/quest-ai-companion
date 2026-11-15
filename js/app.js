@@ -81,7 +81,7 @@ import {
   initTooltips
 } from './ui/index.js';
 
-export const APP_VERSION = 'v0.8.3';
+export const APP_VERSION = 'v0.8.4';
 
 // DOM References
 const dom = {

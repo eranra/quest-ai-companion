@@ -1,7 +1,7 @@
 {
-  "version": "v0.8.3",
-  "build": 59,
-  "released": "2026-11-14",
+  "version": "v0.8.4",
+  "build": 60,
+  "released": "2026-11-15",
   "minServerVersion": "v0.6.0",
-  "changelog": "v0.8.3: 1) Dedicated Ambient Music Controller: Transformed the top bar music icon into a dedicated soundscape manager modal allowing play/pause toggle, track selection across all 8 soundscapes, previous/next skipping, volume slider, and automotive repeat; 2) Universal Floating Tooltips: Added interactive floating helper tooltips on hover across all toolbar icons, buttons, and settings; 3) Compact Gestures Combo Box: Replaced the expansive gesture button row with a sleek, compact dropdown select control and quick freestyle toggle; 4) Pure Immersive View: Refined avatar-free immersive view keeping the full 360 space environment active without black screen; 5) Quest 3 Left Stick & Android Touch Locomotion: Smooth avatar walking with dynamic heading orientation."
+  "changelog": "v0.8.4: 1) Avatar Emotional Personas: Dynamic personality tones (Warm, Witty, Feisty, Zen, Cyberpunk, Cheerful) with automatic avatar-binding and manual user override; 2) Antigravity Brevity Defense: Injected conversational VR system prompt and deterministic 2-sentence clamping to maintain instantaneous VR audio response; 3) Multi-Client Backend Concurrency: Stateless dialogue trajectory support enabling simultaneous sessions across Quest 3 and mobile devices."
 }

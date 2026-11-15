@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥽</text></svg>">
 
   <!-- External Stylesheet -->
-  <link rel="stylesheet" href="css/styles.css?v=0.8.3">
+  <link rel="stylesheet" href="css/styles.css?v=0.8.4">
 
   <!-- Three.js CDN & Addons via Import Map -->
   <script type="importmap">
@@ -62,7 +62,7 @@
         <div class="brand">
           <div class="brand-logo"></div>
           <div class="brand-title">Quest AI Companion</div>
-          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.8.3</div>
+          <div id="app-version-badge" class="version-pill" title="Click to check for updates">v0.8.4</div>
           <div id="engine-badge" class="engine-badge local">🏠 Qwen 2.5 (Loading...)</div>
         </div>
 
@@ -917,7 +917,7 @@
   <!-- Modular App Bootstrap with Dynamic Cache-Busting Version Query & Fallback Boundary -->
   <script type="module">
     const params = new URLSearchParams(window.location.search);
-    const v = params.get('v') || 'v0.8.3';
+    const v = params.get('v') || 'v0.8.4';
     const t = params.get('_t') || Date.now();
     import(`./js/app.js?v=${v}&_t=${t}`).catch((err) => {
       console.error('[Quest AI Companion Bootstrap Error]:', err);
