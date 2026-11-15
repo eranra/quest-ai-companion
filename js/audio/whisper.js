@@ -4,6 +4,7 @@ import { AppState } from '../state.js';
 import { isSelfEcho, detectUserInterruption, stopSpeaking, clearEchoCooldown } from './tts.js';
 import { stopAvatarGesture } from '../avatars/motion.js';
 import { abortActiveGeneration } from '../ai.js';
+import { abortActiveTurn } from '../conversation_orchestrator.js';
 import { encodeWAV, blobToBase64 } from './wav.js';
 import { transcribeAudioWithGemini } from '../ai/index.js';
 import { logDebug, setStageTiming, setActiveStage } from '../ui/debug_logger.js';
@@ -23,6 +24,7 @@ let pendingVolume = 0;
 let volumeRafScheduled = false;
 
 let isRecording = false;
+let isStartingRecording = false;
 let audioChunks = [];
 let preSpeechBuffer = []; // stores last 4 frames (~350ms) to prevent clipping initial phonemes
 let silenceTimer = null;
@@ -165,7 +167,8 @@ function downsampleTo16k(inputBuffer, inputSampleRate) {
  * Starts continuous microphone recording using WebRTC AEC
  */
 export async function startListeningWhisper() {
-  if (isRecording) return;
+  if (isRecording || isStartingRecording) return;
+  isStartingRecording = true;
   audioChunks = [];
   preSpeechBuffer = [];
   speechDetected = false;
@@ -191,6 +194,20 @@ export async function startListeningWhisper() {
           autoGainControl: true
         }
       });
+    }
+
+    // Cleanly tear down any prior nodes to avoid audio node accumulation
+    if (scriptProcessor) {
+      try { scriptProcessor.disconnect(); } catch (e) {}
+      scriptProcessor = null;
+    }
+    if (audioSource) {
+      try { audioSource.disconnect(); } catch (e) {}
+      audioSource = null;
+    }
+    if (muteGain) {
+      try { muteGain.disconnect(); } catch (e) {}
+      muteGain = null;
     }
 
     audioSource = audioContext.createMediaStreamSource(mediaStream);
@@ -311,6 +328,8 @@ export async function startListeningWhisper() {
     console.error('Could not start microphone recording:', err);
     AppState.isListening = false;
     if (onStatusChangeCallback) onStatusChangeCallback('mic-denied');
+  } finally {
+    isStartingRecording = false;
   }
 }
 
@@ -493,9 +512,7 @@ async function finalizeWhisperTranscription() {
       const interruption = detectUserInterruption(transcript);
       if (interruption.isInterruption) {
         logDebug('STT', `⚡ Barge-in user interruption detected: "${transcript}"`);
-        stopSpeaking();
-        stopAvatarGesture();
-        abortActiveGeneration();
+        abortActiveTurn();
 
         if (interruption.isStopCommand) {
           setActiveStage('idle', 'Idle / Ready');
@@ -563,6 +580,7 @@ async function finalizeWhisperTranscription() {
  * If finalizeIfAudioPresent is true and audio was captured, processes the audio buffer
  */
 export function stopListeningWhisper(finalizeIfAudioPresent = false) {
+  isStartingRecording = false;
   if (finalizeIfAudioPresent && audioChunks.length > 0) {
     isRecording = false;
     AppState.isListening = false;

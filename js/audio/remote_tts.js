@@ -12,6 +12,7 @@ import { normalizeServerUrl, getClientVersion } from '../ai/remote.js';
 
 let activeStreamingSession = 0;
 let activeAudioElement = null;
+let activeTtsAbortController = null;
 let visemeRafId = null;
 let onLipSyncCallback = null;
 
@@ -178,7 +179,11 @@ export async function speakRemoteTTS(text, onComplete) {
   logDebug('TTS', `🚀 Remote parallel TTS dispatched (${sentences.length} sentences) to PC Server (Voice: ${voiceName})`);
   setActiveStage('tts_synthesizing', `PC Server Synthesizing Sentence 1/${sentences.length}...`);
 
+  if (activeTtsAbortController) {
+    try { activeTtsAbortController.abort(); } catch (e) {}
+  }
   const abortController = new AbortController();
+  activeTtsAbortController = abortController;
   const tTurnStart = performance.now();
 
   // Sentence 0 is fetched with high priority so audio starts immediately (<300ms)
@@ -261,6 +266,11 @@ export async function speakRemoteTTS(text, onComplete) {
 export function stopRemoteTTS() {
   activeStreamingSession++;
   AppState.isSpeaking = false;
+
+  if (activeTtsAbortController) {
+    try { activeTtsAbortController.abort(); } catch (e) {}
+    activeTtsAbortController = null;
+  }
 
   if (activeAudioElement) {
     try {

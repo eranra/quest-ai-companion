@@ -3,6 +3,7 @@ import { AppState } from '../state.js';
 import { isSelfEcho, detectUserInterruption, stopSpeaking, getSpokenRegistry, clearEchoCooldown } from './tts.js';
 import { stopAvatarGesture } from '../avatars/motion.js';
 import { abortActiveGeneration } from '../ai.js';
+import { abortActiveTurn } from '../conversation_orchestrator.js';
 
 let recognition = null;
 let currentTranscript = '';
@@ -91,10 +92,8 @@ export function initSpeechRecognition(handlers) {
       // Check genuine user barge-in FIRST!
       const interruption = detectUserInterruption(candidate);
       if (interruption.isInterruption) {
-        // Halt assistant speech, 3D gestures, and abort generation immediately!
-        stopSpeaking();
-        stopAvatarGesture();
-        abortActiveGeneration();
+        // Halt assistant speech, 3D gestures, and invalidate active conversational turn immediately!
+        abortActiveTurn();
 
         if (interruption.isStopCommand) {
           // User said "stop", "wait", "be quiet" -> silence assistant and remain listening without LLM re-prompt

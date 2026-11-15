@@ -6,6 +6,7 @@ import { unlockAudio, speakReply, initWhisper, initNeuralTTS, isWhisperReady, is
 import { selectTrackById, setMusicVolume, getMusicVolume, toggleMusicMute, isMusicMuted, setMusicAutoMode, getMusicAutoMode, getMusicStatus, nextTrack, prevTrack } from '../audio/ambient_music.js';
 import { checkGeminiResponsiveness, checkRemoteServerResponsiveness, isQuestBrowser, checkQuestWebGPUFlagStatus, checkWebGPUSupport, selectRemoteModel, fetchRemoteModels, getCachedRemoteModels } from '../ai.js';
 import { switchSpace, SPACE_DEFINITIONS } from '../spaces/index.js';
+import { speakAnnouncement } from '../conversation_orchestrator.js';
 
 export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
   const dom = {
@@ -192,7 +193,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
 
       dom.modalAvatars.classList.remove('open');
       const avatarName = selectedId.charAt(0).toUpperCase() + selectedId.slice(1);
-      speakReply(`Hello! I am now ready as ${avatarName}.`);
+      speakAnnouncement(`Hello! I am now ready as ${avatarName}.`);
     };
   }
 
@@ -241,7 +242,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       const def = switchSpace(selectedSpaceId);
       dom.modalSpaces.classList.remove('open');
       if (def) {
-        speakReply(`Entered ${def.name}.`);
+        speakAnnouncement(`Entered ${def.name}.`);
       }
     };
   }
@@ -565,7 +566,7 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       dom.btnTestVoice.style.background = '#6366f1';
       dom.btnTestVoice.disabled = true;
 
-      speakReply("Hello! Testing voice synthesis and body language.", () => {
+      speakAnnouncement("Hello! Testing voice synthesis and body language.", () => {
         dom.btnTestVoice.innerHTML = '<span>▶️ Test Speech & Motion</span>';
         dom.btnTestVoice.style.background = '#10b981';
         dom.btnTestVoice.disabled = false;
@@ -764,9 +765,9 @@ export function initModals({ onEngineChange, onVoiceModelProgress } = {}) {
       if (!AppState.geminiKey || !AppState.geminiKey.trim()) {
         dom.modalSettings.classList.add('open');
         if (dom.cfgGeminiKey) dom.cfgGeminiKey.focus();
-        speakReply("Switched to Google Gemini Cloud. Enter your free API key in settings to talk!");
+        speakAnnouncement("Switched to Google Gemini Cloud. Enter your free API key in settings to talk!");
       } else {
-        speakReply("Switched to Google Gemini Cloud mode. I am ready to talk with you!");
+        speakAnnouncement("Switched to Google Gemini Cloud mode. I am ready to talk with you!");
       }
     };
   }

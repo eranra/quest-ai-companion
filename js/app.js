@@ -34,6 +34,12 @@ import {
   isQuestBrowser,
   registerSceneHooks
 } from './ai.js';
+import {
+  handleUserSpeech,
+  abortActiveTurn,
+  setOrchestratorContext,
+  speakAnnouncement
+} from './conversation_orchestrator.js';
 import { setActiveVoiceId } from './audio/neural_tts.js';
 import {
   unlockAudio,
@@ -87,168 +93,6 @@ const dom = {
 
 let dockController = null;
 let modalController = null;
-let activeTurnSeq = 0;
-
-// -------------------------------------------------------------
-// Voice & Conversational Pipeline Handling
-// -------------------------------------------------------------
-async function handleUserSpeech(userText) {
-  if (!userText || !userText.trim()) return;
-  unlockAudio();
-  userText = userText.trim();
-
-  // Multi-tier echo gatekeeper: discard any acoustic reflection before LLM processing
-  if (isSelfEcho(userText)) {
-    console.warn(`[EchoGuard] Blocked self-echo from reaching AI: "${userText}"`);
-    if (AppState.isLiveMode) {
-      setPipelineState('listening', 'Live Mode: Listening...');
-      updateVRHUDState({ status: 'Live Mode: Listening...' });
-      if (dom.btnMic) dom.btnMic.classList.add('listening');
-      if (dockController) dockController.updateMicUI(true);
-      startListening();
-    }
-    return;
-  }
-
-  // Interruption / Barge-in cleanup: immediately halt previous speech, gestures, and pending LLM queries
-  const thisTurnId = ++activeTurnSeq;
-  stopSpeaking();
-  abortActiveGeneration();
-
-  // Always stop mic capturing while AI is analyzing & speaking to prevent speaker audio leakage
-  stopListening();
-  stopMicAnalyser();
-  AppState.isListening = false;
-  AppState.isGenerating = true;
-  if (dom.btnMic) dom.btnMic.classList.remove('listening');
-  if (dockController) dockController.updateMicUI(false);
-
-  if (dom.promptInput) {
-    dom.promptInput.value = '';
-    dom.promptInput.blur();
-  }
-
-  setStageTiming('turn_start');
-  logDebug('CONV', `User speech input: "${userText}"`);
-
-  // Step 2: Sent to AI & Analyzing
-  setPipelineState('analyzing');
-  const engineDesc = AppState.engine === 'cloud' 
-    ? 'Gemini Cloud' 
-    : (AppState.engine === 'remote' ? 'Local PC Server' : AppState.localModel);
-  setActiveStage('analyzing_ai', `AI Query (${engineDesc})...`);
-  dom.speechText.textContent = `You: "${userText}"\n\n⚡ Analyzing with AI...`;
-  updateVRHUDState({ status: '⚡ Analyzing...', text: `You: "${userText}"` });
-
-  try {
-    const tAIStart = performance.now();
-    const reply = await generateAIResponse(userText, (report) => {
-      if (thisTurnId !== activeTurnSeq) return;
-      const statusText = report.text || `Loading LLM: ${report.progress}%`;
-      setPipelineState('analyzing', statusText);
-      dom.speechText.textContent = `You: "${userText}"\n\n⚡ ${statusText}`;
-      updateVRHUDState({ status: '⚡ Analyzing...', text: statusText });
-    });
-
-    if (thisTurnId !== activeTurnSeq) {
-      logDebug('AI', `Turn #${thisTurnId} superseded by Turn #${activeTurnSeq}, ignoring reply.`);
-      return;
-    }
-
-    const aiLatency = Math.round(performance.now() - tAIStart);
-    setStageTiming('llm', aiLatency);
-    logDebug('AI', `AI response ready in ${aiLatency}ms (${reply.length} chars)`);
-
-    // Step 3: Answer Ready
-    AppState.isGenerating = false;
-    setPipelineState('ready');
-    dom.speechText.textContent = reply;
-    updateVRHUDState({ status: 'Ready', text: reply });
-
-    // Step 4: Speaking Reply
-    AppState.isSpeaking = true;
-    setPipelineState('speaking', '🗣️ Speaking (Tap or speak to interrupt)...');
-    updateVRHUDState({ status: '🗣️ Speaking', text: reply });
-    setActiveStage('speaking', `Speaking Reply (${AppState.ttsEngine})...`);
-    logDebug('TTS', `Speaking reply via ${AppState.ttsEngine}...`);
-
-    // In Live Mode with Smart AEC, keep microphone listening so user can barge-in and interrupt anytime!
-    if (AppState.isLiveMode && AppState.echoGuardMode !== 'half_duplex') {
-      startListening();
-      initMicAnalyser((level) => {
-        updateMicLevel(level);
-        updateVRHUDState({ volume: level });
-      });
-      if (dom.btnMic) dom.btnMic.classList.add('listening');
-      if (dockController) dockController.updateMicUI(true);
-    }
-
-    speakReply(reply, () => {
-      if (thisTurnId !== activeTurnSeq) return; // Discard callback if turn was interrupted!
-      // Completed speaking reply:
-      if (AppState.isLiveMode) {
-        if (AppState.echoGuardMode === 'half_duplex') {
-          // Half-duplex mode: wait 350ms acoustic cooldown before reopening microphone
-          setTimeout(() => {
-            if (thisTurnId !== activeTurnSeq) return;
-            if (AppState.isLiveMode && !AppState.isSpeaking && !AppState.isGenerating) {
-              setPipelineState('listening', 'Live Mode: Listening...');
-              updateVRHUDState({ status: 'Live Mode: Listening...' });
-              if (dom.btnMic) dom.btnMic.classList.add('listening');
-              if (dockController) dockController.updateMicUI(true);
-              initMicAnalyser((level) => {
-                updateMicLevel(level);
-                updateVRHUDState({ volume: level });
-              });
-              startListening();
-            }
-          }, 350);
-        } else {
-          // Full-duplex AEC mode: microphone was already active for barge-in, seamlessly transition state
-          setPipelineState('listening', 'Live Mode: Listening...');
-          updateVRHUDState({ status: 'Live Mode: Listening...' });
-          if (dom.btnMic) dom.btnMic.classList.add('listening');
-          if (dockController) dockController.updateMicUI(true);
-        }
-      } else {
-        // In Regular Mode (Live Mode OFF): return to idle and KEEP MIC CLOSED!
-        setPipelineState('idle');
-        stopMicAnalyser();
-        if (dom.btnMic) dom.btnMic.classList.remove('listening');
-        if (dockController) dockController.updateMicUI(false);
-        updateVRHUDState({ status: 'Ready' });
-      }
-    });
-  } catch (err) {
-    if (thisTurnId !== activeTurnSeq) {
-      logDebug('AI', `Aborted Turn #${thisTurnId} error suppressed.`);
-      return;
-    }
-    AppState.isGenerating = false;
-    AppState.isSpeaking = false;
-    console.error('Conversation Error:', err);
-    dom.speechText.textContent = `Error: ${err.message}`;
-    updateVRHUDState({ status: 'Error', text: err.message });
-    setPipelineState('idle');
-    stopMicAnalyser();
-    if (dom.btnMic) dom.btnMic.classList.remove('listening');
-    if (dockController) dockController.updateMicUI(false);
-    if (AppState.isLiveMode) {
-      setTimeout(() => {
-        if (thisTurnId !== activeTurnSeq) return;
-        setPipelineState('listening', 'Live Mode: Listening...');
-        updateVRHUDState({ status: 'Live Mode: Listening...' });
-        if (dom.btnMic) dom.btnMic.classList.add('listening');
-        if (dockController) dockController.updateMicUI(true);
-        initMicAnalyser((level) => {
-          updateMicLevel(level);
-          updateVRHUDState({ volume: level });
-        });
-        startListening();
-      }, 1500);
-    }
-  }
-}
 
 // -------------------------------------------------------------
 // Centralized Main-Screen Model Download & Progress Tracking
@@ -424,6 +268,14 @@ function initApp() {
   // Sync client version to remote module
   setClientVersion(APP_VERSION);
 
+  // Initialize Conversation Turn Orchestrator Context
+  setOrchestratorContext({
+    dom,
+    getDockController: () => dockController,
+    updateVRHUDState,
+    unlockAudio
+  });
+
   // 1. Initialize Pipeline UI, Mic Visualizer & Live Debug Logger
   initPipelineUI();
   initDebugDrawer();
@@ -451,6 +303,17 @@ function initApp() {
         if (AppState.ttsEngine === 'neural' && !isNeuralTTSReady()) {
           await ensureTTSReady();
         }
+      }
+
+      // Hardened Mode Transition: Stop previous engines if switching while active
+      if (voiceMeta?.prevStt && voiceMeta.prevStt !== AppState.sttEngine) {
+        stopListening(false);
+        if (AppState.isLiveMode) {
+          startListening();
+        }
+      }
+      if (voiceMeta?.prevTts && voiceMeta.prevTts !== AppState.ttsEngine) {
+        stopSpeaking();
       }
     },
     onVoiceModelProgress: (visible, text, pct) => {
@@ -833,11 +696,7 @@ function initApp() {
   if (bubbleElement) {
     bubbleElement.addEventListener('click', () => {
       if (AppState.isSpeaking || AppState.isGenerating) {
-        activeTurnSeq++;
-        stopSpeaking();
-        abortActiveGeneration();
-        AppState.isSpeaking = false;
-        AppState.isGenerating = false;
+        abortActiveTurn();
         if (AppState.isLiveMode) {
           setPipelineState('listening', 'Interrupted. Listening...');
           setTimeout(() => {

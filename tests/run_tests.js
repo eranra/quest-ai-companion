@@ -1699,6 +1699,30 @@ async function runTestSuite() {
                     assert('Exiting Focus Mode unhighlights btn-focus-mode button', !document.getElementById('btn-focus-mode').classList.contains('active'));
                     assert('Exiting Focus Mode restores 3D space environment', AppState.spaceId === initialSpaceId);
 
+                    // ==============================================================
+                    // Section 21: Architecture Decoupling & Concurrency Hardening
+                    // ==============================================================
+                    const orchestratorModule = await import('./js/conversation_orchestrator.js');
+                    assert('conversation_orchestrator.js exports handleUserSpeech', typeof orchestratorModule.handleUserSpeech === 'function');
+                    assert('conversation_orchestrator.js exports abortActiveTurn', typeof orchestratorModule.abortActiveTurn === 'function');
+                    assert('conversation_orchestrator.js exports getActiveTurnSeq', typeof orchestratorModule.getActiveTurnSeq === 'function');
+                    assert('conversation_orchestrator.js exports speakAnnouncement', typeof orchestratorModule.speakAnnouncement === 'function');
+                    assert('conversation_orchestrator.js exports setOrchestratorContext', typeof orchestratorModule.setOrchestratorContext === 'function');
+
+                    const initialTurn = orchestratorModule.getActiveTurnSeq();
+                    AppState.isSpeaking = true;
+                    AppState.isGenerating = true;
+                    const nextTurn = orchestratorModule.abortActiveTurn();
+                    assert('abortActiveTurn increments turn sequence counter', nextTurn === initialTurn + 1);
+                    assert('abortActiveTurn resets AppState.isSpeaking to false', AppState.isSpeaking === false);
+                    assert('abortActiveTurn resets AppState.isGenerating to false', AppState.isGenerating === false);
+
+                    // Test vad.js cleanup
+                    const hardenedVadModule = await import('./js/audio/vad.js');
+                    assert('vad.js exports stopMicAnalyser', typeof hardenedVadModule.stopMicAnalyser === 'function');
+                    hardenedVadModule.stopMicAnalyser();
+                    assert('stopMicAnalyser runs cleanly without error', true);
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }

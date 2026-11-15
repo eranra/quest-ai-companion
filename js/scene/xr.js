@@ -182,6 +182,7 @@ export function handleXRControllerInput(renderer, delta, applyAvatarTransformCal
           transformChanged = true;
         } else if (motionState.isMoving) {
           motionState.isMoving = false;
+          transformChanged = true;
         }
       }
 

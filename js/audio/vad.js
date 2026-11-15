@@ -4,6 +4,7 @@ import { AppState } from '../state.js';
 
 let audioContext = null;
 let mediaStream = null;
+let audioSourceNode = null;
 let analyserNode = null;
 let dataArray = null;
 let animationFrameId = null;
@@ -44,11 +45,20 @@ export async function initMicAnalyser(onVolume) {
       });
     }
 
-    const source = audioContext.createMediaStreamSource(mediaStream);
+    if (audioSourceNode) {
+      try { audioSourceNode.disconnect(); } catch (e) {}
+      audioSourceNode = null;
+    }
+    if (analyserNode) {
+      try { analyserNode.disconnect(); } catch (e) {}
+      analyserNode = null;
+    }
+
+    audioSourceNode = audioContext.createMediaStreamSource(mediaStream);
     analyserNode = audioContext.createAnalyser();
     analyserNode.fftSize = 256;
     analyserNode.smoothingTimeConstant = 0.5;
-    source.connect(analyserNode);
+    audioSourceNode.connect(analyserNode);
 
     dataArray = new Uint8Array(analyserNode.frequencyBinCount);
     isMetering = true;
@@ -88,6 +98,18 @@ export function stopMicAnalyser() {
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
     animationFrameId = null;
+  }
+  if (audioSourceNode) {
+    try {
+      audioSourceNode.disconnect();
+    } catch (e) {}
+    audioSourceNode = null;
+  }
+  if (analyserNode) {
+    try {
+      analyserNode.disconnect();
+    } catch (e) {}
+    analyserNode = null;
   }
   if (mediaStream) {
     mediaStream.getTracks().forEach(t => {
