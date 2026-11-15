@@ -42,6 +42,7 @@ export function initSettingsModal({
     cfgSpaceSelect: typeof document !== 'undefined' ? document.getElementById('cfg-space-select') : null,
     cfgLiveSensitivity: typeof document !== 'undefined' ? document.getElementById('cfg-live-sensitivity') : null,
     cfgEchoGuard: typeof document !== 'undefined' ? document.getElementById('cfg-echo-guard') : null,
+    cfgCompanionMood: typeof document !== 'undefined' ? document.getElementById('cfg-companion-mood') : null,
     groupLocalModel: typeof document !== 'undefined' ? document.getElementById('group-local-model') : null,
     groupGemini: typeof document !== 'undefined' ? document.getElementById('group-gemini') : null,
     btnTestGemini: typeof document !== 'undefined' ? document.getElementById('btn-test-gemini') : null,
@@ -220,6 +221,7 @@ export function initSettingsModal({
       if (dom.cfgSpaceSelect) dom.cfgSpaceSelect.value = AppState.spaceId;
       if (dom.cfgLiveSensitivity) dom.cfgLiveSensitivity.value = AppState.liveSensitivity || 'normal';
       if (dom.cfgEchoGuard) dom.cfgEchoGuard.value = AppState.echoGuardMode || 'smart';
+      if (dom.cfgCompanionMood) dom.cfgCompanionMood.value = AppState.companionMood || 'auto';
       if (dom.cfgSttEngine) {
         dom.cfgSttEngine.value = AppState.sttEngine || 'native';
         if (dom.whisperLoaderBox) dom.whisperLoaderBox.style.display = dom.cfgSttEngine.value === 'whisper' ? 'block' : 'none';
@@ -498,6 +500,7 @@ export function initSettingsModal({
       }
       if (dom.cfgLiveSensitivity) AppState.liveSensitivity = dom.cfgLiveSensitivity.value;
       if (dom.cfgEchoGuard) AppState.echoGuardMode = dom.cfgEchoGuard.value;
+      if (dom.cfgCompanionMood) AppState.companionMood = dom.cfgCompanionMood.value;
       if (dom.cfgSttEngine) AppState.sttEngine = dom.cfgSttEngine.value;
       if (dom.cfgTtsEngine) AppState.ttsEngine = dom.cfgTtsEngine.value;
       if (dom.cfgVoiceSelect) setActiveVoiceId(dom.cfgVoiceSelect.value);

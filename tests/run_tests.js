@@ -1788,6 +1788,76 @@ async function runTestSuite() {
                     unsubTest();
                     delete AppState.testReactiveKey;
 
+                    // ==============================================================
+                    // Section 23: Avatar Emotional Personas & Brevity Defense
+                    // ==============================================================
+                    const aiAgentModule = await import('./js/ai/agent.js');
+                    assert('agent.js exports COMPANION_MOODS object', typeof aiAgentModule.COMPANION_MOODS === 'object');
+                    assert('agent.js exports AVATAR_DEFAULT_MOODS mapping', typeof aiAgentModule.AVATAR_DEFAULT_MOODS === 'object');
+                    assert('agent.js exports getResolvedCompanionMood function', typeof aiAgentModule.getResolvedCompanionMood === 'function');
+
+                    // 23.1 All 6 Emotional Personas Registered
+                    const moodKeys = Object.keys(aiAgentModule.COMPANION_MOODS);
+                    assert('COMPANION_MOODS contains 6 rich personas', moodKeys.length === 6 && moodKeys.includes('warm') && moodKeys.includes('witty') && moodKeys.includes('feisty') && moodKeys.includes('zen') && moodKeys.includes('cyberpunk') && moodKeys.includes('cheerful'));
+
+                    // 23.2 Avatar Automatic Mood Binding
+                    assert('Avatar Maya defaults to warm mood', aiAgentModule.getResolvedCompanionMood('maya', 'auto').id === 'warm');
+                    assert('Avatar Alex defaults to witty mood', aiAgentModule.getResolvedCompanionMood('alex', 'auto').id === 'witty');
+                    assert('Avatar Ollie defaults to feisty mood', aiAgentModule.getResolvedCompanionMood('ollie', 'auto').id === 'feisty');
+                    assert('Avatar Echo defaults to zen mood', aiAgentModule.getResolvedCompanionMood('echo', 'auto').id === 'zen');
+                    assert('Avatar Spark defaults to cyberpunk mood', aiAgentModule.getResolvedCompanionMood('spark', 'auto').id === 'cyberpunk');
+                    assert('Avatar Pip defaults to cheerful mood', aiAgentModule.getResolvedCompanionMood('pip', 'auto').id === 'cheerful');
+
+                    // 23.3 Manual Override Priority
+                    const overriddenMood = aiAgentModule.getResolvedCompanionMood('maya', 'feisty');
+                    assert('Manual mood override overrides avatar default', overriddenMood.id === 'feisty');
+
+                    // 23.4 System Prompt Injects Active Mood & Brevity Constraint
+                    const agentPrompt = aiAgentModule.buildAgentSystemPrompt({
+                      persona: { name: 'Maya', archetype: 'Empathetic Human Guide', description: 'Warm friend' },
+                      spaceId: 'garden',
+                      mood: aiAgentModule.COMPANION_MOODS.feisty
+                    });
+                    assert('buildAgentSystemPrompt contains Current Mood', agentPrompt.includes('Current Mood & Behavioral Tone: Feisty & Sassy'));
+                    assert('buildAgentSystemPrompt contains strictly 1 or 2 conversational sentences rule', agentPrompt.includes('1 or 2 conversational sentences'));
+
+                    // 23.5 Deterministic Sentence Clamping for Fast VR Latency
+                    const longMultiSentenceOutput = "Hello there my friend! The weather is lovely today in VR. We could explore the zen garden together. Or we could go to the cyberpunk cafe. What do you think about that idea?";
+                    const clampedSpeech = aiAgentModule.cleanAndValidateSpeech(longMultiSentenceOutput, "hello", { name: 'Maya' });
+                    const clampedSentences = clampedSpeech.match(/[^.!?]+[.!?]+/g) || [];
+                    assert('cleanAndValidateSpeech clamps long runaway speech to at most 2 sentences', clampedSentences.length <= 2, 'clampedSentences=' + clampedSentences.length + ', text="' + clampedSpeech + '"');
+                    assert('cleanAndValidateSpeech retains first two sentences intact', clampedSpeech.startsWith("Hello there my friend! The weather is lovely today in VR."));
+
+                    // 23.6 Settings UI Mood Dropdown & AppState Persistence
+                    const selectMoodEl = document.getElementById('cfg-companion-mood');
+                    assert('cfg-companion-mood select exists in Settings modal', selectMoodEl !== null);
+                    assert('cfg-companion-mood contains auto and 6 emotion options', selectMoodEl.options.length >= 7);
+
+                    let moodChangeFired = false;
+                    const unsubMood = AppState.on('change:companionMood', (val) => {
+                      if (val === 'zen') moodChangeFired = true;
+                    });
+                    AppState.companionMood = 'zen';
+                    AppState.save();
+                    assert('AppState.companionMood fires reactive change event', moodChangeFired === true);
+                    assert('AppState.companionMood persisted to storage', (typeof localStorage !== 'undefined' ? localStorage.getItem('quest_companion_mood') : 'zen') === 'zen');
+                    unsubMood();
+                    AppState.companionMood = 'auto';
+                    AppState.save();
+
+                    // 23.7 Standalone Server Remote API Mood Forwarding
+                    const moodChatRes = await fetch('http://127.0.0.1:8125/api/chat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        prompt: 'Hello there, how are you feeling today?',
+                        avatarId: 'ollie',
+                        mood: 'feisty',
+                        model: 'instant-companion'
+                      })
+                    }).then(r => r.json());
+                    assert('Server /api/chat handles custom mood parameter successfully', moodChatRes.success === true && typeof moodChatRes.reply === 'string');
+
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);
                     }

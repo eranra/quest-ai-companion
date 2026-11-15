@@ -88,6 +88,9 @@ const rawState = {
   // Live Mode Sensitivity / Noise Threshold ('high_filter', 'normal', 'sensitive')
   liveSensitivity: storage.getItem('quest_live_sensitivity') || 'normal',
 
+  // Companion Mood / Behavioral Attitude ('auto', 'warm', 'witty', 'feisty', 'zen', 'cyberpunk', 'cheerful')
+  companionMood: storage.getItem('quest_companion_mood') || 'auto',
+
   // Acoustic Anti-Self-Echo Guard ('smart', 'half_duplex', 'off')
   echoGuardMode: storage.getItem('quest_echo_guard') || 'smart',
 
@@ -116,6 +119,7 @@ const rawState = {
     storage.setItem('quest_avatar_roty', this.avatarRotationY.toFixed(4));
     storage.setItem('quest_avatar_height_offset', this.avatarHeightOffset.toFixed(2));
     storage.setItem('quest_live_sensitivity', this.liveSensitivity);
+    storage.setItem('quest_companion_mood', this.companionMood);
     storage.setItem('quest_echo_guard', this.echoGuardMode);
     storage.setItem('quest_stt_engine', this.sttEngine);
     storage.setItem('quest_tts_engine', this.ttsEngine);

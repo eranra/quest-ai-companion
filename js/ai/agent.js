@@ -87,6 +87,74 @@ export const AVATAR_PERSONAS = {
   }
 };
 
+export const COMPANION_MOODS = {
+  warm: {
+    id: 'warm',
+    name: 'Warm & Empathetic',
+    emoji: '🌟',
+    description: 'Caring, affectionate, deeply supportive, and reassuring.',
+    instruction: 'Speak with warmth, gentle affection, and empathy. Validate feelings and offer encouraging, heartfelt thoughts.'
+  },
+  witty: {
+    id: 'witty',
+    name: 'Witty & Playful',
+    emoji: '😏',
+    description: 'Humorous, cheeky, clever banter, and playful teasing.',
+    instruction: 'Speak with witty banter, clever humor, and playful teasing. Keep things light, fun, and fast-paced.'
+  },
+  feisty: {
+    id: 'feisty',
+    name: 'Feisty & Sassy',
+    emoji: '😤',
+    description: 'Adorably grumpy, blunt, passionate, and dramatically opinionated.',
+    instruction: 'Speak with feisty attitude, sassy flair, and theatrical exasperation. Be passionately opinionated and blunt, but fundamentally loyal and engaging.'
+  },
+  zen: {
+    id: 'zen',
+    name: 'Zen & Grounding',
+    emoji: '🧘',
+    description: 'Serene, tranquil, mindful, and peaceful.',
+    instruction: 'Speak with deep serenity, calm breathing rhythm, and meditative mindfulness. Help the user feel grounded and relaxed.'
+  },
+  cyberpunk: {
+    id: 'cyberpunk',
+    name: 'Cyberpunk Operative',
+    emoji: '⚡',
+    description: 'Futuristic, tactical, razor-sharp, and tech-curious.',
+    instruction: 'Speak like an advanced cyberpunk AI operative or spacecraft tactical companion. Precise, ultra-direct, and technically sharp.'
+  },
+  cheerful: {
+    id: 'cheerful',
+    name: 'Cheerful & Curious',
+    emoji: '🎈',
+    description: 'Bubbly, enthusiastic, wide-eyed, and joyful.',
+    instruction: 'Speak with bubbling enthusiasm, joyful curiosity, and cheerful optimism.'
+  }
+};
+
+export const AVATAR_DEFAULT_MOODS = {
+  maya: 'warm',
+  alex: 'witty',
+  ollie: 'feisty',
+  echo: 'zen',
+  spark: 'cyberpunk',
+  pip: 'cheerful'
+};
+
+/**
+ * Resolves the effective mood for a character, honoring manual user overrides
+ * or falling back to the avatar's default mood.
+ */
+export function getResolvedCompanionMood(avatarId, moodSetting) {
+  const chosenMood = moodSetting || AppState.companionMood || 'auto';
+  if (chosenMood && chosenMood !== 'auto' && COMPANION_MOODS[chosenMood]) {
+    return COMPANION_MOODS[chosenMood];
+  }
+  const currentAvatar = avatarId || AppState.avatarId || 'echo';
+  const defaultMoodKey = AVATAR_DEFAULT_MOODS[currentAvatar] || 'warm';
+  return COMPANION_MOODS[defaultMoodKey] || COMPANION_MOODS.warm;
+}
+
 /**
  * Returns persona profile for the currently active avatar
  */
@@ -157,7 +225,7 @@ export function classifyUserIntent(prompt) {
 }
 
 /**
- * Constructs the contextual system prompt grounded in avatar persona & current 3D space
+ * Constructs the contextual system prompt grounded in avatar persona, emotional mood & current 3D space
  */
 export function buildAgentSystemPrompt(options = {}) {
   const persona = options.persona || getActiveAvatarPersona(AppState.avatarId);
@@ -165,11 +233,13 @@ export function buildAgentSystemPrompt(options = {}) {
   const spaceName = spaceId === 'passthrough' ? 'the user\'s real physical room in Mixed Reality Passthrough' : `${spaceId} 360° virtual space`;
   const userName = options.userName || 'the user';
   const liveContext = options.liveContext ? `\nLive Facts: ${options.liveContext.formatted || options.liveContext}` : '';
+  const mood = options.mood || getResolvedCompanionMood(options.avatarId || (persona.name ? persona.name.toLowerCase() : null), options.moodSetting || AppState.companionMood);
 
-  return `You are ${persona.name}, a warm 3D companion speaking directly to ${userName} in ${spaceName}.${liveContext}
-Personality: ${persona.description}
+  return `You are ${persona.name}, a 3D VR companion speaking directly to ${userName} in ${spaceName}.${liveContext}
+Persona: ${persona.name} (${persona.archetype} - ${persona.description})
+Current Mood & Behavioral Tone: ${mood.name} (${mood.instruction})
 Guidelines:
-1. Answer the user's question directly and concisely in 1 or 2 conversational sentences.
+1. Answer the user's question directly and concisely in 1 or 2 conversational sentences (strictly maximum 25-30 words). Never give long essays or multi-paragraph answers.
 2. Speak naturally as a friend in spoken dialogue; do not use markdown, emojis, asterisks, bullet points, or role prefixes like "Assistant:".
 3. Maintain continuity with the prior conversation turns.
 4. You have tool capabilities to interact with the 3D scene:
@@ -236,7 +306,13 @@ export function cleanAndValidateSpeech(rawText, userPrompt, persona) {
     }
   }
 
-  // 6. Coherence and length check
+  // 6. Sentence clamp: Strictly enforce 1-2 spoken sentences for real-time VR responsiveness
+  const sentences = text.match(/[^.!?]+[.!?]+/g);
+  if (sentences && sentences.length > 2) {
+    text = sentences.slice(0, 2).map(s => s.trim()).join(' ').trim();
+  }
+
+  // 7. Coherence and length check
   if (text.length < 3 || text.split(/\s+/).length < 2) {
     return getFallbackResponse(userPrompt, persona);
   }

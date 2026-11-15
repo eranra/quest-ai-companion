@@ -37,7 +37,10 @@ import {
   getActiveAvatarPersona,
   buildAgentSystemPrompt,
   cleanAndValidateSpeech,
-  AVATAR_PERSONAS
+  AVATAR_PERSONAS,
+  COMPANION_MOODS,
+  AVATAR_DEFAULT_MOODS,
+  getResolvedCompanionMood
 } from './agent.js';
 import {
   TOOL_DEFINITIONS,
@@ -203,6 +206,9 @@ export {
   buildAgentSystemPrompt,
   cleanAndValidateSpeech,
   AVATAR_PERSONAS,
+  COMPANION_MOODS,
+  AVATAR_DEFAULT_MOODS,
+  getResolvedCompanionMood,
   TOOL_DEFINITIONS,
   executeTool,
   detectAndExecuteTool,

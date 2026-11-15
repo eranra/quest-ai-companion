@@ -180,6 +180,7 @@ export async function callRemoteBackend(prompt, signal, context = {}, onProgress
       avatarId: AppState.avatarId,
       spaceId: AppState.spaceId,
       model: AppState.remoteLlmModel || 'instant-companion',
+      mood: AppState.companionMood || 'auto',
       history: context.history || []
     };
 

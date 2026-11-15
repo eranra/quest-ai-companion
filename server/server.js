@@ -21,7 +21,10 @@ import {
   recordDialogueTurn,
   clearConversationHistory,
   getConversationHistory,
-  getOfflineCompanionAnswer
+  getOfflineCompanionAnswer,
+  COMPANION_MOODS,
+  AVATAR_DEFAULT_MOODS,
+  getResolvedCompanionMood
 } from '../js/ai/agent.js';
 import {
   TOOL_DEFINITIONS,
@@ -365,14 +368,14 @@ export async function performAutoUpgrade(targetVersion) {
 /**
  * Generate response using selected local WASM model or intelligent persona reasoning
  */
-async function generateServerResponse(prompt, persona, spaceId, history, requestedModel) {
+async function generateServerResponse(prompt, persona, spaceId, history, requestedModel, mood = null) {
   const modelId = requestedModel || activeModels.llm || 'instant-companion';
-  const systemPrompt = buildAgentSystemPrompt({ persona, spaceId });
+  const systemPrompt = buildAgentSystemPrompt({ persona, spaceId, mood });
 
   // 1. If Antigravity deep reasoning model is selected
   if (modelId === 'antigravity') {
     try {
-      const agReply = await generateAntigravityResponse(prompt, history, spaceId, persona);
+      const agReply = await generateAntigravityResponse(prompt, history, spaceId, persona, mood);
       if (agReply && agReply.trim()) {
         return { text: agReply.trim(), source: 'antigravity-agent' };
       }
@@ -593,6 +596,8 @@ export function createServer() {
         const spaceId = body.spaceId || 'hall';
         const persona = getActiveAvatarPersona(avatarId);
         const requestedModel = body.model || activeModels.llm;
+        const moodSetting = body.mood || 'auto';
+        const resolvedMood = getResolvedCompanionMood(avatarId, moodSetting);
 
         setAnalysisStatus(`Analyzing with ${requestedModel === 'antigravity' ? 'Antigravity' : requestedModel}...`);
 
@@ -650,7 +655,7 @@ export function createServer() {
               }
             }
             const history = getConversationHistory();
-            const gen = await generateServerResponse(userPrompt, persona, spaceId, history, requestedModel);
+            const gen = await generateServerResponse(userPrompt, persona, spaceId, history, requestedModel, resolvedMood);
 
             // 4. Parse action tags in output
             const actionParsed = await processActionTagsInModelOutput(gen.text);

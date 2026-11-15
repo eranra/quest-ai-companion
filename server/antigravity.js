@@ -10,6 +10,12 @@ import os from 'os';
 import https from 'https';
 import { execSync } from 'child_process';
 import { detectAndExecuteTool } from '../js/ai/tools.js';
+import {
+  COMPANION_MOODS,
+  AVATAR_DEFAULT_MOODS,
+  getResolvedCompanionMood,
+  cleanAndValidateSpeech
+} from '../js/ai/agent.js';
 
 let DatabaseSync = null;
 try {
@@ -1277,9 +1283,11 @@ export function resolveContextFromHistory(prompt, history) {
  * - Antigravity maintains and reasons over full conversation history naturally.
  * - Fully transparent and integrated with Antigravity IDE UI.
  */
-export async function generateAntigravityResponse(prompt, history = [], spaceId = 'hall', persona = null) {
+export async function generateAntigravityResponse(prompt, history = [], spaceId = 'hall', persona = null, mood = null) {
   const pName = persona?.name || 'Companion';
   const cleanPrompt = (prompt || '').trim();
+  const avatarKey = (persona?.name || 'echo').toLowerCase();
+  const resolvedMood = mood && mood.instruction ? mood : getResolvedCompanionMood(avatarKey, mood || 'auto');
 
   // 1. Synchronize conversation history
   sessionMemory.syncFromDisk();
@@ -1360,9 +1368,15 @@ export async function generateAntigravityResponse(prompt, history = [], spaceId 
     const connected = await liveAntigravityClient.discoverLanguageServer();
     if (connected) {
       setAnalysisStatus('Thinking with Antigravity...');
-      const rawReply = await liveAntigravityClient.sendMessage(cleanPrompt);
+      const moodInstruction = resolvedMood ? ` Personality & Tone: ${resolvedMood.name} (${resolvedMood.instruction})` : '';
+      const framedPrompt = `[System Directive: You are speaking aloud as ${pName} in a 3D VR environment.${moodInstruction}
+STRICT RULE: Reply directly to the user in no more than 1 or 2 short conversational sentences (maximum 25-30 words). Never use lists, bullet points, markdown, or code blocks. Speak naturally as a friend in spoken dialogue.]
+
+User says: "${cleanPrompt}"`;
+      const rawReply = await liveAntigravityClient.sendMessage(framedPrompt);
       if (rawReply && rawReply.trim() && !rawReply.includes('(Timeout')) {
-        liveReply = rawReply.trim();
+        const cleanedSpeech = cleanAndValidateSpeech(rawReply.trim(), cleanPrompt, persona);
+        liveReply = cleanedSpeech || rawReply.trim();
         liveSuccess = true;
       }
     }
