@@ -150,7 +150,7 @@ async function runTestSuite() {
                     assert('Avatars Modal opens on click', modalAvatars.classList.contains('open'));
 
                     const cards = document.querySelectorAll('.avatar-card');
-                    assert('All 6 Avatars in Gallery', cards.length === 6, 'Found: ' + cards.length);
+                    assert('All 8 Avatars in Gallery', cards.length === 8, 'Found: ' + cards.length);
 
                     const btnCloseAvatars = document.getElementById('btn-close-avatars');
                     btnCloseAvatars.click();
@@ -232,7 +232,7 @@ async function runTestSuite() {
                     assert('Expanded preference persisted to localStorage', localStorage.getItem('quest_bubble_collapsed') === 'false');
 
                     // Test 3: Avatar Switching without crash
-                    const avatarIds = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
+                    const avatarIds = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex', 'matt', 'riley'];
                     const { buildAvatar } = await import('./js/avatars/index.js');
                     const { avatarGroup, camera } = await import('./js/scene.js');
 
@@ -423,6 +423,8 @@ async function runTestSuite() {
                     assert('Ollie default voice is Ryan Male', getDefaultVoiceForAvatar('ollie') === 'en_US-ryan-low');
                     assert('Pip default voice is Kathleen Female', getDefaultVoiceForAvatar('pip') === 'en_US-kathleen-low');
                     assert('Echo default voice is Lessac Neutral', getDefaultVoiceForAvatar('echo') === 'en_US-lessac-low');
+                    assert('Matt default voice is Ryan Male', getDefaultVoiceForAvatar('matt') === 'en_US-ryan-low');
+                    assert('Riley default voice is Kathleen Female', getDefaultVoiceForAvatar('riley') === 'en_US-kathleen-low');
 
                     // Test 6: Refactored AI Subsystem Modularization
                     const aiSubsystem = await import('./js/ai/index.js');
@@ -1274,8 +1276,8 @@ async function runTestSuite() {
                     assert('rig.js exports getAvatarMotionStatus', typeof rigModule.getAvatarMotionStatus === 'function');
                     assert('rig.js exports resetAvatarMotion', typeof rigModule.resetAvatarMotion === 'function');
 
-                    // Test all 11 expressive gestures
-                    const allGestures = ['wave', 'dance', 'stand_on_one_leg', 'celebrate', 'bow', 'think', 'clap', 'laugh', 'jump', 'nod', 'shake_head'];
+                    // Test all 13 expressive gestures
+                    const allGestures = ['wave', 'dance', 'stand_on_one_leg', 'celebrate', 'bow', 'think', 'clap', 'laugh', 'jump', 'nod', 'shake_head', 'tennis_swing', 'wii_celebrate'];
                     allGestures.forEach(g => {
                       const res = rigModule.triggerAvatarGesture(g, 3.0);
                       assert('triggerAvatarGesture("' + g + '") succeeds', res.success === true && rigModule.motionState.currentGesture === g);
@@ -1286,6 +1288,10 @@ async function runTestSuite() {
                     assert('hands_up aliases to celebrate', rigModule.motionState.currentGesture === 'celebrate');
                     rigModule.triggerAvatarGesture('balance');
                     assert('balance aliases to stand_on_one_leg', rigModule.motionState.currentGesture === 'stand_on_one_leg');
+                    rigModule.triggerAvatarGesture('tennis');
+                    assert('tennis aliases to tennis_swing', rigModule.motionState.currentGesture === 'tennis_swing');
+                    rigModule.triggerAvatarGesture('wii_cheer');
+                    assert('wii_cheer aliases to wii_celebrate', rigModule.motionState.currentGesture === 'wii_celebrate');
                     rigModule.triggerAvatarGesture('ponder');
                     assert('ponder aliases to think', rigModule.motionState.currentGesture === 'think');
                     rigModule.triggerAvatarGesture('hop');
@@ -1807,6 +1813,8 @@ async function runTestSuite() {
                     assert('Avatar Echo defaults to zen mood', aiAgentModule.getResolvedCompanionMood('echo', 'auto').id === 'zen');
                     assert('Avatar Spark defaults to cyberpunk mood', aiAgentModule.getResolvedCompanionMood('spark', 'auto').id === 'cyberpunk');
                     assert('Avatar Pip defaults to cheerful mood', aiAgentModule.getResolvedCompanionMood('pip', 'auto').id === 'cheerful');
+                    assert('Avatar Matt defaults to witty mood', aiAgentModule.getResolvedCompanionMood('matt', 'auto').id === 'witty');
+                    assert('Avatar Riley defaults to cheerful mood', aiAgentModule.getResolvedCompanionMood('riley', 'auto').id === 'cheerful');
 
                     // 23.3 Manual Override Priority
                     const overriddenMood = aiAgentModule.getResolvedCompanionMood('maya', 'feisty');
@@ -1897,6 +1905,47 @@ async function runTestSuite() {
                     AppState.isSpeaking = true;
                     audioFacadeModule.stopSpeaking();
                     assert('audioFacadeModule.stopSpeaking explicitly sets AppState.isSpeaking to false', AppState.isSpeaking === false);
+
+                    // ==========================================
+                    // Section 25: Nintendo Wii Sports Avatars & Buoyant Movement System
+                    // ==========================================
+                    const { buildMattMii } = await import('./js/avatars/matt.js');
+                    const { buildRileyMii } = await import('./js/avatars/riley.js');
+                    const wiiToolsModule = await import('./js/ai/tools.js');
+
+                    // 25.1 Matt Avatar Procedural Build & Wii Flags
+                    buildAvatar('matt', avatarGroup);
+                    assert('Matt builds successfully in avatarGroup', avatarGroup.children.length > 0);
+                    assert('Matt sets rig.isWii flag for buoyant animation', rigModule.rig.isWii === true);
+                    assert('Matt has tennis racket attached to hand', rigModule.rig.racket !== null);
+                    assert('Matt has floating hands and chest rig configured', rigModule.rig.leftArm !== null && rigModule.rig.rightArm !== null && rigModule.rig.head !== null);
+
+                    // 25.2 Riley Avatar Procedural Build & Wii Flags
+                    buildAvatar('riley', avatarGroup);
+                    assert('Riley builds successfully in avatarGroup', avatarGroup.children.length > 0);
+                    assert('Riley sets rig.isWii flag for buoyant animation', rigModule.rig.isWii === true);
+                    assert('Riley has tennis racket attached to hand', rigModule.rig.racket !== null);
+                    assert('Riley has visor and facial elements configured', rigModule.rig.eyeLeft !== null && rigModule.rig.mouth !== null);
+
+                    // 25.3 Wii Sports Specialized Gestures
+                    const tennisSwingRes = rigModule.triggerAvatarGesture('tennis_swing', 2.5);
+                    assert('tennis_swing gesture triggers successfully', tennisSwingRes.success === true && rigModule.motionState.currentGesture === 'tennis_swing');
+
+                    const wiiCelebrateRes = rigModule.triggerAvatarGesture('wii_celebrate', 2.0);
+                    assert('wii_celebrate gesture triggers successfully', wiiCelebrateRes.success === true && rigModule.motionState.currentGesture === 'wii_celebrate');
+
+                    // 25.4 Natural Language Tool Detection for Wii Avatars & Gestures
+                    const wiiMatch = await wiiToolsModule.detectAndExecuteTool('switch to wii sports avatar');
+                    assert('detectAndExecuteTool detects wii sports avatar request and switches to matt', wiiMatch && wiiMatch.tool === 'change_avatar' && wiiMatch.avatarId === 'matt');
+
+                    const rileyMatch = await wiiToolsModule.detectAndExecuteTool('change character to riley tennis');
+                    assert('detectAndExecuteTool detects riley tennis request', rileyMatch && rileyMatch.tool === 'change_avatar' && rileyMatch.avatarId === 'riley');
+
+                    const tennisGestureMatch = await wiiToolsModule.detectAndExecuteTool('can you do a tennis swing');
+                    assert('detectAndExecuteTool detects tennis swing gesture prompt', tennisGestureMatch && tennisGestureMatch.tool === 'avatar_gesture' && tennisGestureMatch.gesture === 'tennis_swing');
+
+                    const wiiVictoryMatch = await wiiToolsModule.detectAndExecuteTool('wii victory celebration');
+                    assert('detectAndExecuteTool detects wii victory gesture prompt', wiiVictoryMatch && wiiVictoryMatch.tool === 'avatar_gesture' && wiiVictoryMatch.gesture === 'wii_celebrate');
 
                     } catch (err) {
                       assert('Top-level test evaluation failed: ' + err.message + ' stack: ' + err.stack, false);

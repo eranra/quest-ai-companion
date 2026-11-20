@@ -32,6 +32,8 @@ export const rig = {
   leftThigh: null,
   rightThigh: null,
   isFloating: false,
+  isWii: false,
+  racket: null,
   thrusters: [],
   equalizerBars: [],
   morphMeshes: [],
@@ -57,6 +59,8 @@ export function resetRig() {
   rig.leftThigh = null;
   rig.rightThigh = null;
   rig.isFloating = false;
+  rig.isWii = false;
+  rig.racket = null;
   rig.thrusters = [];
   rig.equalizerBars = [];
   rig.morphMeshes = [];

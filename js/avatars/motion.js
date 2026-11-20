@@ -50,10 +50,13 @@ export function triggerAvatarGesture(gestureName, duration = 3.0) {
   if (norm === 'balance') valid = 'stand_on_one_leg';
   if (norm === 'ponder') valid = 'think';
   if (norm === 'hop') valid = 'jump';
+  if (norm === 'tennis' || norm === 'swing' || norm === 'serve' || norm === 'forehand' || norm === 'racket') valid = 'tennis_swing';
+  if (norm === 'wii_cheer' || norm === 'wii_jump' || norm === 'wii_celebrate') valid = 'wii_celebrate';
 
   const validGestures = [
     'wave', 'dance', 'stand_on_one_leg', 'bow', 'celebrate',
-    'think', 'clap', 'laugh', 'jump', 'nod', 'shake_head'
+    'think', 'clap', 'laugh', 'jump', 'nod', 'shake_head',
+    'tennis_swing', 'wii_celebrate'
   ];
   if (!validGestures.includes(valid)) {
     valid = 'wave';
@@ -265,7 +268,7 @@ export function updateMotionKinematics(rig, delta, elapsed) {
         const style = Math.random() < 0.35 ? 'run' : 'walk';
         moveAvatar('random', style);
       } else if (roll < 0.80) {
-        const gestures = ['wave', 'dance', 'stand_on_one_leg', 'celebrate', 'laugh', 'clap', 'think', 'bow'];
+        const gestures = ['wave', 'dance', 'stand_on_one_leg', 'celebrate', 'laugh', 'clap', 'think', 'bow', 'tennis_swing', 'wii_celebrate'];
         const pick = gestures[Math.floor(Math.random() * gestures.length)];
         triggerAvatarGesture(pick, 2.8 + Math.random() * 1.5);
       } else {
@@ -328,6 +331,38 @@ export function updateMotionKinematics(rig, delta, elapsed) {
 
   let smileInfluence = 0.15;
   let openInfluence = 0;
+
+  // Signature Nintendo Wii Sports Buoyant Kinematics
+  if (rig && rig.isWii) {
+    const wiiBounce = Math.abs(Math.sin(elapsed * 4.0)) * 0.045; // Buoyant tennis ready-bounce
+    const wiiSway = Math.sin(elapsed * 2.0) * 0.038;             // Floaty side-to-side weight shift
+    const wiiArmBob = Math.sin(elapsed * 4.0 + 0.4) * 0.08;      // Buoyant floating hand spring
+
+    motionState.jumpY += wiiBounce;
+    hipSway += wiiSway;
+    bodySwivel += wiiSway * 0.5;
+    baseChestZ += wiiSway * 0.35;
+    baseHeadZ += -wiiSway * 0.45;
+
+    // Tennis ready-stance: elbows bent, hands floating forward attentively
+    baseLeftArmX = armAdduction - 0.28 + wiiArmBob * 0.5;
+    baseLeftArmZ = 0.22;
+    baseLeftForearmX = 0.48 + wiiArmBob;
+
+    baseRightArmX = armAdduction - 0.28 + wiiArmBob * 0.5;
+    baseRightArmZ = -0.22;
+    baseRightForearmX = 0.58 + wiiArmBob;
+
+    // Slight ready knee bend
+    baseLeftThighX = 0.08 - wiiBounce * 0.6;
+    baseRightThighX = 0.08 - wiiBounce * 0.6;
+
+    if (rig.racket) {
+      rig.racket.rotation.z = -0.3 + Math.sin(elapsed * 4.0) * 0.08;
+    }
+
+    smileInfluence = 0.45;
+  }
 
   // A. SPEAKING MODE OVERLAY
   if (speechWeight > 0.01) {
@@ -608,6 +643,94 @@ export function updateMotionKinematics(rig, delta, elapsed) {
     // 11. SHAKE HEAD GESTURE
     } else if (gName === 'shake_head') {
       gHeadY = Math.sin(gt * 8.0) * 0.22;
+
+    // 12. TENNIS SWING GESTURE (Wii Sports Tennis Forehand & Serve)
+    } else if (gName === 'tennis_swing') {
+      const p = Math.min(1.0, gt / (motionState.gestureDuration || 2.4));
+
+      if (p < 0.35) {
+        // Backswing coil: rotate hips & shoulders back, racket winds back
+        const wind = p / 0.35;
+        bodySwivel = lerp(bodySwivel, -0.45, wind);
+        hipSway = lerp(hipSway, -0.12, wind);
+        gChestY = -0.35 * wind;
+
+        gRightArmX = armAdduction - 0.65 * wind;
+        gRightArmY = -0.30 * wind;
+        gRightArmZ = -0.75 * wind;
+        gRightForearmX = 0.85 * wind;
+
+        gLeftArmX = armAdduction - 0.35 * wind;
+        gLeftArmZ = 0.45 * wind;
+        gLeftForearmX = 0.35 * wind;
+
+        gHeadY = 0.25 * wind;
+        motionState.jumpY = -0.04 * wind;
+      } else if (p < 0.70) {
+        // Forward power swing arc across body!
+        const swing = (p - 0.35) / 0.35;
+        bodySwivel = lerp(-0.45, 0.55, swing);
+        hipSway = lerp(-0.12, 0.15, swing);
+        gChestY = lerp(-0.35, 0.45, swing);
+
+        // Racket slices forward in dynamic arc
+        gRightArmX = lerp(armAdduction - 0.65, armAdduction - 0.45, swing);
+        gRightArmY = lerp(-0.30, 0.55, swing);
+        gRightArmZ = lerp(-0.75, 0.85, swing);
+        gRightForearmX = lerp(0.85, 1.15, swing);
+
+        gLeftArmX = armAdduction - 0.45;
+        gLeftArmZ = lerp(0.45, -0.25, swing);
+
+        gHeadX = -0.08;
+        gHeadY = lerp(0.25, -0.15, swing);
+        motionState.jumpY = Math.sin(swing * Math.PI) * 0.08;
+
+        smileInfluence = lerp(smileInfluence, 0.85, gBlend);
+        openInfluence = lerp(openInfluence, 0.35, gBlend);
+      } else {
+        // Follow-through and return to ready stance
+        const follow = (p - 0.70) / 0.30;
+        bodySwivel = lerp(0.55, 0.0, follow);
+        hipSway = lerp(0.15, 0.0, follow);
+        gChestY = lerp(0.45, 0.0, follow);
+
+        gRightArmX = lerp(armAdduction - 0.45, baseRightArmX, follow);
+        gRightArmY = lerp(0.55, 0.0, follow);
+        gRightArmZ = lerp(0.85, baseRightArmZ, follow);
+        gRightForearmX = lerp(1.15, baseRightForearmX, follow);
+
+        gLeftArmX = lerp(armAdduction - 0.45, baseLeftArmX, follow);
+        gLeftArmZ = lerp(-0.25, baseLeftArmZ, follow);
+
+        gHeadX = lerp(-0.08, 0.0, follow);
+        gHeadY = lerp(-0.15, 0.0, follow);
+        motionState.jumpY = lerp(0.04, 0.0, follow);
+      }
+
+    // 13. WII CELEBRATE / VICTORY CHEER (Wii Sports Match Point Won Hop & Pump)
+    } else if (gName === 'wii_celebrate') {
+      const hop = Math.abs(Math.sin(gt * 9.5)) * 0.24;
+      const hopTwist = Math.sin(gt * 4.8) * 0.18;
+
+      motionState.jumpY = hop;
+      bodySwivel = hopTwist;
+      hipSway = hopTwist * 0.5;
+
+      // Racket arm pumped triumphantly high
+      gRightArmX = armAdduction - 1.45 + Math.sin(gt * 6.0) * 0.12;
+      gRightArmZ = -0.65;
+      gRightForearmX = 0.45;
+
+      // Left arm high celebration
+      gLeftArmX = armAdduction - 1.45 - Math.sin(gt * 6.0) * 0.12;
+      gLeftArmZ = 0.65;
+      gLeftForearmX = 0.45;
+
+      gChestX = -0.15;
+      gHeadX = -0.22;
+      smileInfluence = lerp(smileInfluence, 0.95, gBlend);
+      openInfluence = lerp(openInfluence, 0.45, gBlend);
     }
 
     // Blend gesture bones with base pose smoothly

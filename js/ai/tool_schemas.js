@@ -1,6 +1,6 @@
 // Declarative Tool Schemas & Parameter Definitions for Gemini & Local Agents
 
-export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
+export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex', 'matt', 'riley'];
 export const SPACE_IDS = ['hall', 'garden', 'penthouse', 'cafe', 'passthrough'];
 export const AVATAR_VOICES = {
   echo: 'en_US-kathleen-low',
@@ -8,7 +8,9 @@ export const AVATAR_VOICES = {
   pip: 'en_US-amy-low',
   ollie: 'en_US-ryan-low',
   maya: 'en_US-amy-low',
-  alex: 'en_US-ryan-low'
+  alex: 'en_US-ryan-low',
+  matt: 'en_US-ryan-low',
+  riley: 'en_US-kathleen-low'
 };
 
 export const TOOL_DEFINITIONS = [
@@ -52,13 +54,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'change_avatar',
-    description: 'Change the active 3D avatar character. Available avatars: "maya" (Empathetic Guide), "alex" (Adventurer), "ollie" (Robot Sidekick), "echo" (Holo Drone), "spark" (Spark Drone), "pip" (Cartoon Character).',
+    description: 'Change the active 3D avatar character. Available avatars: "maya" (Empathetic Guide), "alex" (Adventurer), "ollie" (Robot Sidekick), "echo" (Holo Drone), "spark" (Spark Drone), "pip" (Cartoon Character), "matt" (Wii Sports Champion), "riley" (Wii Tennis Pro).',
     parameters: {
       type: 'OBJECT',
       properties: {
         avatar: {
           type: 'STRING',
-          description: 'The target avatar identifier: "maya", "alex", "ollie", "echo", "spark", or "pip".'
+          description: 'The target avatar identifier: "maya", "alex", "ollie", "echo", "spark", "pip", "matt", or "riley".'
         }
       },
       required: ['avatar']
@@ -90,13 +92,13 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'avatar_gesture',
-    description: 'Perform an expressive full-body gesture with the 3D avatar in the scene. Available gestures: "wave" (friendly greeting), "dance" (rhythmic party dance), "stand_on_one_leg" (balance on one foot), "bow" (polite formal bow), "celebrate" or "hands_up" (raise arms high in victory), "think" (hand to chin contemplating), "clap" (applaud), "laugh" (joyous laughter), "jump" (energetic hop), "nod" (affirmative agreement), "shake_head" (disagreement).',
+    description: 'Perform an expressive full-body gesture with the 3D avatar in the scene. Available gestures: "wave" (friendly greeting), "dance" (rhythmic party dance), "stand_on_one_leg" (balance on one foot), "bow" (polite formal bow), "celebrate" or "hands_up" (raise arms high in victory), "think" (hand to chin contemplating), "clap" (applaud), "laugh" (joyous laughter), "jump" (energetic hop), "nod" (affirmative agreement), "shake_head" (disagreement), "tennis_swing" (Wii Sports tennis stroke), "wii_celebrate" (Wii victory hop & racket pump).',
     parameters: {
       type: 'OBJECT',
       properties: {
         gesture: {
           type: 'STRING',
-          description: 'The gesture identifier: "wave", "dance", "stand_on_one_leg", "bow", "celebrate", "hands_up", "think", "clap", "laugh", "jump", "nod", or "shake_head".'
+          description: 'The gesture identifier: "wave", "dance", "stand_on_one_leg", "bow", "celebrate", "hands_up", "think", "clap", "laugh", "jump", "nod", "shake_head", "tennis_swing", or "wii_celebrate".'
         },
         duration: {
           type: 'NUMBER',

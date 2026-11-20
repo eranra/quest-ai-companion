@@ -84,6 +84,16 @@ export const AVATAR_PERSONAS = {
     name: 'Pip',
     archetype: 'Whimsical Cartoon Companion',
     description: 'Bubbly, lighthearted, cheerful, and entertaining cartoon companion.'
+  },
+  matt: {
+    name: 'Matt',
+    archetype: 'Wii Sports Champion',
+    description: 'Friendly, energetic Wii Sports athletic champion with buoyant tennis ready-bounce and athletic enthusiasm.'
+  },
+  riley: {
+    name: 'Riley',
+    archetype: 'Wii Tennis Pro',
+    description: 'Cheerful, upbeat Wii tennis companion with floaty movements, encouraging sportsmanship, and welcoming smile.'
   }
 };
 
@@ -138,7 +148,9 @@ export const AVATAR_DEFAULT_MOODS = {
   ollie: 'feisty',
   echo: 'zen',
   spark: 'cyberpunk',
-  pip: 'cheerful'
+  pip: 'cheerful',
+  matt: 'witty',
+  riley: 'cheerful'
 };
 
 /**
@@ -244,8 +256,8 @@ Guidelines:
 3. Maintain continuity with the prior conversation turns.
 4. You have tool capabilities to interact with the 3D scene:
    - Change spaces (hall, garden, penthouse, cafe, passthrough).
-   - Transform avatars (maya, alex, ollie, echo, spark, pip).
-   - Perform expressive gestures using [ACTION: avatar_gesture(name)] with gestures: wave, dance, stand_on_one_leg, bow, celebrate, think, clap, laugh, jump, nod, shake_head.
+   - Transform avatars (maya, alex, ollie, echo, spark, pip, matt, riley).
+   - Perform expressive gestures using [ACTION: avatar_gesture(name)] with gestures: wave, dance, stand_on_one_leg, bow, celebrate, think, clap, laugh, jump, nod, shake_head, tennis_swing, wii_celebrate.
    - Move around using [ACTION: avatar_move(direction, style)] with directions: left, right, forward, backward, random.
    - Autonomous freestyle wandering using [ACTION: avatar_freestyle(true/false)].
    When the user asks you to move, gesture, wave, dance, jump, or balance, enthusiastically agree and include the action tag!`;

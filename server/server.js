@@ -271,6 +271,10 @@ function getAvatarWelcomeSpeech(avatarName) {
       return "Spark online! Buzzing and ready to explore!";
     case 'pip':
       return "Hiya! Pip is here to bring some fun and magic!";
+    case 'matt':
+      return "Let's play ball! Matt from Wii Sports is ready on the court!";
+    case 'riley':
+      return "Game, set, match! Riley here, ready for a fun round in VR!";
     case 'echo':
     default:
       return "Echo holographic guide initialized and synced with your view.";

@@ -335,10 +335,12 @@ export async function detectAndExecuteTool(userPrompt) {
   }
 
   // 5. Change Avatar / Character commands
-  if (/\b(change|switch|turn into|become|transform into)\b.*\b(avatar|character|guide|maya|alex|ollie|robot|bot|echo|spark|pip|drone|cartoon)\b/i.test(p) ||
-      /\b(be|switch to)\b (maya|alex|ollie|robot|bot|echo|spark|pip)\b/i.test(p)) {
+  if (/\b(change|switch|turn into|become|transform into)\b.*\b(avatar|character|guide|maya|alex|ollie|robot|bot|echo|spark|pip|drone|cartoon|matt|riley|wii|sports|tennis)\b/i.test(p) ||
+      /\b(be|switch to)\b (maya|alex|ollie|robot|bot|echo|spark|pip|matt|riley|wii)\b/i.test(p)) {
     let target = 'echo';
-    if (p.includes('maya') || p.includes('woman') || p.includes('female')) target = 'maya';
+    if (p.includes('matt') || p.includes('champion') || (p.includes('wii') && !p.includes('riley'))) target = 'matt';
+    else if (p.includes('riley') || p.includes('tennis')) target = 'riley';
+    else if (p.includes('maya') || p.includes('woman') || p.includes('female')) target = 'maya';
     else if (p.includes('alex') || p.includes('man') || p.includes('male') || p.includes('adventurer')) target = 'alex';
     else if (p.includes('ollie') || p.includes('robot') || p.includes('bot')) target = 'ollie';
     else if (p.includes('spark')) target = 'spark';
@@ -408,6 +410,12 @@ export async function detectAndExecuteTool(userPrompt) {
   }
   if (/\b(jump up|hop up|can you jump|do a jump|jump|hop)\b/i.test(p)) {
     return await executeTool('avatar_gesture', { gesture: 'jump' });
+  }
+  if (/\b(tennis swing|play tennis|swing racket|hit the ball|serve the ball|tennis stroke|forehand|swing)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'tennis_swing' });
+  }
+  if (/\b(wii cheer|wii celebrate|wii jump|wii victory|match point)\b/i.test(p)) {
+    return await executeTool('avatar_gesture', { gesture: 'wii_celebrate' });
   }
   if (/\b(think|ponder|contemplate|stroke your chin|deep thought)\b/i.test(p)) {
     return await executeTool('avatar_gesture', { gesture: 'think' });

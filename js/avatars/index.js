@@ -14,10 +14,12 @@ import { buildPipCartoon } from './pip.js';
 import { buildOllieBot } from './ollie.js';
 import { buildMayaHumanoid } from './maya.js';
 import { buildAlexHumanoid } from './alex.js';
+import { buildMattMii } from './matt.js';
+import { buildRileyMii } from './riley.js';
 import { setActiveVoiceId } from '../audio/neural_tts.js';
 import { AppState } from '../state.js';
 
-export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex'];
+export const AVATAR_IDS = ['echo', 'spark', 'pip', 'ollie', 'maya', 'alex', 'matt', 'riley'];
 
 export const AVATAR_DEFAULT_VOICES = {
   echo: 'en_US-lessac-low',
@@ -25,7 +27,9 @@ export const AVATAR_DEFAULT_VOICES = {
   pip: 'en_US-kathleen-low',
   ollie: 'en_US-ryan-low',
   maya: 'en_US-amy-low',
-  alex: 'en_US-ryan-low'
+  alex: 'en_US-ryan-low',
+  matt: 'en_US-ryan-low',
+  riley: 'en_US-kathleen-low'
 };
 
 let currentAvatarBuildToken = 0;
@@ -67,6 +71,12 @@ export function buildAvatar(avatarId, avatarGroup) {
       break;
     case 'alex':
       buildAlexHumanoid(avatarGroup, buildToken);
+      break;
+    case 'matt':
+      buildMattMii(avatarGroup);
+      break;
+    case 'riley':
+      buildRileyMii(avatarGroup);
       break;
     case 'echo':
     default:
