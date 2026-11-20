@@ -791,6 +791,38 @@ export class AntigravityLiveClient {
     return this.activeCascadeId;
   }
 
+  readLatestReplyFromDisk(sinceTimestamp = 0) {
+    if (!this.activeCascadeId) return null;
+    const cascadeTranscriptPath = path.join(activeSessionBridge.appDataDir, 'brain', this.activeCascadeId, '.system_generated', 'logs', 'transcript.jsonl');
+    if (!fs.existsSync(cascadeTranscriptPath)) return null;
+    try {
+      const content = fs.readFileSync(cascadeTranscriptPath, 'utf-8').trim();
+      if (!content) return null;
+      const lines = content.split('\n');
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        try {
+          const step = JSON.parse(line);
+          if (step.type === 'PLANNER_RESPONSE') {
+            const text = (step.content || step.response || '').trim();
+            if (!text) continue;
+            if (sinceTimestamp) {
+              const stepTime = step.created_at ? new Date(step.created_at).getTime() : 0;
+              if (stepTime && stepTime < sinceTimestamp - 3000) {
+                return null;
+              }
+            }
+            return text;
+          }
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('[Antigravity Disk Reader] note:', e.message);
+    }
+    return null;
+  }
+
   startStreaming() {
     if (!this.activeCascadeId || this.isStreaming) return;
     this.isStreaming = true;
@@ -827,7 +859,7 @@ export class AntigravityLiveClient {
           if (steps) {
             for (const step of steps) {
               if (step.plannerResponse) {
-                const resp = step.plannerResponse.modifiedResponse || step.plannerResponse.response;
+                const resp = step.plannerResponse.content || step.plannerResponse.modifiedResponse || step.plannerResponse.response || step.plannerResponse.message || step.plannerResponse.text || step.content || step.text;
                 if (resp) latestText = resp;
                 if (step.plannerResponse.thinking) {
                   setAnalysisStatus('Thinking and reasoning...');
@@ -839,9 +871,10 @@ export class AntigravityLiveClient {
           }
           if (msg.update.status === 'CASCADE_RUN_STATUS_IDLE' || msg.update.executorMetadata?.terminationReason) {
             setAnalysisStatus('Finalizing reply...');
-            if (this.pendingResolvers.length > 0 && latestText) {
+            const finalAnswer = latestText || this.readLatestReplyFromDisk();
+            if (this.pendingResolvers.length > 0 && finalAnswer) {
               const resolve = this.pendingResolvers.shift();
-              resolve(latestText);
+              resolve(finalAnswer);
               latestText = '';
             }
           }
@@ -849,11 +882,13 @@ export class AntigravityLiveClient {
       });
       res.on('end', () => {
         this.isStreaming = false;
+        this.streamReq = null;
       });
     });
 
     this.streamReq.on('error', err => {
       this.isStreaming = false;
+      this.streamReq = null;
     });
 
     this.streamReq.write(body);
@@ -868,25 +903,50 @@ export class AntigravityLiveClient {
       throw new Error('Failed to start cascade session');
     }
 
+    // Always guarantee stream listener is active
+    if (!this.isStreaming) {
+      this.startStreaming();
+    }
+
+    const sendTimestamp = Date.now();
+
     return new Promise(async (resolve, reject) => {
       let resolved = false;
+      let diskPollTimer = null;
+
       const resolver = (ans) => {
         if (!resolved) {
           resolved = true;
+          if (diskPollTimer) clearInterval(diskPollTimer);
           resolve(ans);
         }
       };
 
       this.pendingResolvers.push(resolver);
 
-      // Safe timeout: if Antigravity takes longer than 20s, resolve what we have
+      // Dual-Channel Redundancy: poll disk transcript for rapid completion
+      diskPollTimer = setInterval(() => {
+        if (resolved) {
+          clearInterval(diskPollTimer);
+          return;
+        }
+        const diskText = this.readLatestReplyFromDisk(sendTimestamp);
+        if (diskText) {
+          const idx = this.pendingResolvers.indexOf(resolver);
+          if (idx !== -1) this.pendingResolvers.splice(idx, 1);
+          resolver(diskText);
+        }
+      }, 400);
+
+      // Safe timeout: 75 seconds (allows deep-reasoning CoT to complete cleanly)
       setTimeout(() => {
         if (!resolved) {
           const idx = this.pendingResolvers.indexOf(resolver);
           if (idx !== -1) this.pendingResolvers.splice(idx, 1);
-          resolver('');
+          const fallbackDiskText = this.readLatestReplyFromDisk(sendTimestamp) || this.readLatestReplyFromDisk();
+          resolver(fallbackDiskText || '');
         }
-      }, 20000);
+      }, 75000);
 
       try {
         await this.grpcCall('SendUserCascadeMessage', {
@@ -1384,6 +1444,15 @@ User says: "${cleanPrompt}"`;
     console.warn('[Antigravity] Live dispatch note:', err.message);
   } finally {
     setAnalysisStatus(null);
+  }
+
+  if (!liveSuccess || !liveReply) {
+    const diskFallback = liveAntigravityClient.readLatestReplyFromDisk(Date.now() - 45000);
+    if (diskFallback && diskFallback.trim()) {
+      const cleaned = cleanAndValidateSpeech(diskFallback.trim(), cleanPrompt, persona);
+      liveReply = cleaned || diskFallback.trim();
+      liveSuccess = true;
+    }
   }
 
   if (liveSuccess && liveReply) {

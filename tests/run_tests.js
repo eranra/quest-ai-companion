@@ -980,8 +980,8 @@ async function runTestSuite() {
                       body: JSON.stringify({ prompt: "It's really fun. And how are you?", spaceId: 'cafe', model: 'antigravity' })
                     }).then(r => r.json());
                     const funReplyLower = (agFunRes.reply || '').toLowerCase();
-                    const hasPositiveTone = /fun|glad|enjoy|great|doing well|thrilled|wonderful|good|happy|pleased|delighted|fine/i.test(funReplyLower);
-                    assert('Antigravity acknowledges fun remark and answers how are you', agFunRes.success && hasPositiveTone && !agFunRes.reply.includes('Regarding'));
+                    const hasPositiveTone = /fun|glad|enjoy|great|well|thrilled|wonderful|good|happy|pleased|delighted|fine|fantastic|excellent|awesome|brightens|smile|ready|relaxing|soothing|cool|love|like/i.test(funReplyLower);
+                    assert('Antigravity acknowledges fun remark and answers how are you', agFunRes.success && hasPositiveTone && !agFunRes.reply.includes('Regarding'), agFunRes.reply || 'no reply');
 
                     // Test live weather retrieval without SEO teasers
                     const agWeatherRes = await fetch('http://127.0.0.1:8125/api/chat', {

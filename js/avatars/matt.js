@@ -1,7 +1,7 @@
 /**
  * Quest AI Companion - Matt (Nintendo Wii Sports Champion Avatar)
- * Authentic procedural Mii-style avatar with buoyant floaty proportions,
- * signature red/orange sports jersey, classic floating hands, and 3D tennis racket!
+ * Authentic procedural Mii-style avatar with classic detached floating hands,
+ * buoyant floaty proportions, signature champion red jersey, and 3D tennis racket!
  */
 
 import * as THREE from 'three';
@@ -30,11 +30,11 @@ export function buildMattMii(avatarGroup) {
   const root = new THREE.Group();
   root.position.set(0, 0, 0);
 
-  // 1. Torso - Classic conical Mii sports jersey
+  // 1. Torso - Classic smooth pear/conical Mii sports jersey
   const chest = new THREE.Group();
   
-  // Upper torso cylinder/cone
-  const jerseyGeo = new THREE.CylinderGeometry(0.20, 0.24, 0.42, 24);
+  // Upper torso rounded cylinder/cone
+  const jerseyGeo = new THREE.CylinderGeometry(0.19, 0.24, 0.42, 24);
   const jerseyMesh = new THREE.Mesh(jerseyGeo, matJersey);
   jerseyMesh.position.y = 0.90;
   chest.add(jerseyMesh);
@@ -46,8 +46,8 @@ export function buildMattMii(avatarGroup) {
   collar.position.y = 1.11;
   chest.add(collar);
 
-  // Athletic stripe across chest
-  const stripeGeo = new THREE.CylinderGeometry(0.21, 0.22, 0.05, 24);
+  // Athletic white stripe across chest
+  const stripeGeo = new THREE.CylinderGeometry(0.205, 0.215, 0.045, 24);
   const stripe = new THREE.Mesh(stripeGeo, matTrim);
   stripe.position.y = 0.96;
   chest.add(stripe);
@@ -91,12 +91,14 @@ export function buildMattMii(avatarGroup) {
   const browL = new THREE.Mesh(browGeo, matHair);
   browL.position.set(-0.085, 0.12, 0.22);
   browL.rotation.z = -0.12;
+  browL.userData.baseY = 0.12;
   head.add(browL);
   rig.browLeft = browL;
 
   const browR = new THREE.Mesh(browGeo, matHair);
   browR.position.set(0.085, 0.12, 0.22);
   browR.rotation.z = 0.12;
+  browR.userData.baseY = 0.12;
   head.add(browR);
   rig.browRight = browR;
 
@@ -104,84 +106,114 @@ export function buildMattMii(avatarGroup) {
   const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.048, 16, 16), matEyeWhite);
   eyeL.position.set(-0.085, 0.035, 0.215);
   eyeL.scale.set(1.0, 1.15, 0.4);
+  eyeL.userData.baseY = 0.035;
   head.add(eyeL);
   rig.eyeLeft = eyeL;
 
   const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.026, 14, 14), matEyeBlack);
   pupilL.position.set(-0.085, 0.035, 0.235);
   pupilL.scale.set(1.0, 1.1, 0.3);
+  pupilL.userData.baseY = 0.035;
   head.add(pupilL);
   rig.pupilLeft = pupilL;
 
   const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.048, 16, 16), matEyeWhite);
   eyeR.position.set(0.085, 0.035, 0.215);
   eyeR.scale.set(1.0, 1.15, 0.4);
+  eyeR.userData.baseY = 0.035;
   head.add(eyeR);
   rig.eyeRight = eyeR;
 
   const pupilR = new THREE.Mesh(new THREE.SphereGeometry(0.026, 14, 14), matEyeBlack);
   pupilR.position.set(0.085, 0.035, 0.235);
   pupilR.scale.set(1.0, 1.1, 0.3);
+  pupilR.userData.baseY = 0.035;
   head.add(pupilR);
   rig.pupilRight = pupilR;
 
-  // Mouth & Jaw
-  const jawGroup = new THREE.Group();
-  jawGroup.position.set(0, -0.10, 0.19);
-  const mouthGeo = new THREE.BoxGeometry(0.09, 0.024, 0.02);
-  rig.mouth = new THREE.Mesh(mouthGeo, matMouth);
-  jawGroup.add(rig.mouth);
-  head.add(jawGroup);
-  rig.jaw = jawGroup;
+  // Authentic Mii Curved Smile Mouth
+  const mouthGroup = new THREE.Group();
+  mouthGroup.position.set(0, -0.10, 0.224);
+  mouthGroup.userData.baseY = -0.10;
+
+  // Curved smile aperture
+  const smileShape = new THREE.Shape();
+  smileShape.moveTo(-0.062, 0.015);
+  smileShape.quadraticCurveTo(0, 0.028, 0.062, 0.015);
+  smileShape.quadraticCurveTo(0.048, -0.026, 0, -0.030);
+  smileShape.quadraticCurveTo(-0.048, -0.026, -0.062, 0.015);
+
+  const smileGeo = new THREE.ShapeGeometry(smileShape);
+  const smileMesh = new THREE.Mesh(smileGeo, matMouth);
+  mouthGroup.add(smileMesh);
+
+  // Subtle upper teeth line
+  const teethShape = new THREE.Shape();
+  teethShape.moveTo(-0.044, 0.015);
+  teethShape.quadraticCurveTo(0, 0.024, 0.044, 0.015);
+  teethShape.lineTo(0.044, 0.006);
+  teethShape.quadraticCurveTo(0, 0.013, -0.044, 0.006);
+  teethShape.closePath();
+  const teethMesh = new THREE.Mesh(new THREE.ShapeGeometry(teethShape), matTrim);
+  teethMesh.position.z = 0.002;
+  mouthGroup.add(teethMesh);
+
+  head.add(mouthGroup);
+  rig.mouth = mouthGroup;
+  rig.jaw = mouthGroup;
 
   root.add(head);
   rig.head = head;
 
-  // 3. Floating Spherical Hands & Arms (Iconic Nintendo Wii aesthetic)
-  const armSleeveGeo = new THREE.CylinderGeometry(0.055, 0.05, 0.14, 16);
-
-  // Left Arm & Floating Sphere Hand
+  // 3. True Nintendo Wii Detached Floating Hands (No Arms!)
+  // Arms serve purely as invisible hierarchical pivot transforms
   const leftArm = new THREE.Group();
-  leftArm.position.set(-0.27, 0.98, 0);
-  const sleeveL = new THREE.Mesh(armSleeveGeo, matJersey);
-  sleeveL.position.y = -0.06;
-  leftArm.add(sleeveL);
+  leftArm.position.set(-0.28, 0.98, 0);
 
   const leftForearm = new THREE.Group();
   leftForearm.position.set(0, -0.22, 0);
 
-  // Sweatband on wrist
-  const bandL = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.04, 16), matTrim);
+  // White athletic sweatband
+  const bandL = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.016, 12, 24), matTrim);
+  bandL.rotation.x = Math.PI / 2;
   bandL.position.y = -0.02;
   leftForearm.add(bandL);
 
-  // Iconic Mii floating sphere hand
-  const handL = new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 20), matTrim);
-  handL.position.y = -0.09;
-  leftForearm.add(handL);
+  // Floating sphere hand with thumb nub
+  const handGroupL = new THREE.Group();
+  handGroupL.position.y = -0.09;
+  const palmL = new THREE.Mesh(new THREE.SphereGeometry(0.072, 24, 24), matTrim);
+  handGroupL.add(palmL);
+  const thumbL = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 16), matTrim);
+  thumbL.position.set(0.055, 0.015, 0.025);
+  handGroupL.add(thumbL);
+  leftForearm.add(handGroupL);
 
   leftArm.add(leftForearm);
   chest.add(leftArm);
   rig.leftArm = leftArm;
   rig.leftForearm = leftForearm;
 
-  // Right Arm, Hand & 3D Tennis Racket
+  // Right Arm: Detached Floating Hand holding 3D Tennis Racket
   const rightArm = new THREE.Group();
-  rightArm.position.set(0.27, 0.98, 0);
-  const sleeveR = new THREE.Mesh(armSleeveGeo, matJersey);
-  sleeveR.position.y = -0.06;
-  rightArm.add(sleeveR);
+  rightArm.position.set(0.28, 0.98, 0);
 
   const rightForearm = new THREE.Group();
   rightForearm.position.set(0, -0.22, 0);
 
-  const bandR = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.04, 16), matTrim);
+  const bandR = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.016, 12, 24), matTrim);
+  bandR.rotation.x = Math.PI / 2;
   bandR.position.y = -0.02;
   rightForearm.add(bandR);
 
-  const handR = new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 20), matTrim);
-  handR.position.y = -0.09;
-  rightForearm.add(handR);
+  const handGroupR = new THREE.Group();
+  handGroupR.position.y = -0.09;
+  const palmR = new THREE.Mesh(new THREE.SphereGeometry(0.072, 24, 24), matTrim);
+  handGroupR.add(palmR);
+  const thumbR = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 16), matTrim);
+  thumbR.position.set(-0.055, 0.015, 0.025);
+  handGroupR.add(thumbR);
+  rightForearm.add(handGroupR);
 
   // Authentic Wii Tennis Racket attached to right hand
   const racketGroup = new THREE.Group();

@@ -372,21 +372,31 @@ export function updateMotionKinematics(rig, delta, elapsed) {
     const speechPower = Math.max(0, (syllable1 * 0.6 + syllable2 * 0.4)) * speechWeight;
 
     if (rig.eyeLeft && rig.eyeRight) {
-      const eyeEmphasis = 1.0 + speechPower * 0.25;
+      const eyeEmphasis = 1.0 + speechPower * 0.22;
       rig.eyeLeft.scale.set(eyeEmphasis, eyeEmphasis, 1.0);
       rig.eyeRight.scale.set(eyeEmphasis, eyeEmphasis, 1.0);
     }
     if (rig.browLeft && rig.browRight) {
       const browLift = Math.sin(elapsed * 6) * 0.015 * speechWeight;
-      rig.browLeft.position.y = 0.065 + Math.max(0, browLift);
-      rig.browRight.position.y = 0.065 + Math.max(0, browLift);
+      const baseLeftY = rig.browLeft.userData?.baseY ?? 0.065;
+      const baseRightY = rig.browRight.userData?.baseY ?? 0.065;
+      rig.browLeft.position.y = baseLeftY + Math.max(0, browLift);
+      rig.browRight.position.y = baseRightY + Math.max(0, browLift);
     }
     if (rig.jaw) {
-      rig.jaw.position.y = -0.06 - (speechPower * 0.04);
-      rig.jaw.rotation.x = speechPower * 0.3;
+      const baseJawY = rig.jaw.userData?.baseY ?? -0.06;
+      if (!rig.isWii) {
+        rig.jaw.position.y = baseJawY - (speechPower * 0.04);
+        rig.jaw.rotation.x = speechPower * 0.3;
+      } else {
+        rig.jaw.position.y = baseJawY;
+        rig.jaw.rotation.x = 0;
+      }
     }
     if (rig.mouth && !rig.equalizerBars.length) {
-      rig.mouth.scale.set(1.0 + speechPower * 0.6, 1.0 + speechPower * 3.5, 1.0);
+      const widthMult = rig.isWii ? 0.25 : 0.6;
+      const openMult = rig.isWii ? 2.8 : 3.5;
+      rig.mouth.scale.set(1.0 + speechPower * widthMult, 1.0 + speechPower * openMult, 1.0);
     }
     openInfluence = speechPower * 0.9;
     smileInfluence = 0.2 + speechPower * 0.2;
@@ -422,6 +432,38 @@ export function updateMotionKinematics(rig, delta, elapsed) {
     baseRightForearmZ = isSkeletal ? -0.28 : 0;
     smileInfluence = 0.2;
     openInfluence = 0;
+  }
+
+  // Natural avatar and Mii eye blinking (every 3.5s for 110ms)
+  if (rig.eyeLeft && rig.eyeRight) {
+    const blinkCycle = (elapsed * 0.28) % 1.0;
+    if (blinkCycle < 0.035) {
+      const blinkProgress = blinkCycle / 0.035;
+      const squint = Math.sin(blinkProgress * Math.PI);
+      const sy = Math.max(0.08, 1.0 - squint * 0.92);
+      rig.eyeLeft.scale.y = sy;
+      rig.eyeRight.scale.y = sy;
+    } else if (speechWeight <= 0.01) {
+      rig.eyeLeft.scale.set(1.0, 1.0, 1.0);
+      rig.eyeRight.scale.set(1.0, 1.0, 1.0);
+    }
+  }
+
+  // Restore resting facial features when speech ends
+  if (speechWeight <= 0.01) {
+    if (rig.mouth && !rig.equalizerBars.length) {
+      rig.mouth.scale.set(1.0, 1.0, 1.0);
+    }
+    if (rig.browLeft && rig.browLeft.userData?.baseY !== undefined) {
+      rig.browLeft.position.y = rig.browLeft.userData.baseY;
+    }
+    if (rig.browRight && rig.browRight.userData?.baseY !== undefined) {
+      rig.browRight.position.y = rig.browRight.userData.baseY;
+    }
+    if (rig.jaw && rig.jaw.userData?.baseY !== undefined) {
+      rig.jaw.position.y = rig.jaw.userData.baseY;
+      rig.jaw.rotation.x = 0;
+    }
   }
 
   // B. LOCOMOTION GAIT BLENDING (Walking & Running)
